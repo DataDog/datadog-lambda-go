@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"reflect"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -211,4 +212,17 @@ func TestWrapHandlerReturnsError(t *testing.T) {
 	assert.True(t, called)
 	assert.Equal(t, defaultErr, err)
 	assert.Equal(t, 5, response)
+}
+
+func TestWrapHandlerReturnsOriginalHandlerIfInvalid(t *testing.T) {
+
+	var handler interface{} = func(arg1, arg2, arg3 int) (int, error) {
+		return 0, nil
+	}
+	mhl := mockHandlerListener{}
+
+	wrappedHandler := WrapHandler(handler, &mhl)
+
+	assert.Equal(t, reflect.ValueOf(handler).Pointer(), reflect.ValueOf(wrappedHandler).Pointer())
+
 }
