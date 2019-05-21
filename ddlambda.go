@@ -20,7 +20,7 @@ func WrapHandler(handler interface{}) interface{} {
 
 // GetTraceHeaders reads a map containing the DataDog trace headers from a context object.
 func GetTraceHeaders(ctx context.Context) map[string]string {
-	result := internal.GetTraceContext(ctx, true)
+	result := internal.GetTraceHeaders(ctx, true)
 	return result
 }
 
