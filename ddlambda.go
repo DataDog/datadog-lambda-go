@@ -3,6 +3,7 @@ package ddlambda
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 
 	"github.com/DataDog/dd-lambda-go/internal/trace"
 )
@@ -22,6 +23,14 @@ func WrapHandler(handler interface{}) interface{} {
 func GetTraceHeaders(ctx context.Context) map[string]string {
 	result := trace.GetTraceHeaders(ctx, true)
 	return result
+}
+
+// AddTraceHeaders adds DataDog trace headers to a HTTP Request
+func AddTraceHeaders(req *http.Request) {
+	headers := GetTraceHeaders(req.Context())
+	for key, value := range headers {
+		req.Header.Add(key, value)
+	}
 }
 
 func (hl *handlerListener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
