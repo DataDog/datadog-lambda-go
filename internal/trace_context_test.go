@@ -75,15 +75,48 @@ func TestConvertXRayEntityIDInvalidFormat(t *testing.T) {
 func TestXrayTraceContextNoSegment(t *testing.T) {
 	ctx := context.Background()
 
-	_, err := readXRayTraceContext(ctx)
+	_, err := convertTraceContextFromXRay(ctx)
 	assert.Error(t, err)
 }
 func TestXrayTraceContextWithSegment(t *testing.T) {
 	ctx, _ := xray.BeginSegment(context.Background(), "Test-Segment")
 
-	headers, err := readXRayTraceContext(ctx)
+	headers, err := convertTraceContextFromXRay(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, "2", headers[samplingPriorityHeader])
 	assert.NotNil(t, headers[traceIDHeader])
 	assert.NotNil(t, headers[parentIDHeader])
+}
+
+func TestExtractTraceContextFromContext(t *testing.T) {
+	ev := loadRawJSON(t, "testdata/apig-event-no-metadata.json")
+	ctx, _ := xray.BeginSegment(context.Background(), "Test-Segment")
+
+	headers, err := ExtractTraceContext(ctx, *ev)
+	assert.NoError(t, err)
+	assert.Equal(t, "2", headers[samplingPriorityHeader])
+	assert.NotNil(t, headers[traceIDHeader])
+	assert.NotNil(t, headers[parentIDHeader])
+}
+func TestExtractTraceContextFromEvent(t *testing.T) {
+	ev := loadRawJSON(t, "testdata/apig-event-metadata.json")
+	ctx, _ := xray.BeginSegment(context.Background(), "Test-Segment")
+
+	headers, err := ExtractTraceContext(ctx, *ev)
+	assert.NoError(t, err)
+
+	expected := map[string]string{
+		traceIDHeader:          "1231452342",
+		parentIDHeader:         "45678910",
+		samplingPriorityHeader: "2",
+	}
+	assert.Equal(t, expected, headers)
+}
+
+func TestExtractTraceContextFail(t *testing.T) {
+	ev := loadRawJSON(t, "testdata/apig-event-no-metadata.json")
+	ctx := context.Background()
+
+	_, err := ExtractTraceContext(ctx, *ev)
+	assert.Error(t, err)
 }

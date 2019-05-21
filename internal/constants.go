@@ -12,3 +12,9 @@ const (
 	autoKeep   = "1"
 	userKeep   = "2"
 )
+
+const (
+	xraySubsegmentName      = "datadog-metadata"
+	xraySubsegmentKey       = "trace"
+	xraySubsegmentNamespace = "datadog"
+)

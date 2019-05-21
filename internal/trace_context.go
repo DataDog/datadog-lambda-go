@@ -18,6 +18,39 @@ type (
 	}
 )
 
+// ExtractTraceContext returns a list of headers with the current
+func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (map[string]string, error) {
+
+	// First priority is always any trace context from incoming headers
+	traceContext, ok := unmarshalEventForTraceContext(ev)
+	if ok {
+		// If we detect the trace headers, we should save metadata to xray so it can be read by the converter.
+		err := addTraceContextToXRay(ctx, traceContext)
+		if err != nil {
+			return map[string]string{}, err
+		}
+		return traceContext, nil
+	}
+
+	// Second priority is any trace
+	traceContext, err := convertTraceContextFromXRay(ctx)
+	if err != nil {
+		return map[string]string{}, fmt.Errorf("couldn't find trace context: %v", err)
+	}
+
+	return traceContext, nil
+}
+
+func addTraceContextToXRay(ctx context.Context, traceContext map[string]string) error {
+	ctx, segment := xray.BeginSubsegment(ctx, xraySubsegmentName)
+	err := segment.AddMetadataToNamespace(xraySubsegmentKey, xraySubsegmentNamespace, traceContext)
+	if err != nil {
+		return fmt.Errorf("couldn't save trace context to XRay: %v", err)
+	}
+	segment.Close(nil)
+	return nil
+}
+
 func unmarshalEventForTraceContext(ev json.RawMessage) (map[string]string, bool) {
 	eh := eventWithHeaders{}
 
@@ -49,7 +82,7 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (map[string]string, bool)
 	return traceContext, true
 }
 
-func readXRayTraceContext(ctx context.Context) (map[string]string, error) {
+func convertTraceContextFromXRay(ctx context.Context) (map[string]string, error) {
 	traceContext := map[string]string{}
 
 	segment := xray.GetSegment(ctx)

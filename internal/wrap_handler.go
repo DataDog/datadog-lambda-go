@@ -15,8 +15,8 @@ type (
 	}
 )
 
-// WrapHandler wraps a lambda handler to capture context for DataDog tracing context.
-func WrapHandler(handler interface{}, hl HandlerListener) interface{} {
+// WrapHandlerWithListener wraps a lambda handler to capture context for DataDog tracing context.
+func WrapHandlerWithListener(handler interface{}, hl HandlerListener) interface{} {
 
 	err := validateHandler(handler)
 	if err != nil {
