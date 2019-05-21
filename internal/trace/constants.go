@@ -1,4 +1,4 @@
-package internal
+package trace
 
 const (
 	traceIDHeader          = "x-datadog-trace-id"
