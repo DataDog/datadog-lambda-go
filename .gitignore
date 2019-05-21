@@ -12,3 +12,4 @@ bin/
 *.swp
 
 /contrib/google.golang.org/grpc.v12/vendor/
+.vscode
