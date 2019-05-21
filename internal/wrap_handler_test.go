@@ -25,9 +25,10 @@ type (
 	}
 )
 
-func (mhl *mockHandlerListener) HandlerStarted(ctx context.Context, msg json.RawMessage) {
+func (mhl *mockHandlerListener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
 	mhl.inputCTX = ctx
 	mhl.inputMSG = msg
+	return ctx
 }
 
 func (mhl *mockHandlerListener) HandlerFinished(ctx context.Context) {

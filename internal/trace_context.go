@@ -18,8 +18,12 @@ type (
 	}
 )
 
+type contextKeytype int
+
+var traceContextKey = new(contextKeytype)
+
 // ExtractTraceContext returns a list of headers with the current
-func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (map[string]string, error) {
+func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Context, error) {
 
 	// First priority is always any trace context from incoming headers
 	traceContext, ok := unmarshalEventForTraceContext(ev)
@@ -27,18 +31,42 @@ func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (map[string]st
 		// If we detect the trace headers, we should save metadata to xray so it can be read by the converter.
 		err := addTraceContextToXRay(ctx, traceContext)
 		if err != nil {
-			return map[string]string{}, err
+			return ctx, err
 		}
-		return traceContext, nil
+		return context.WithValue(ctx, traceContextKey, traceContext), nil
 	}
 
 	// Second priority is any trace
 	traceContext, err := convertTraceContextFromXRay(ctx)
 	if err != nil {
-		return map[string]string{}, fmt.Errorf("couldn't find trace context: %v", err)
+		return ctx, fmt.Errorf("couldn't find trace context: %v", err)
 	}
 
-	return traceContext, nil
+	return context.WithValue(ctx, traceContextKey, traceContext), nil
+}
+
+// GetTraceContext retrieves the current trace headers that should be added to outbound requests
+func GetTraceContext(ctx context.Context, useCurrentSegmentAsParent bool) map[string]string {
+	if traceContext, ok := ctx.Value(traceContextKey).(map[string]string); ok {
+		// Change the trace context to include the current segment/subsegment id as the parent ID.
+		parentID := traceContext[parentIDHeader]
+
+		if useCurrentSegmentAsParent {
+			segment := xray.GetSegment(ctx)
+			newParentID, err := convertXRayEntityIDToAPMParentID(segment.ID)
+			if err == nil {
+				parentID = newParentID
+			}
+		}
+
+		newTraceContext := map[string]string{}
+		newTraceContext[traceIDHeader] = traceContext[traceIDHeader]
+		newTraceContext[samplingPriorityHeader] = traceContext[samplingPriorityHeader]
+		newTraceContext[parentIDHeader] = parentID
+
+		return newTraceContext
+	}
+	return map[string]string{}
 }
 
 func addTraceContextToXRay(ctx context.Context, traceContext map[string]string) error {

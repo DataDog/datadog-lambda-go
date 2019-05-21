@@ -10,12 +10,12 @@ import (
 type (
 	// HandlerListener is a point where listener logic can be injected into a handler
 	HandlerListener interface {
-		HandlerStarted(ctx context.Context, msg json.RawMessage)
+		HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context
 		HandlerFinished(ctx context.Context)
 	}
 )
 
-// WrapHandlerWithListener wraps a lambda handler to capture context for DataDog tracing context.
+// WrapHandlerWithListener wraps a lambda handler to capture context and adds the DataDog tracing context.
 func WrapHandlerWithListener(handler interface{}, hl HandlerListener) interface{} {
 
 	err := validateHandler(handler)
@@ -25,7 +25,7 @@ func WrapHandlerWithListener(handler interface{}, hl HandlerListener) interface{
 	}
 
 	return func(ctx context.Context, msg json.RawMessage) (interface{}, error) {
-		hl.HandlerStarted(ctx, msg)
+		ctx = hl.HandlerStarted(ctx, msg)
 		result, err := callHandler(ctx, msg, handler)
 		hl.HandlerFinished(ctx)
 		return result, err
