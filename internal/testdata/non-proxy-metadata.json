@@ -6,6 +6,6 @@
     "headers": {
         "x-datadog-trace-id": "1231452342",
         "x-datadog-parent-id": "45678910",
-        "x-datadog-sampling-priority": "12"
+        "x-datadog-sampling-priority": "2"
     }
 }
