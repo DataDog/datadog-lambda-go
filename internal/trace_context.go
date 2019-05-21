@@ -45,8 +45,8 @@ func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Conte
 	return context.WithValue(ctx, traceContextKey, traceContext), nil
 }
 
-// GetTraceContext retrieves the current trace headers that should be added to outbound requests
-func GetTraceContext(ctx context.Context, useCurrentSegmentAsParent bool) map[string]string {
+// GetTraceHeaders retrieves the current trace headers that should be added to outbound requests
+func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) map[string]string {
 	if traceContext, ok := ctx.Value(traceContextKey).(map[string]string); ok {
 		// Change the trace context to include the current segment/subsegment id as the parent ID.
 		parentID := traceContext[parentIDHeader]

@@ -93,7 +93,7 @@ func TestExtractTraceContextFromContext(t *testing.T) {
 	ctx, _ := xray.BeginSegment(context.Background(), "Test-Segment")
 
 	newCTX, err := ExtractTraceContext(ctx, *ev)
-	headers := GetTraceContext(newCTX, false)
+	headers := GetTraceHeaders(newCTX, false)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "2", headers[samplingPriorityHeader])
@@ -105,7 +105,7 @@ func TestExtractTraceContextFromEvent(t *testing.T) {
 	ctx, _ := xray.BeginSegment(context.Background(), "Test-Segment")
 
 	newCTX, err := ExtractTraceContext(ctx, *ev)
-	headers := GetTraceContext(newCTX, false)
+	headers := GetTraceHeaders(newCTX, false)
 	assert.NoError(t, err)
 
 	expected := map[string]string{
@@ -124,12 +124,12 @@ func TestExtractTraceContextFail(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGetTraceContextWithUpdatedParent(t *testing.T) {
+func TestGetTraceHeadersWithUpdatedParent(t *testing.T) {
 	ev := loadRawJSON(t, "testdata/apig-event-metadata.json")
 	ctx, _ := xray.BeginSegment(context.Background(), "Test-Segment")
 
 	ctx, _ = ExtractTraceContext(ctx, *ev)
-	headers := GetTraceContext(ctx, true)
+	headers := GetTraceHeaders(ctx, true)
 	assert.Equal(t, "2", headers[samplingPriorityHeader])
 	assert.Equal(t, "1231452342", headers[traceIDHeader])
 	assert.NotEqual(t, "45678910", headers[parentIDHeader]) // This has changed
