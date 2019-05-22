@@ -10,11 +10,13 @@ package xray
 
 import (
 	"context"
+	log "github.com/cihub/seelog"
 	"net/http"
 	"net/http/httptrace"
 	"strconv"
-	log "github.com/cihub/seelog"
 )
+
+const emptyHostRename = "empty_host_error"
 
 // Client creates a shallow copy of the provided http client,
 // defaulting to http.DefaultClient, with roundtripper wrapped
@@ -47,8 +49,19 @@ type roundtripper struct {
 
 // RoundTrip wraps a single HTTP transaction and add corresponding information into a subsegment.
 func (rt *roundtripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	var isEmptyHost bool
 	var resp *http.Response
-	err := Capture(r.Context(), r.Host, func(ctx context.Context) error {
+	host := r.Host
+	if host == "" {
+		if h := r.URL.Host; h != "" {
+			host = h
+		} else {
+			host = emptyHostRename
+			isEmptyHost = true
+		}
+	}
+
+	err := Capture(r.Context(), host, func(ctx context.Context) error {
 		var err error
 		seg := GetSegment(ctx)
 		if seg == nil {
@@ -56,7 +69,7 @@ func (rt *roundtripper) RoundTrip(r *http.Request) (*http.Response, error) {
 			log.Warnf("failed to record HTTP transaction: segment cannot be found.")
 			return err
 		}
-		
+
 		ct, e := NewClientTrace(ctx)
 		if e != nil {
 			return e
@@ -64,7 +77,13 @@ func (rt *roundtripper) RoundTrip(r *http.Request) (*http.Response, error) {
 		r = r.WithContext(httptrace.WithClientTrace(ctx, ct.httpTrace))
 
 		seg.Lock()
-		seg.Namespace = "remote"
+
+		if isEmptyHost {
+			seg.Namespace = ""
+		} else {
+			seg.Namespace = "remote"
+		}
+
 		seg.GetHTTP().GetRequest().Method = r.Method
 		seg.GetHTTP().GetRequest().URL = r.URL.String()
 

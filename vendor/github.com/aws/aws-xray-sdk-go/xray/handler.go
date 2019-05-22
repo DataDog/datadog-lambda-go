@@ -10,12 +10,17 @@ package xray
 
 import (
 	"bytes"
+	"context"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-xray-sdk-go/strategy/sampling"
+
 	"github.com/aws/aws-xray-sdk-go/header"
+	"github.com/aws/aws-xray-sdk-go/internal/plugins"
 	"github.com/aws/aws-xray-sdk-go/pattern"
 	log "github.com/cihub/seelog"
 )
@@ -79,77 +84,98 @@ func (dSN *DynamicSegmentNamer) Name(host string) string {
 	return dSN.FallbackName
 }
 
+// HandlerWithContext wraps the provided http handler and context to parse
+// the incoming headers, add response headers if needed, and sets HTTP
+// specific trace fields. HandlerWithContext names the generated segments
+// using the provided SegmentNamer.
+func HandlerWithContext(ctx context.Context, sn SegmentNamer, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := sn.Name(r.Host)
+
+		traceHeader := header.FromString(r.Header.Get("x-amzn-trace-id"))
+
+		r = r.WithContext(ctx)
+		c, seg := NewSegmentFromHeader(r.Context(), name, traceHeader)
+		r = r.WithContext(c)
+
+		httpTrace(seg, h, w, r, traceHeader)
+	})
+}
+
 // Handler wraps the provided http handler with xray.Capture
 // using the request's context, parsing the incoming headers,
-// adding response headers if needed, and sets HTTP sepecific trace fields.
+// adding response headers if needed, and sets HTTP specific trace fields.
 // Handler names the generated segments using the provided SegmentNamer.
 func Handler(sn SegmentNamer, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := sn.Name(r.Host)
 
 		traceHeader := header.FromString(r.Header.Get("x-amzn-trace-id"))
-
 		ctx, seg := NewSegmentFromHeader(r.Context(), name, traceHeader)
 
 		r = r.WithContext(ctx)
 
-		seg.Lock()
-
-		seg.GetHTTP().GetRequest().Method = r.Method
-		seg.GetHTTP().GetRequest().URL = r.URL.String()
-		seg.GetHTTP().GetRequest().ClientIP, seg.GetHTTP().GetRequest().XForwardedFor = clientIP(r)
-		seg.GetHTTP().GetRequest().UserAgent = r.UserAgent()
-
-		trace := parseHeaders(r.Header)
-		if trace["Root"] != "" {
-			seg.TraceID = trace["Root"]
-			seg.RequestWasTraced = true
-		}
-		if trace["Parent"] != "" {
-			seg.ParentID = trace["Parent"]
-		}
-		// Don't use the segment's header here as we only want to
-		// send back the root and possibly sampled values.
-		var respHeader bytes.Buffer
-		respHeader.WriteString("Root=")
-		respHeader.WriteString(seg.TraceID)
-		switch trace["Sampled"] {
-		case "0":
-			seg.Sampled = false
-			log.Trace("Incoming header decided: Sampled=false")
-		case "1":
-			seg.Sampled = true
-			log.Trace("Incoming header decided: Sampled=true")
-		default:
-			seg.Sampled = privateCfg.SamplingStrategy().ShouldTrace(r.Host, r.URL.String(), r.Method)
-			log.Tracef("SamplingStrategy decided: %t", seg.Sampled)
-		}
-		if trace["Sampled"] == "?" {
-			respHeader.WriteString(";Sampled=")
-			respHeader.WriteString(strconv.Itoa(btoi(seg.Sampled)))
-		}
-		w.Header().Set("x-amzn-trace-id", respHeader.String())
-		seg.Unlock()
-
-		resp := &responseCapturer{w, 200, 0}
-		h.ServeHTTP(resp, r)
-
-		seg.Lock()
-		seg.GetHTTP().GetResponse().Status = resp.status
-		seg.GetHTTP().GetResponse().ContentLength, _ = strconv.Atoi(resp.Header().Get("Content-Length"))
-
-		if resp.status >= 400 && resp.status < 500 {
-			seg.Error = true
-		}
-		if resp.status == 429 {
-			seg.Throttle = true
-		}
-		if resp.status >= 500 && resp.status < 600 {
-			seg.Fault = true
-		}
-		seg.Unlock()
-		seg.Close(nil)
+		httpTrace(seg, h, w, r, traceHeader)
 	})
+}
+
+func httpTrace(seg *Segment, h http.Handler, w http.ResponseWriter, r *http.Request, traceHeader *header.Header) {
+	seg.Lock()
+
+	scheme := "https://"
+	if r.TLS == nil {
+		scheme = "http://"
+	}
+	seg.GetHTTP().GetRequest().Method = r.Method
+	seg.GetHTTP().GetRequest().URL = scheme + r.Host + r.URL.Path
+	seg.GetHTTP().GetRequest().ClientIP, seg.GetHTTP().GetRequest().XForwardedFor = clientIP(r)
+	seg.GetHTTP().GetRequest().UserAgent = r.UserAgent()
+
+	// Don't use the segment's header here as we only want to
+	// send back the root and possibly sampled values.
+	var respHeader bytes.Buffer
+	respHeader.WriteString("Root=")
+	respHeader.WriteString(seg.TraceID)
+
+	if traceHeader.SamplingDecision != header.Sampled && traceHeader.SamplingDecision != header.NotSampled {
+		samplingRequest := &sampling.Request{
+			Host:        r.Host,
+			Url:         r.URL.Path,
+			Method:      r.Method,
+			ServiceName: seg.Name,
+			ServiceType: plugins.InstancePluginMetadata.Origin,
+		}
+		sd := seg.ParentSegment.GetConfiguration().SamplingStrategy.ShouldTrace(samplingRequest)
+		seg.Sampled = sd.Sample
+		log.Tracef("SamplingStrategy decided: %t", seg.Sampled)
+		seg.AddRuleName(sd)
+	}
+	if traceHeader.SamplingDecision == header.Requested {
+		respHeader.WriteString(";Sampled=")
+		respHeader.WriteString(strconv.Itoa(btoi(seg.Sampled)))
+	}
+
+	w.Header().Set("x-amzn-trace-id", respHeader.String())
+	seg.Unlock()
+
+	resp := &responseCapturer{w, 200, 0}
+	h.ServeHTTP(resp, r)
+
+	seg.Lock()
+	seg.GetHTTP().GetResponse().Status = resp.status
+	seg.GetHTTP().GetResponse().ContentLength, _ = strconv.Atoi(resp.Header().Get("Content-Length"))
+
+	if resp.status >= 400 && resp.status < 500 {
+		seg.Error = true
+	}
+	if resp.status == 429 {
+		seg.Throttle = true
+	}
+	if resp.status >= 500 && resp.status < 600 {
+		seg.Fault = true
+	}
+	seg.Unlock()
+	seg.Close(nil)
 }
 
 func clientIP(r *http.Request) (string, bool) {
@@ -157,8 +183,11 @@ func clientIP(r *http.Request) (string, bool) {
 	if forwardedFor != "" {
 		return strings.TrimSpace(strings.Split(forwardedFor, ",")[0]), true
 	}
-
-	return r.RemoteAddr, false
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr, false
+	}
+	return ip, false
 }
 
 type responseCapturer struct {
@@ -182,19 +211,4 @@ func btoi(b bool) int {
 		return 1
 	}
 	return 0
-}
-
-func parseHeaders(h http.Header) map[string]string {
-	m := map[string]string{}
-	s := h.Get("x-amzn-trace-id")
-	for _, c := range strings.Split(s, ";") {
-		p := strings.SplitN(c, "=", 2)
-		k := strings.TrimSpace(p[0])
-		v := ""
-		if len(p) > 1 {
-			v = strings.TrimSpace(p[1])
-		}
-		m[k] = v
-	}
-	return m
 }

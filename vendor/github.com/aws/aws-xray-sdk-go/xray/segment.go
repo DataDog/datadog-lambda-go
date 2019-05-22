@@ -13,6 +13,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/aws/aws-xray-sdk-go/header"
@@ -40,8 +41,43 @@ func NewSegmentID() string {
 	return fmt.Sprintf("%02x", r)
 }
 
+// BeginFacadeSegment creates a Segment for a given name and context.
+func BeginFacadeSegment(ctx context.Context, name string, h *header.Header) (context.Context, *Segment) {
+	seg := basicSegment(name, h)
+
+	cfg := GetRecorder(ctx)
+	seg.assignConfiguration(cfg)
+
+	return context.WithValue(ctx, ContextKey, seg), seg
+}
+
 // BeginSegment creates a Segment for a given name and context.
 func BeginSegment(ctx context.Context, name string) (context.Context, *Segment) {
+	seg := basicSegment(name, nil)
+
+	cfg := GetRecorder(ctx)
+	seg.assignConfiguration(cfg)
+
+	seg.Lock()
+	defer seg.Unlock()
+
+	seg.addPlugin(plugins.InstancePluginMetadata)
+	seg.addSDKAndServiceInformation()
+	if seg.ParentSegment.GetConfiguration().ServiceVersion != "" {
+		seg.GetService().Version = seg.ParentSegment.GetConfiguration().ServiceVersion
+	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			seg.handleContextDone()
+		}
+	}()
+
+	return context.WithValue(ctx, ContextKey, seg), seg
+}
+
+func basicSegment(name string, h *header.Header) *Segment {
 	if len(name) > 200 {
 		name = name[:200]
 	}
@@ -52,30 +88,72 @@ func BeginSegment(ctx context.Context, name string) (context.Context, *Segment) 
 	seg.Lock()
 	defer seg.Unlock()
 
-	seg.TraceID = NewTraceID()
-	seg.Sampled = true
-	seg.addPlugin(plugins.InstancePluginMetadata)
-	if svcVersion := privateCfg.ServiceVersion(); svcVersion != "" {
-		seg.GetService().Version = svcVersion
-	}
-	seg.ID = NewSegmentID()
 	seg.Name = name
 	seg.StartTime = float64(time.Now().UnixNano()) / float64(time.Second)
 	seg.InProgress = true
 
-	go func() {
-		select {
-		case <-ctx.Done():
-			seg.Lock()
-			seg.ContextDone = true
-			seg.Unlock()
-			if !seg.InProgress && !seg.Emitted {
-				seg.flush(false)
-			}
-		}
-	}()
+	if h == nil {
+		seg.TraceID = NewTraceID()
+		seg.ID = NewSegmentID()
+		seg.Sampled = true
+	} else {
+		seg.Facade = true
+		seg.ID = h.ParentID
+		seg.TraceID = h.TraceID
+		seg.Sampled = h.SamplingDecision == header.Sampled
+	}
 
-	return context.WithValue(ctx, ContextKey, seg), seg
+	return seg
+}
+
+// assignConfiguration assigns value to seg.Configuration
+func (seg *Segment) assignConfiguration(cfg *Config) {
+	seg.Lock()
+	if cfg == nil {
+		seg.GetConfiguration().ContextMissingStrategy = globalCfg.contextMissingStrategy
+		seg.GetConfiguration().ExceptionFormattingStrategy = globalCfg.exceptionFormattingStrategy
+		seg.GetConfiguration().SamplingStrategy = globalCfg.samplingStrategy
+		seg.GetConfiguration().StreamingStrategy = globalCfg.streamingStrategy
+		seg.GetConfiguration().Emitter = globalCfg.emitter
+		seg.GetConfiguration().ServiceVersion = globalCfg.serviceVersion
+	} else {
+		if cfg.ContextMissingStrategy != nil {
+			seg.GetConfiguration().ContextMissingStrategy = cfg.ContextMissingStrategy
+		} else {
+			seg.GetConfiguration().ContextMissingStrategy = globalCfg.contextMissingStrategy
+		}
+
+		if cfg.ExceptionFormattingStrategy != nil {
+			seg.GetConfiguration().ExceptionFormattingStrategy = cfg.ExceptionFormattingStrategy
+		} else {
+			seg.GetConfiguration().ExceptionFormattingStrategy = globalCfg.exceptionFormattingStrategy
+		}
+
+		if cfg.SamplingStrategy != nil {
+			seg.GetConfiguration().SamplingStrategy = cfg.SamplingStrategy
+		} else {
+			seg.GetConfiguration().SamplingStrategy = globalCfg.samplingStrategy
+		}
+
+		if cfg.StreamingStrategy != nil {
+			seg.GetConfiguration().StreamingStrategy = cfg.StreamingStrategy
+		} else {
+			seg.GetConfiguration().StreamingStrategy = globalCfg.streamingStrategy
+		}
+
+		if cfg.Emitter != nil {
+			seg.GetConfiguration().Emitter = cfg.Emitter
+		} else {
+			seg.GetConfiguration().Emitter = globalCfg.emitter
+		}
+
+		if cfg.ServiceVersion != "" {
+			seg.GetConfiguration().ServiceVersion = cfg.ServiceVersion
+		} else {
+			seg.GetConfiguration().ServiceVersion = globalCfg.serviceVersion
+		}
+	}
+	seg.Unlock()
 }
 
 // BeginSubsegment creates a subsegment for a given name and context.
@@ -83,23 +161,42 @@ func BeginSubsegment(ctx context.Context, name string) (context.Context, *Segmen
 	if len(name) > 200 {
 		name = name[:200]
 	}
-	parent := GetSegment(ctx)
-	if parent == nil {
-		privateCfg.ContextMissingStrategy().ContextMissing(fmt.Sprintf("failed to begin subsegment named '%v': segment cannot be found.", name))
-		return nil, nil
+
+	parent := &Segment{}
+	// first time to create facade segment
+	if getTraceHeaderFromContext(ctx) != nil && GetSegment(ctx) == nil {
+		_, parent = newFacadeSegment(ctx)
+	} else {
+		parent = GetSegment(ctx)
+		if parent == nil {
+			cfg := GetRecorder(ctx)
+			failedMessage := fmt.Sprintf("failed to begin subsegment named '%v': segment cannot be found.", name)
+			if cfg != nil && cfg.ContextMissingStrategy != nil {
+				cfg.ContextMissingStrategy.ContextMissing(failedMessage)
+			} else {
+				globalCfg.ContextMissingStrategy().ContextMissing(failedMessage)
+			}
+			return ctx, nil
+		}
 	}
 
 	seg := &Segment{parent: parent}
 	log.Tracef("Beginning subsegment named %s", name)
-	seg.ParentSegment = parent.ParentSegment
-	seg.ParentSegment.totalSubSegments++
+
 	seg.Lock()
 	defer seg.Unlock()
 
 	parent.Lock()
+	defer parent.Unlock()
+
+	seg.ParentSegment = parent.ParentSegment
+	if seg.ParentSegment != seg && seg.ParentSegment != parent {
+		seg.ParentSegment.Lock()
+		defer seg.ParentSegment.Unlock()
+	}
+	seg.ParentSegment.totalSubSegments++
 	parent.rawSubsegments = append(parent.rawSubsegments, seg)
 	parent.openSegments++
-	parent.Unlock()
 
 	seg.ID = NewSegmentID()
 	seg.Name = name
@@ -119,16 +216,25 @@ func NewSegmentFromHeader(ctx context.Context, name string, h *header.Header) (c
 	if h.ParentID != "" {
 		seg.ParentID = h.ParentID
 	}
+
 	seg.Sampled = h.SamplingDecision == header.Sampled
+	switch h.SamplingDecision {
+	case header.Sampled:
+		log.Trace("Incoming header decided: Sampled=true")
+	case header.NotSampled:
+		log.Trace("Incoming header decided: Sampled=false")
+	}
+
 	seg.IncomingHeader = h
+	seg.RequestWasTraced = true
 
 	return con, seg
 }
 
 // Close a segment.
 func (seg *Segment) Close(err error) {
-
 	seg.Lock()
+	defer seg.Unlock()
 	if seg.parent != nil {
 		log.Tracef("Closing subsegment named %s", seg.Name)
 	} else {
@@ -136,13 +242,36 @@ func (seg *Segment) Close(err error) {
 	}
 	seg.EndTime = float64(time.Now().UnixNano()) / float64(time.Second)
 	seg.InProgress = false
-	seg.Unlock()
 
 	if err != nil {
-		seg.AddError(err)
+		seg.addError(err)
 	}
 
-	seg.flush(false)
+	seg.flush()
+}
+
+// CloseAndStream closes a subsegment and sends it.
+func (subseg *Segment) CloseAndStream(err error) {
+	subseg.Lock()
+
+	if subseg.parent != nil {
+		log.Tracef("Ending subsegment named: %s", subseg.Name)
+		subseg.EndTime = float64(time.Now().UnixNano()) / float64(time.Second)
+		subseg.InProgress = false
+		subseg.Emitted = true
+		if subseg.parent.RemoveSubsegment(subseg) {
+			log.Tracef("Removing subsegment named: %s", subseg.Name)
+		}
+	}
+
+	if err != nil {
+		subseg.addError(err)
+	}
+
+	subseg.beforeEmitSubsegment(subseg.parent)
+	subseg.Unlock()
+
+	subseg.emit()
 }
 
 // RemoveSubsegment removes a subsegment child from a segment or subsegment.
@@ -164,24 +293,48 @@ func (seg *Segment) RemoveSubsegment(remove *Segment) bool {
 	return false
 }
 
-func (seg *Segment) flush(decrement bool) {
-	seg.Lock()
-	if decrement {
-		seg.openSegments--
-	}
-	shouldFlush := (seg.openSegments == 0 && seg.EndTime > 0) || seg.ContextDone
-	seg.Unlock()
+func (seg *Segment) emit() {
+	seg.ParentSegment.GetConfiguration().Emitter.Emit(seg)
+}
 
-	if shouldFlush {
+func (seg *Segment) handleContextDone() {
+	seg.Lock()
+	defer seg.Unlock()
+
+	seg.ContextDone = true
+	if !seg.InProgress && !seg.Emitted {
+		seg.flush()
+	}
+}
+
+func (seg *Segment) flush() {
+	if (seg.openSegments == 0 && seg.EndTime > 0) || seg.ContextDone {
 		if seg.parent == nil {
-			seg.Lock()
 			seg.Emitted = true
-			seg.Unlock()
-			emit(seg)
+			seg.emit()
+		} else if seg.parent != nil && seg.parent.Facade {
+			seg.Emitted = true
+			seg.beforeEmitSubsegment(seg.parent)
+			log.Tracef("emit lambda subsegment named: %v", seg.Name)
+			seg.emit()
 		} else {
-			seg.parent.flush(true)
+			seg.parent.safeFlush()
 		}
 	}
+}
+
+func (seg *Segment) safeFlush() {
+	seg.Lock()
+	defer seg.Unlock()
+	seg.openSegments--
+	seg.flush()
+}
+
+func (seg *Segment) safeInProgress() bool {
+	seg.Lock()
+	b := seg.InProgress
+	seg.Unlock()
+	return b
 }
 
 func (seg *Segment) root() *Segment {
@@ -192,26 +345,42 @@ func (seg *Segment) root() *Segment {
 }
 
 func (seg *Segment) addPlugin(metadata *plugins.PluginMetadata) {
-	//Only called within a seg locked code block
+	// Only called within a seg locked code block
 	if metadata == nil {
 		return
 	}
 
-	if metadata.IdentityDocument != nil {
-		seg.GetAWS()["account_id"] = metadata.IdentityDocument.AccountID
-		seg.GetAWS()["instace_id"] = metadata.IdentityDocument.InstanceID
-		seg.GetAWS()["availability_zone"] = metadata.IdentityDocument.AvailabilityZone
+	if metadata.EC2Metadata != nil {
+		seg.GetAWS()[plugins.EC2ServiceName] = metadata.EC2Metadata
 	}
 
-	if metadata.ECSContainerName != "" {
-		seg.GetAWS()["container"] = metadata.ECSContainerName
+	if metadata.ECSMetadata != nil {
+		seg.GetAWS()[plugins.ECSServiceName] = metadata.ECSMetadata
 	}
 
 	if metadata.BeanstalkMetadata != nil {
-		seg.GetAWS()["environment"] = metadata.BeanstalkMetadata.Environment
-		seg.GetAWS()["version_label"] = metadata.BeanstalkMetadata.VersionLabel
-		seg.GetAWS()["deployment_id"] = metadata.BeanstalkMetadata.DeploymentID
+		seg.GetAWS()[plugins.EBServiceName] = metadata.BeanstalkMetadata
 	}
+
+	if metadata.Origin != "" {
+		seg.Origin = metadata.Origin
+	}
+}
+
+func (seg *Segment) addSDKAndServiceInformation() {
+	seg.GetAWS()["xray"] = SDK{Version: SDKVersion, Type: SDKType}
+
+	seg.GetService().Compiler = runtime.Compiler
+	seg.GetService().CompilerVersion = runtime.Version()
+}
+
+func (sub *Segment) beforeEmitSubsegment(seg *Segment) {
+	// Only called within a subsegment locked code block
+	sub.TraceID = seg.root().TraceID
+	sub.ParentID = seg.ID
+	sub.Type = "subsegment"
+	sub.RequestWasTraced = seg.RequestWasTraced
+	sub.parent = nil
 }
 
 // AddAnnotation allows adding an annotation to the segment.
@@ -267,9 +436,15 @@ func (seg *Segment) AddError(err error) error {
 	seg.Lock()
 	defer seg.Unlock()
 
+	seg.addError(err)
+
+	return nil
+}
+
+func (seg *Segment) addError(err error) error {
 	seg.Fault = true
 	seg.GetCause().WorkingDirectory, _ = os.Getwd()
-	seg.GetCause().Exceptions = append(seg.GetCause().Exceptions, privateCfg.ExceptionFormattingStrategy().ExceptionFromError(err))
+	seg.GetCause().Exceptions = append(seg.GetCause().Exceptions, seg.ParentSegment.GetConfiguration().ExceptionFormattingStrategy.ExceptionFromError(err))
 
 	return nil
 }

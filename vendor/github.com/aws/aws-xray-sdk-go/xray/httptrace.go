@@ -6,6 +6,8 @@
 //
 // or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 
+// +build go1.8
+
 package xray
 
 import (
@@ -13,8 +15,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"net/http/httptrace"
+	"sync"
 )
 
+// HTTPSubsegments is a set of context in different HTTP operation.
 type HTTPSubsegments struct {
 	opCtx       context.Context
 	connCtx     context.Context
@@ -23,6 +27,13 @@ type HTTPSubsegments struct {
 	tlsCtx      context.Context
 	reqCtx      context.Context
 	responseCtx context.Context
+	mu          sync.Mutex
+}
+
+// NewHTTPSubsegments creates a new HTTPSubsegments to use in
+// httptrace.ClientTrace functions
+func NewHTTPSubsegments(opCtx context.Context) *HTTPSubsegments {
+	return &HTTPSubsegments{opCtx: opCtx}
 }
 
 // GetConn begins a connect subsegment if the HTTP operation
@@ -36,7 +47,7 @@ func (xt *HTTPSubsegments) GetConn(hostPort string) {
 // DNSStart begins a dns subsegment if the HTTP operation
 // subsegment is still in progress.
 func (xt *HTTPSubsegments) DNSStart(info httptrace.DNSStartInfo) {
-	if GetSegment(xt.opCtx).InProgress {
+	if GetSegment(xt.opCtx).safeInProgress() {
 		xt.dnsCtx, _ = BeginSubsegment(xt.connCtx, "dns")
 	}
 }
@@ -47,7 +58,7 @@ func (xt *HTTPSubsegments) DNSStart(info httptrace.DNSStartInfo) {
 // and whether or not the call was coalesced is added as
 // metadata to the dns subsegment.
 func (xt *HTTPSubsegments) DNSDone(info httptrace.DNSDoneInfo) {
-	if xt.dnsCtx != nil && GetSegment(xt.opCtx).InProgress {
+	if xt.dnsCtx != nil && GetSegment(xt.opCtx).safeInProgress() {
 		metadata := make(map[string]interface{})
 		metadata["addresses"] = info.Addrs
 		metadata["coalesced"] = info.Coalesced
@@ -60,7 +71,7 @@ func (xt *HTTPSubsegments) DNSDone(info httptrace.DNSDoneInfo) {
 // ConnectStart begins a dial subsegment if the HTTP operation
 // subsegment is still in progress.
 func (xt *HTTPSubsegments) ConnectStart(network, addr string) {
-	if GetSegment(xt.opCtx).InProgress {
+	if GetSegment(xt.opCtx).safeInProgress() {
 		xt.connectCtx, _ = BeginSubsegment(xt.connCtx, "dial")
 	}
 }
@@ -70,7 +81,7 @@ func (xt *HTTPSubsegments) ConnectStart(network, addr string) {
 // (if any). Information about the network over which the dial
 // was made is added as metadata to the subsegment.
 func (xt *HTTPSubsegments) ConnectDone(network, addr string, err error) {
-	if xt.connectCtx != nil && GetSegment(xt.opCtx).InProgress {
+	if xt.connectCtx != nil && GetSegment(xt.opCtx).safeInProgress() {
 		metadata := make(map[string]interface{})
 		metadata["network"] = network
 
@@ -82,7 +93,7 @@ func (xt *HTTPSubsegments) ConnectDone(network, addr string, err error) {
 // TLSHandshakeStart begins a tls subsegment if the HTTP operation
 // subsegment is still in progress.
 func (xt *HTTPSubsegments) TLSHandshakeStart() {
-	if GetSegment(xt.opCtx).InProgress {
+	if GetSegment(xt.opCtx).safeInProgress() {
 		xt.tlsCtx, _ = BeginSubsegment(xt.connCtx, "tls")
 	}
 }
@@ -92,7 +103,7 @@ func (xt *HTTPSubsegments) TLSHandshakeStart() {
 // error value(if any). Information about the tls connection
 // is added as metadata to the subsegment.
 func (xt *HTTPSubsegments) TLSHandshakeDone(connState tls.ConnectionState, err error) {
-	if xt.tlsCtx != nil && GetSegment(xt.opCtx).InProgress {
+	if xt.tlsCtx != nil && GetSegment(xt.opCtx).safeInProgress() {
 		metadata := make(map[string]interface{})
 		metadata["did_resume"] = connState.DidResume
 		metadata["negotiated_protocol"] = connState.NegotiatedProtocol
@@ -140,18 +151,25 @@ func (xt *HTTPSubsegments) GotConn(info *httptrace.GotConnInfo, err error) {
 func (xt *HTTPSubsegments) WroteRequest(info httptrace.WroteRequestInfo) {
 	if xt.reqCtx != nil && GetSegment(xt.opCtx).InProgress {
 		GetSegment(xt.reqCtx).Close(info.Err)
-		xt.responseCtx, _ = BeginSubsegment(xt.opCtx, "response")
+		resCtx, _ := BeginSubsegment(xt.opCtx, "response")
+		xt.mu.Lock()
+		xt.responseCtx = resCtx
+		xt.mu.Unlock()
 	}
 }
 
 // GotFirstResponseByte closes the response subsegment if the HTTP
 // operation subsegment is still in progress.
 func (xt *HTTPSubsegments) GotFirstResponseByte() {
-	if xt.responseCtx != nil && GetSegment(xt.opCtx).InProgress {
-		GetSegment(xt.responseCtx).Close(nil)
+	xt.mu.Lock()
+	resCtx := xt.responseCtx
+	xt.mu.Unlock()
+	if resCtx != nil && GetSegment(xt.opCtx).InProgress {
+		GetSegment(resCtx).Close(nil)
 	}
 }
 
+// ClientTrace is a set of pointers of HTTPSubsegments and ClientTrace.
 type ClientTrace struct {
 	subsegments *HTTPSubsegments
 	httpTrace   *httptrace.ClientTrace
@@ -166,9 +184,7 @@ func NewClientTrace(opCtx context.Context) (ct *ClientTrace, err error) {
 		return nil, errors.New("opCtx must be non-nil")
 	}
 
-	segs := &HTTPSubsegments{
-		opCtx: opCtx,
-	}
+	segs := NewHTTPSubsegments(opCtx)
 
 	return &ClientTrace{
 		subsegments: segs,
@@ -205,5 +221,4 @@ func NewClientTrace(opCtx context.Context) (ct *ClientTrace, err error) {
 			},
 		},
 	}, nil
-
 }

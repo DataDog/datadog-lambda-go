@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http/httptrace"
 	"reflect"
@@ -25,6 +24,10 @@ import (
 	"github.com/aws/aws-xray-sdk-go/resources"
 	log "github.com/cihub/seelog"
 )
+
+const RequestIDKey string = "request_id"
+const ExtendedRequestIDKey string = "id_2"
+const S3ExtendedRequestIDHeaderKey string = "x-amz-id-2"
 
 type jsonMap struct {
 	object interface{}
@@ -42,6 +45,9 @@ func beginSubsegment(r *request.Request, name string) {
 
 func endSubsegment(r *request.Request) {
 	seg := GetSegment(r.HTTPRequest.Context())
+	if seg == nil {
+		return
+	}
 	seg.Close(r.Error)
 	r.HTTPRequest = r.HTTPRequest.WithContext(context.WithValue(r.HTTPRequest.Context(), ContextKey, seg.parent))
 }
@@ -50,6 +56,9 @@ var xRayBeforeValidateHandler = request.NamedHandler{
 	Name: "XRayBeforeValidateHandler",
 	Fn: func(r *request.Request) {
 		ctx, opseg := BeginSubsegment(r.HTTPRequest.Context(), r.ClientInfo.ServiceName)
+		if opseg == nil {
+			return
+		}
 		opseg.Namespace = "aws"
 		marshalctx, _ := BeginSubsegment(ctx, "marshal")
 
@@ -68,8 +77,10 @@ var xRayAfterBuildHandler = request.NamedHandler{
 var xRayBeforeSignHandler = request.NamedHandler{
 	Name: "XRayBeforeSignHandler",
 	Fn: func(r *request.Request) {
-		ctx, _ := BeginSubsegment(r.HTTPRequest.Context(), fmt.Sprintf("attempt_%d", (r.RetryCount+1)))
-
+		ctx, seg := BeginSubsegment(r.HTTPRequest.Context(), "attempt")
+		if seg == nil {
+			return
+		}
 		ct, _ := NewClientTrace(ctx)
 		r.HTTPRequest = r.HTTPRequest.WithContext(httptrace.WithClientTrace(ctx, ct.httpTrace))
 	},
@@ -98,7 +109,7 @@ var xRayAfterSendHandler = request.NamedHandler{
 var xRayBeforeUnmarshalHandler = request.NamedHandler{
 	Name: "XRayBeforeUnmarshalHandler",
 	Fn: func(r *request.Request) {
-		endSubsegment(r) // end attempt_x subsegment
+		endSubsegment(r) // end attempt subsegment
 		beginSubsegment(r, "unmarshal")
 	},
 }
@@ -113,7 +124,7 @@ var xRayAfterUnmarshalHandler = request.NamedHandler{
 var xRayBeforeRetryHandler = request.NamedHandler{
 	Name: "XRayBeforeRetryHandler",
 	Fn: func(r *request.Request) {
-		endSubsegment(r) // end attempt_x subsegment
+		endSubsegment(r) // end attempt subsegment
 		ctx, _ := BeginSubsegment(r.HTTPRequest.Context(), "wait")
 
 		r.HTTPRequest = r.HTTPRequest.WithContext(ctx)
@@ -188,12 +199,16 @@ func xrayCompleteHandler(filename string) request.NamedHandler {
 
 			opseg.GetAWS()["region"] = r.ClientInfo.SigningRegion
 			opseg.GetAWS()["operation"] = r.Operation.Name
-			opseg.GetAWS()["request_id"] = r.RequestID
 			opseg.GetAWS()["retries"] = r.RetryCount
+			opseg.GetAWS()[RequestIDKey] = r.RequestID
 
 			if r.HTTPResponse != nil {
 				opseg.GetHTTP().GetResponse().Status = r.HTTPResponse.StatusCode
 				opseg.GetHTTP().GetResponse().ContentLength = int(r.HTTPResponse.ContentLength)
+
+				if extendedRequestID := r.HTTPResponse.Header.Get(S3ExtendedRequestIDHeaderKey); extendedRequestID != "" {
+					opseg.GetAWS()[ExtendedRequestIDKey] = extendedRequestID
+				}
 			}
 
 			if request.IsErrorThrottle(r.Error) {

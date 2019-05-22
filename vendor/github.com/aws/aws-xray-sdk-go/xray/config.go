@@ -9,10 +9,13 @@
 package xray
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"sync"
+
+	"github.com/aws/aws-xray-sdk-go/daemoncfg"
 
 	"github.com/aws/aws-xray-sdk-go/strategy/ctxmissing"
 	"github.com/aws/aws-xray-sdk-go/strategy/exception"
@@ -20,19 +23,30 @@ import (
 	log "github.com/cihub/seelog"
 )
 
-var privateCfg = newPrivateConfig()
+// SDKVersion records the current X-Ray Go SDK version.
+const SDKVersion = "1.0.0-rc.9"
 
-func newPrivateConfig() *privateConfig {
-	ret := &privateConfig{
-		daemonAddr: &net.UDPAddr{
-			IP:   net.IPv4(127, 0, 0, 1),
-			Port: 2000,
-		},
-		logLevel:  log.InfoLvl,
-		logFormat: "%Date(2006-01-02T15:04:05Z07:00) [%Level] %Msg%n",
-	}
+// SDKType records which X-Ray SDK customer uses.
+const SDKType = "X-Ray for Go"
 
-	ss, err := sampling.NewLocalizedStrategy()
+// SDK provides the shape for unmarshalling an SDK struct.
+type SDK struct {
+	Version  string `json:"sdk_version,omitempty"`
+	Type     string `json:"sdk,omitempty"`
+	RuleName string `json:"sampling_rule_name,omitempty"`
+}
+
+var globalCfg = newGlobalConfig()
+
+func newGlobalConfig() *globalConfig {
+	ret := &globalConfig{}
+
+	// Set the logging configuration to the defaults
+	ret.logLevel, ret.logFormat = loadLogConfig("", "")
+
+	ret.daemonAddr = daemoncfg.GetDaemonEndpoints().UDPAddr
+
+	ss, err := sampling.NewCentralizedStrategy()
 	if err != nil {
 		panic(err)
 	}
@@ -50,6 +64,12 @@ func newPrivateConfig() *privateConfig {
 	}
 	ret.streamingStrategy = sts
 
+	emt, err := NewDefaultEmitter(ret.daemonAddr)
+	if err != nil {
+		panic(err)
+	}
+	ret.emitter = emt
+
 	cm := ctxmissing.NewDefaultRuntimeErrorStrategy()
 
 	ret.contextMissingStrategy = cm
@@ -57,10 +77,11 @@ func newPrivateConfig() *privateConfig {
 	return ret
 }
 
-type privateConfig struct {
+type globalConfig struct {
 	sync.RWMutex
 
 	daemonAddr                  *net.UDPAddr
+	emitter                     Emitter
 	serviceVersion              string
 	samplingStrategy            sampling.Strategy
 	streamingStrategy           StreamingStrategy
@@ -74,6 +95,7 @@ type privateConfig struct {
 type Config struct {
 	DaemonAddr                  string
 	ServiceVersion              string
+	Emitter                     Emitter
 	SamplingStrategy            sampling.Strategy
 	StreamingStrategy           StreamingStrategy
 	ExceptionFormattingStrategy exception.FormattingStrategy
@@ -82,60 +104,109 @@ type Config struct {
 	LogFormat                   string
 }
 
-// Configure overrides default configuration options with customer-defined values.
-func Configure(c Config) error {
-	privateCfg.Lock()
-	defer privateCfg.Unlock()
-
+// ContextWithConfig returns context with given configuration settings.
+func ContextWithConfig(ctx context.Context, c Config) (context.Context, error) {
 	var errors exception.MultiError
 
-	var daemonAddress string
-	if addr := os.Getenv("AWS_XRAY_DAEMON_ADDRESS"); addr != "" {
-		daemonAddress = addr
-	} else if c.DaemonAddr != "" {
-		daemonAddress = c.DaemonAddr
-	}
+	daemonEndpoints, er := daemoncfg.GetDaemonEndpointsFromString(c.DaemonAddr)
 
-	if daemonAddress != "" {
-		addr, err := net.ResolveUDPAddr("udp", daemonAddress)
-		if err == nil {
-			privateCfg.daemonAddr = addr
-			go refreshEmitter()
-		} else {
-			errors = append(errors, err)
+	if daemonEndpoints != nil {
+		if c.Emitter != nil {
+			c.Emitter.RefreshEmitterWithAddress(daemonEndpoints.UDPAddr)
 		}
-	}
-
-	if c.SamplingStrategy != nil {
-		privateCfg.samplingStrategy = c.SamplingStrategy
-	}
-
-	if c.ExceptionFormattingStrategy != nil {
-		privateCfg.exceptionFormattingStrategy = c.ExceptionFormattingStrategy
-	}
-
-	if c.StreamingStrategy != nil {
-		privateCfg.streamingStrategy = c.StreamingStrategy
+		if c.SamplingStrategy != nil {
+			configureStrategy(c.SamplingStrategy, daemonEndpoints)
+		}
+	} else if er != nil {
+		errors = append(errors, er)
 	}
 
 	cms := os.Getenv("AWS_XRAY_CONTEXT_MISSING")
 	if cms != "" {
 		if cms == ctxmissing.RuntimeErrorStrategy {
 			cm := ctxmissing.NewDefaultRuntimeErrorStrategy()
-			privateCfg.contextMissingStrategy = cm
+			c.ContextMissingStrategy = cm
 		} else if cms == ctxmissing.LogErrorStrategy {
 			cm := ctxmissing.NewDefaultLogErrorStrategy()
-			privateCfg.contextMissingStrategy = cm
+			c.ContextMissingStrategy = cm
+		}
+	}
+
+	loadLogConfig(c.LogLevel, c.LogFormat)
+
+	var err error
+	switch len(errors) {
+	case 0:
+		err = nil
+	case 1:
+		err = errors[0]
+	default:
+		err = errors
+	}
+
+	return context.WithValue(ctx, RecorderContextKey{}, &c), err
+}
+
+func configureStrategy(s sampling.Strategy, daemonEndpoints *daemoncfg.DaemonEndpoints) {
+	if s == nil {
+		return
+	}
+	strategy, ok := s.(*sampling.CentralizedStrategy)
+	if ok {
+		strategy.LoadDaemonEndpoints(daemonEndpoints)
+	}
+}
+
+// Configure overrides default configuration options with customer-defined values.
+func Configure(c Config) error {
+	globalCfg.Lock()
+	defer globalCfg.Unlock()
+
+	var errors exception.MultiError
+
+	if c.SamplingStrategy != nil {
+		globalCfg.samplingStrategy = c.SamplingStrategy
+	}
+
+	if c.Emitter != nil {
+		globalCfg.emitter = c.Emitter
+	}
+
+	daemonEndpoints, er := daemoncfg.GetDaemonEndpointsFromString(c.DaemonAddr)
+	if daemonEndpoints != nil {
+		globalCfg.daemonAddr = daemonEndpoints.UDPAddr
+		globalCfg.emitter.RefreshEmitterWithAddress(globalCfg.daemonAddr)
+		configureStrategy(globalCfg.samplingStrategy, daemonEndpoints)
+	} else if er != nil {
+		errors = append(errors, er)
+	}
+
+	if c.ExceptionFormattingStrategy != nil {
+		globalCfg.exceptionFormattingStrategy = c.ExceptionFormattingStrategy
+	}
+
+	if c.StreamingStrategy != nil {
+		globalCfg.streamingStrategy = c.StreamingStrategy
+	}
+
+	cms := os.Getenv("AWS_XRAY_CONTEXT_MISSING")
+	if cms != "" {
+		if cms == ctxmissing.RuntimeErrorStrategy {
+			cm := ctxmissing.NewDefaultRuntimeErrorStrategy()
+			globalCfg.contextMissingStrategy = cm
+		} else if cms == ctxmissing.LogErrorStrategy {
+			cm := ctxmissing.NewDefaultLogErrorStrategy()
+			globalCfg.contextMissingStrategy = cm
 		}
 	} else if c.ContextMissingStrategy != nil {
-		privateCfg.contextMissingStrategy = c.ContextMissingStrategy
+		globalCfg.contextMissingStrategy = c.ContextMissingStrategy
 	}
 
 	if c.ServiceVersion != "" {
-		privateCfg.serviceVersion = c.ServiceVersion
+		globalCfg.serviceVersion = c.ServiceVersion
 	}
 
-	privateCfg.logLevel, privateCfg.logFormat = loadLogConfig(c.LogLevel, c.LogFormat)
+	globalCfg.logLevel, globalCfg.logFormat = loadLogConfig(c.LogLevel, c.LogFormat)
 
 	switch len(errors) {
 	case 0:
@@ -182,49 +253,49 @@ func loadLogConfig(logLevel string, logFormat string) (log.LogLevel, string) {
 	return level, format
 }
 
-func (c *privateConfig) DaemonAddr() *net.UDPAddr {
+func (c *globalConfig) DaemonAddr() *net.UDPAddr {
 	c.RLock()
 	defer c.RUnlock()
 	return c.daemonAddr
 }
 
-func (c *privateConfig) SamplingStrategy() sampling.Strategy {
+func (c *globalConfig) SamplingStrategy() sampling.Strategy {
 	c.RLock()
 	defer c.RUnlock()
 	return c.samplingStrategy
 }
 
-func (c *privateConfig) StreamingStrategy() StreamingStrategy {
+func (c *globalConfig) StreamingStrategy() StreamingStrategy {
 	c.RLock()
 	defer c.RUnlock()
 	return c.streamingStrategy
 }
 
-func (c *privateConfig) ExceptionFormattingStrategy() exception.FormattingStrategy {
+func (c *globalConfig) ExceptionFormattingStrategy() exception.FormattingStrategy {
 	c.RLock()
 	defer c.RUnlock()
 	return c.exceptionFormattingStrategy
 }
 
-func (c *privateConfig) ContextMissingStrategy() ctxmissing.Strategy {
+func (c *globalConfig) ContextMissingStrategy() ctxmissing.Strategy {
 	c.RLock()
 	defer c.RUnlock()
 	return c.contextMissingStrategy
 }
 
-func (c *privateConfig) ServiceVersion() string {
+func (c *globalConfig) ServiceVersion() string {
 	c.RLock()
 	defer c.RUnlock()
 	return c.serviceVersion
 }
 
-func (c *privateConfig) LogLevel() log.LogLevel {
+func (c *globalConfig) LogLevel() log.LogLevel {
 	c.RLock()
 	defer c.RUnlock()
 	return c.logLevel
 }
 
-func (c *privateConfig) LogFormat() string {
+func (c *globalConfig) LogFormat() string {
 	c.RLock()
 	defer c.RUnlock()
 	return c.logFormat

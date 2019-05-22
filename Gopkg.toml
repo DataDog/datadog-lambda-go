@@ -35,4 +35,4 @@
 
 [[constraint]]
   name = "github.com/aws/aws-xray-sdk-go"
-  version = "0.9.4"
+  version = "^v1.0.0-rc.1"

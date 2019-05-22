@@ -10,5 +10,5 @@ package sampling
 
 // Strategy provides an interface for implementing trace sampling strategies.
 type Strategy interface {
-	ShouldTrace(serviceName string, path string, method string) bool
+	ShouldTrace(request *Request) *Decision
 }
