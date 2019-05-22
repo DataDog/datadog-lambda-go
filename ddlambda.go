@@ -11,8 +11,9 @@ import (
 // WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
 // It returns a modified handler that can be passed directly to the lambda.Start function.
 func WrapHandler(handler interface{}) interface{} {
-	hl := trace.Listener{}
-	return wrapper.WrapHandlerWithListeners(handler, &hl)
+	tl := trace.Listener{}
+	ml := trace.Listener{}
+	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
 }
 
 // GetTraceHeaders reads a map containing the DataDog trace headers from a context object.
