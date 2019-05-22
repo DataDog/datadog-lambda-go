@@ -41,7 +41,7 @@ func runHandlerWithJSON(t *testing.T, filename string, handler interface{}) (*mo
 
 	mhl := mockHandlerListener{}
 
-	wrappedHandler := WrapHandlerWithListener(handler, &mhl).(func(context.Context, json.RawMessage) (interface{}, error))
+	wrappedHandler := WrapHandlerWithListeners(handler, &mhl).(func(context.Context, json.RawMessage) (interface{}, error))
 
 	response, err := wrappedHandler(ctx, *payload)
 	return &mhl, response, err
@@ -222,7 +222,7 @@ func TestWrapHandlerReturnsOriginalHandlerIfInvalid(t *testing.T) {
 	}
 	mhl := mockHandlerListener{}
 
-	wrappedHandler := WrapHandlerWithListener(handler, &mhl)
+	wrappedHandler := WrapHandlerWithListeners(handler, &mhl)
 
 	assert.Equal(t, reflect.ValueOf(handler).Pointer(), reflect.ValueOf(wrappedHandler).Pointer())
 

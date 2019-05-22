@@ -11,7 +11,7 @@ import (
 // It returns a modified handler that can be passed directly to the lambda.Start function.
 func WrapHandler(handler interface{}) interface{} {
 	hl := trace.Listener{}
-	return trace.WrapHandlerWithListener(handler, &hl)
+	return trace.WrapHandlerWithListeners(handler, &hl)
 }
 
 // GetTraceHeaders reads a map containing the DataDog trace headers from a context object.

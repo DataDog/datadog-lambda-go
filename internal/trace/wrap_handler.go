@@ -15,8 +15,8 @@ type (
 	}
 )
 
-// WrapHandlerWithListener wraps a lambda handler to capture context and adds the DataDog tracing context.
-func WrapHandlerWithListener(handler interface{}, hl HandlerListener) interface{} {
+// WrapHandlerWithListeners wraps a lambda handler to capture context and adds the DataDog tracing context.
+func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener) interface{} {
 
 	err := validateHandler(handler)
 	if err != nil {
@@ -25,9 +25,13 @@ func WrapHandlerWithListener(handler interface{}, hl HandlerListener) interface{
 	}
 
 	return func(ctx context.Context, msg json.RawMessage) (interface{}, error) {
-		ctx = hl.HandlerStarted(ctx, msg)
+		for _, listener := range listeners {
+			ctx = listener.HandlerStarted(ctx, msg)
+		}
 		result, err := callHandler(ctx, msg, handler)
-		hl.HandlerFinished(ctx)
+		for _, listener := range listeners {
+			listener.HandlerFinished(ctx)
+		}
 		return result, err
 	}
 }
