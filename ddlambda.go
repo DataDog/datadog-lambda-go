@@ -21,8 +21,8 @@ func GetTraceHeaders(ctx context.Context) map[string]string {
 }
 
 // AddTraceHeaders adds DataDog trace headers to a HTTP Request
-func AddTraceHeaders(req *http.Request) {
-	headers := GetTraceHeaders(req.Context())
+func AddTraceHeaders(ctx context.Context, req *http.Request) {
+	headers := GetTraceHeaders(ctx)
 	for key, value := range headers {
 		req.Header.Add(key, value)
 	}

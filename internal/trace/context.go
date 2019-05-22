@@ -116,7 +116,7 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (map[string]string, bool)
 func convertTraceContextFromXRay(ctx context.Context) (map[string]string, error) {
 	traceContext := map[string]string{}
 
-	header := getLambdaTraceHeaderFromContext(ctx)
+	header := getXrayTraceHeaderFromContext(ctx)
 	if header == nil {
 		return traceContext, fmt.Errorf("xray segment doesn't exist, couldn't read trace context")
 	}
@@ -137,10 +137,10 @@ func convertTraceContextFromXRay(ctx context.Context) (map[string]string, error)
 	return traceContext, nil
 }
 
-// getLambdaTraceHeaderFromContext is used to extract xray segment metadata from the lambda context object.
+// getXrayTraceHeaderFromContext is used to extract xray segment metadata from the lambda context object.
 // By default, the context object won't have any Segment, (xray.GetSegment(ctx) will return nil). However it
 // will have the "LambdaTraceHeader" object, which contains the traceID/parentID/sampling info.
-func getLambdaTraceHeaderFromContext(ctx context.Context) *header.Header {
+func getXrayTraceHeaderFromContext(ctx context.Context) *header.Header {
 	var traceHeader string
 
 	if traceHeaderValue := ctx.Value(xray.LambdaTraceHeaderKey); traceHeaderValue != nil {
