@@ -40,7 +40,7 @@ func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Conte
 	// Second priority is any trace
 	traceContext, err := convertTraceContextFromXRay(ctx)
 	if err != nil {
-		return ctx, fmt.Errorf("couldn't find trace context: %v", err)
+		return ctx, fmt.Errorf("couldn't convert trace context: %v", err)
 	}
 
 	return context.WithValue(ctx, traceContextKey, traceContext), nil
