@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-xray-sdk-go/header"
 	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
@@ -53,9 +54,11 @@ func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) map[st
 
 		if useCurrentSegmentAsParent {
 			segment := xray.GetSegment(ctx)
-			newParentID, err := convertXRayEntityIDToAPMParentID(segment.ID)
-			if err == nil {
-				parentID = newParentID
+			if segment != nil {
+				newParentID, err := convertXRayEntityIDToAPMParentID(segment.ID)
+				if err == nil {
+					parentID = newParentID
+				}
 			}
 		}
 
@@ -113,25 +116,36 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (map[string]string, bool)
 func convertTraceContextFromXRay(ctx context.Context) (map[string]string, error) {
 	traceContext := map[string]string{}
 
-	segment := xray.GetSegment(ctx)
-	if segment == nil {
+	header := getLambdaTraceHeaderFromContext(ctx)
+	if header == nil {
 		return traceContext, fmt.Errorf("xray segment doesn't exist, couldn't read trace context")
 	}
 
-	traceID, err := convertXRayTraceIDToAPMTraceID(segment.TraceID)
+	traceID, err := convertXRayTraceIDToAPMTraceID(header.TraceID)
 	if err != nil {
 		return traceContext, fmt.Errorf("couldn't read trace id from xray: %v", err)
 	}
-	parentID, err := convertXRayEntityIDToAPMParentID(segment.ID)
+	parentID, err := convertXRayEntityIDToAPMParentID(header.ParentID)
 	if err != nil {
 		return traceContext, fmt.Errorf("couldn't read parent id from xray: %v", err)
 	}
-	samplingPriority := convertXRaySampling(segment.Sampled)
+	samplingPriority := convertXRaySamplingDecision(header.SamplingDecision)
 
 	traceContext[traceIDHeader] = traceID
 	traceContext[parentIDHeader] = parentID
 	traceContext[samplingPriorityHeader] = samplingPriority
 	return traceContext, nil
+}
+
+// getTraceHeaderFromContext is used to extract xray segment metadata from the lambda context object
+func getLambdaTraceHeaderFromContext(ctx context.Context) *header.Header {
+	var traceHeader string
+
+	if traceHeaderValue := ctx.Value(xray.LambdaTraceHeaderKey); traceHeaderValue != nil {
+		traceHeader = traceHeaderValue.(string)
+		return header.FromString(traceHeader)
+	}
+	return nil
 }
 
 // Converts the last 63 bits of an X-Ray trace ID (hex) to a Datadog trace id (uint64).
@@ -177,8 +191,8 @@ func convertXRayEntityIDToAPMParentID(entityID string) (string, error) {
 }
 
 // Converts an X-Ray sampled flag into it's Datadog counterpart.
-func convertXRaySampling(sampled bool) string {
-	if sampled {
+func convertXRaySamplingDecision(decision header.SamplingDecision) string {
+	if decision == header.Sampled {
 		return userKeep
 	}
 	return userReject
