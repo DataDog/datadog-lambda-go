@@ -2,20 +2,15 @@ package ddlambda
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"github.com/DataDog/dd-lambda-go/internal/trace"
 )
 
-type (
-	handlerListener struct{}
-)
-
 // WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
 // It returns a modified handler that can be passed directly to the lambda.Start function.
 func WrapHandler(handler interface{}) interface{} {
-	hl := handlerListener{}
+	hl := trace.Listener{}
 	return trace.WrapHandlerWithListener(handler, &hl)
 }
 
@@ -31,12 +26,4 @@ func AddTraceHeaders(req *http.Request) {
 	for key, value := range headers {
 		req.Header.Add(key, value)
 	}
-}
-
-func (hl *handlerListener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	ctx, _ = trace.ExtractTraceContext(ctx, msg)
-	return ctx
-}
-
-func (hl *handlerListener) HandlerFinished(ctx context.Context) {
 }
