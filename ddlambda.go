@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/DataDog/dd-lambda-go/internal/metrics"
 	"github.com/DataDog/dd-lambda-go/internal/trace"
 	"github.com/DataDog/dd-lambda-go/internal/wrapper"
 )
@@ -12,7 +13,7 @@ import (
 // It returns a modified handler that can be passed directly to the lambda.Start function.
 func WrapHandler(handler interface{}) interface{} {
 	tl := trace.Listener{}
-	ml := trace.Listener{}
+	ml := metrics.MakeListener()
 	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
 }
 
