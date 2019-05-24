@@ -40,6 +40,10 @@ func (cl *APIClient) PrewarmConnection() error {
 	return nil
 }
 
+/*func (cl *APIClient) SendRequest() error {
+
+}*/
+
 func (cl *APIClient) addAPICredentials(req *http.Request) {
 	query := req.URL.Query()
 	query.Add(apiKeyParam, cl.apiKey)

@@ -5,3 +5,9 @@ const (
 	apiKeyParam = "api_key"
 	appKeyParam = "application_key"
 )
+
+type MetricType string
+
+const (
+	DistributionType MetricType = "distribution"
+)
