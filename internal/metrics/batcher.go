@@ -46,7 +46,19 @@ func (b *Batcher) AddMetric(bk BatchKey, metric Metric) {
 
 // Flush converts the current batch of metrics into API metrics
 func (b *Batcher) Flush(timestamp time.Time) []APIMetric {
-	return []APIMetric{}
+
+	ar := []APIMetric{}
+	interval := time.Duration(0) // TODO Get actual interval
+
+	for _, metric := range b.metrics {
+		values := metric.ToAPIMetric(timestamp, interval)
+		for _, val := range values {
+			ar = append(ar, val)
+		}
+	}
+	b.metrics = map[string]Metric{}
+
+	return ar
 }
 
 func (b *Batcher) getInterval(timestamp time.Time) float64 {
@@ -65,7 +77,7 @@ func (b *Batcher) getStringKey(bk BatchKey) string {
 
 func getTagKey(tags []string) string {
 	sortedTags := make([]string, len(tags))
-	copy(tags, sortedTags)
+	copy(sortedTags, tags)
 	sort.Strings(sortedTags)
 	return strings.Join(sortedTags, ":")
 }

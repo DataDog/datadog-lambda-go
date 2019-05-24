@@ -6,8 +6,11 @@ const (
 	appKeyParam = "application_key"
 )
 
+// MetricType enumerates all the available metric types
 type MetricType string
 
 const (
+
+	// DistributionType represents a distribution metric
 	DistributionType MetricType = "distribution"
 )

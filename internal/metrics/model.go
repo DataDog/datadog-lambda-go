@@ -37,10 +37,6 @@ func (d *Distribution) AddPoint(value float64) {
 
 // ToAPIMetric converts a distribution into an API ready format.
 func (d *Distribution) ToAPIMetric(timestamp time.Time, interval time.Duration) []APIMetric {
-
-	intervalSeconds := new(float64)
-	*intervalSeconds = interval.Seconds()
-
 	points := make([][]float64, len(d.Values))
 
 	currentTime := float64(timestamp.Unix())
@@ -56,7 +52,7 @@ func (d *Distribution) ToAPIMetric(timestamp time.Time, interval time.Duration) 
 			Tags:       d.Tags,
 			MetricType: DistributionType,
 			Points:     points,
-			Interval:   intervalSeconds,
+			Interval:   nil,
 		},
 	}
 }
