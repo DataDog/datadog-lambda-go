@@ -73,7 +73,7 @@ func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) map[st
 }
 
 func addTraceContextToXRay(ctx context.Context, traceContext map[string]string) error {
-	ctx, segment := xray.BeginSubsegment(ctx, xraySubsegmentName)
+	_, segment := xray.BeginSubsegment(ctx, xraySubsegmentName)
 	err := segment.AddMetadataToNamespace(xraySubsegmentKey, xraySubsegmentNamespace, traceContext)
 	if err != nil {
 		return fmt.Errorf("couldn't save trace context to XRay: %v", err)
