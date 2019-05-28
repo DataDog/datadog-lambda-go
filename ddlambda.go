@@ -14,10 +14,16 @@ import (
 type (
 	// Config gives options for how ddlambda should behave
 	Config struct {
-		APIKey               string
-		AppKey               string
+		// APIKey is your Datadog API key. This is used for sending metrics.
+		APIKey string
+		// AppKey is your Datadog App key. This is used for sending metrics.
+		AppKey string
+		// ShouldRetryOnFailure is used to turn on retry logic when sending metrics via the API. This can negatively effect the performance of your lambda,
+		// and should only be turned on if you can't afford to lose metrics data under poor network conditions.
 		ShouldRetryOnFailure bool
-		BatchInterval        time.Duration
+		// BatchInterval is the period of time which metrics are grouped together for processing to be sent to the API or written to logs.
+		// Any pending metrics are flushed at the end of the lambda.
+		BatchInterval time.Duration
 	}
 )
 
