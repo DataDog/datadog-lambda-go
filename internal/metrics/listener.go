@@ -26,9 +26,20 @@ func MakeListener() Listener {
 
 // HandlerStarted adds metrics service to the context
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
+
+	ts := MakeTimeService()
+	pr := MakeProcessor(l.apiClient, ts, float64(defaultBatchInterval), false)
+
+	ctx = AddProcessor(ctx, pr)
+	pr.StartProcessing()
+
 	return ctx
 }
 
 // HandlerFinished implemented as part of the wrapper.HandlerListener interface
 func (l *Listener) HandlerFinished(ctx context.Context) {
+	pr := GetProcessor(ctx)
+	if pr != nil {
+		pr.FinishProcessing()
+	}
 }

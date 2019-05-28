@@ -7,6 +7,7 @@ const (
 	apiKeyParam          = "api_key"
 	appKeyParam          = "application_key"
 	defaultRetryInterval = time.Millisecond * 250
+	defaultBatchInterval = time.Second * 15
 )
 
 // MetricType enumerates all the available metric types

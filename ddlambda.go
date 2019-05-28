@@ -30,3 +30,18 @@ func AddTraceHeaders(ctx context.Context, req *http.Request) {
 		req.Header.Add(key, value)
 	}
 }
+
+// DistributionMetric sends a distribution metric to DataDog
+func DistributionMetric(ctx context.Context, metric string, value float64, tags ...string) {
+	pr := metrics.GetProcessor(ctx)
+	if pr == nil {
+		return
+	}
+	m := metrics.Distribution{
+		Name:   metric,
+		Tags:   tags,
+		Values: []float64{},
+	}
+	m.AddPoint(value)
+	pr.AddMetric(&m)
+}
