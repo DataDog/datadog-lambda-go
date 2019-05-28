@@ -10,122 +10,107 @@ import (
 func TestGetMetricDifferentTagOrder(t *testing.T) {
 
 	tm := time.Now()
-	key1 := BatchKey{
-		timestamp:  tm,
-		metricType: DistributionType,
-		name:       "metric-1",
-		tags:       []string{"a", "b", "c"},
-	}
-	key2 := BatchKey{
-		timestamp:  tm,
-		metricType: DistributionType,
-		name:       "metric-1",
-		tags:       []string{"c", "b", "a"},
-	}
 	batcher := MakeBatcher(10)
-	dm := Distribution{
-		Name: "metric-1",
+	dm1 := Distribution{
+		Name:   "metric-1",
+		Values: []float64{1, 2},
+		Tags:   []string{"a", "b", "c"},
+	}
+	dm2 := Distribution{
+		Name:   "metric-1",
+		Values: []float64{3, 4},
+		Tags:   []string{"c", "b", "a"},
 	}
 
-	batcher.AddMetric(key1, &dm)
-	result := batcher.GetMetric(key2)
-	assert.Equal(t, &dm, result)
+	batcher.AddMetric(tm, &dm1)
+	batcher.AddMetric(tm, &dm2)
+
+	assert.Equal(t, []float64{1, 2, 3, 4}, dm1.Values)
 }
 
 func TestGetMetricFailDifferentName(t *testing.T) {
 
 	tm := time.Now()
-	key1 := BatchKey{
-		timestamp:  tm,
-		metricType: DistributionType,
-		name:       "metric-1",
-		tags:       []string{"a", "b", "c"},
-	}
-	key2 := BatchKey{
-		timestamp:  tm,
-		metricType: DistributionType,
-		name:       "metric-2",
-		tags:       []string{"a", "b", "c"},
-	}
 	batcher := MakeBatcher(10)
-	dm := Distribution{
-		Name: "metric-1",
+
+	dm1 := Distribution{
+		Name:   "metric-1",
+		Values: []float64{1, 2},
+		Tags:   []string{"a", "b", "c"},
+	}
+	dm2 := Distribution{
+		Name:   "metric-2",
+		Values: []float64{3, 4},
+		Tags:   []string{"c", "b", "a"},
 	}
 
-	batcher.AddMetric(key1, &dm)
-	result := batcher.GetMetric(key2)
-	assert.Nil(t, result)
+	batcher.AddMetric(tm, &dm1)
+	batcher.AddMetric(tm, &dm2)
+
+	assert.Equal(t, []float64{1, 2}, dm1.Values)
+
 }
 
 func TestGetMetricFailDifferentHost(t *testing.T) {
-
 	tm := time.Now()
-	hostname := "host-1"
-	key1 := BatchKey{
-		timestamp:  tm,
-		metricType: DistributionType,
-		name:       "metric-1",
-		tags:       []string{"a", "b", "c"},
-		host:       &hostname,
-	}
-	key2 := BatchKey{
-		timestamp:  tm,
-		metricType: DistributionType,
-		name:       "metric-2",
-		tags:       []string{"a", "b", "c"},
-	}
 	batcher := MakeBatcher(10)
-	dm := Distribution{
-		Name: "metric-1",
+
+	host1 := "my-host-1"
+	host2 := "my-host-2"
+
+	dm1 := Distribution{
+		Name:   "metric-1",
+		Values: []float64{1, 2},
+		Tags:   []string{"a", "b", "c"},
+		Host:   &host1,
+	}
+	dm2 := Distribution{
+		Name:   "metric-1",
+		Values: []float64{3, 4},
+		Tags:   []string{"a", "b", "c"},
+		Host:   &host2,
 	}
 
-	batcher.AddMetric(key1, &dm)
-	result := batcher.GetMetric(key2)
-	assert.Nil(t, result)
+	batcher.AddMetric(tm, &dm1)
+	batcher.AddMetric(tm, &dm2)
+
+	assert.Equal(t, []float64{1, 2}, dm1.Values)
 }
 
 func TestGetMetricSameHost(t *testing.T) {
 
 	tm := time.Now()
-	hostname := "host-1"
-	key1 := BatchKey{
-		timestamp:  tm,
-		metricType: DistributionType,
-		name:       "metric-1",
-		tags:       []string{"a", "b", "c"},
-		host:       &hostname,
-	}
-	key2 := BatchKey{
-		timestamp:  tm,
-		metricType: DistributionType,
-		name:       "metric-1",
-		tags:       []string{"a", "b", "c"},
-		host:       &hostname,
-	}
 	batcher := MakeBatcher(10)
-	dm := Distribution{
-		Name: "metric-1",
+
+	host := "my-host"
+
+	dm1 := Distribution{
+		Name:   "metric-1",
+		Values: []float64{1, 2},
+		Tags:   []string{"a", "b", "c"},
+		Host:   &host,
+	}
+	dm2 := Distribution{
+		Name:   "metric-1",
+		Values: []float64{3, 4},
+		Tags:   []string{"a", "b", "c"},
+		Host:   &host,
 	}
 
-	batcher.AddMetric(key1, &dm)
-	result := batcher.GetMetric(key2)
-	assert.Equal(t, &dm, result)
+	batcher.AddMetric(tm, &dm1)
+	batcher.AddMetric(tm, &dm2)
+
+	assert.Equal(t, []float64{1, 2, 3, 4}, dm1.Values)
 }
 
-func TestFlushSameInterval(t *testing.T) {
+func TestToAPIMetricsSameInterval(t *testing.T) {
 	tm := time.Now()
 	hostname := "host-1"
-	key1 := BatchKey{
-		timestamp:  tm,
-		metricType: DistributionType,
-		name:       "metric-1",
-		tags:       []string{"a", "b", "c"},
-		host:       &hostname,
-	}
+
 	batcher := MakeBatcher(10)
 	dm := Distribution{
 		Name:   "metric-1",
-		Tags:   key1.tags,
+		Tags:   []string{"a", "b", "c"},
 		Host:   &hostname,
 		Values: []float64{},
 	}
@@ -134,10 +119,10 @@ func TestFlushSameInterval(t *testing.T) {
 	dm.AddPoint(2)
 	dm.AddPoint(3)
 
-	batcher.AddMetric(key1, &dm)
+	batcher.AddMetric(tm, &dm)
 
 	floatTime := float64(tm.Unix())
-	result := batcher.Flush(tm)
+	result := batcher.ToAPIMetrics(tm)
 	expected := []APIMetric{
 		{
 			Name:       "metric-1",

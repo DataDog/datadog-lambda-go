@@ -16,7 +16,6 @@ type (
 	}
 	// BatchKey identifies a batch of metrics
 	BatchKey struct {
-		timestamp  time.Time
 		metricType MetricType
 		name       string
 		tags       []string
@@ -32,20 +31,18 @@ func MakeBatcher(batchInterval float64) *Batcher {
 	}
 }
 
-// GetMetric gets an existing metric
-func (b *Batcher) GetMetric(bk BatchKey) Metric {
-	sk := b.getStringKey(bk)
-	return b.metrics[sk]
-}
-
 // AddMetric adds a point to a given metric
-func (b *Batcher) AddMetric(bk BatchKey, metric Metric) {
-	sk := b.getStringKey(bk)
-	b.metrics[sk] = metric
+func (b *Batcher) AddMetric(timestamp time.Time, metric Metric) {
+	sk := b.getStringKey(timestamp, metric.ToBatchKey())
+	if existing, ok := b.metrics[sk]; ok {
+		existing.Join(metric)
+	} else {
+		b.metrics[sk] = metric
+	}
 }
 
-// Flush converts the current batch of metrics into API metrics
-func (b *Batcher) Flush(timestamp time.Time) []APIMetric {
+// ToAPIMetrics converts the current batch of metrics into API metrics
+func (b *Batcher) ToAPIMetrics(timestamp time.Time) []APIMetric {
 
 	ar := []APIMetric{}
 	interval := time.Duration(0) // TODO Get actual interval
@@ -56,8 +53,6 @@ func (b *Batcher) Flush(timestamp time.Time) []APIMetric {
 			ar = append(ar, val)
 		}
 	}
-	b.metrics = map[string]Metric{}
-
 	return ar
 }
 
@@ -65,8 +60,8 @@ func (b *Batcher) getInterval(timestamp time.Time) float64 {
 	return float64(timestamp.Unix()) - math.Mod(float64(timestamp.Unix()), b.batchInterval)
 }
 
-func (b *Batcher) getStringKey(bk BatchKey) string {
-	interval := b.getInterval(bk.timestamp)
+func (b *Batcher) getStringKey(timestamp time.Time, bk BatchKey) string {
+	interval := b.getInterval(timestamp)
 	tagKey := getTagKey(bk.tags)
 
 	if bk.host != nil {

@@ -9,6 +9,8 @@ type (
 	Metric interface {
 		AddPoint(value float64)
 		ToAPIMetric(timestamp time.Time, interval time.Duration) []APIMetric
+		ToBatchKey() BatchKey
+		Join(metric Metric)
 	}
 
 	// APIMetric is a metric that can be marshalled to send to the metrics API
@@ -33,6 +35,28 @@ type (
 // AddPoint adds a point to the distribution metric
 func (d *Distribution) AddPoint(value float64) {
 	d.Values = append(d.Values, value)
+}
+
+// ToBatchKey returns a key that can be used to batch the metric
+func (d *Distribution) ToBatchKey() BatchKey {
+	return BatchKey{
+		name:       d.Name,
+		host:       d.Host,
+		tags:       d.Tags,
+		metricType: DistributionType,
+	}
+}
+
+// Join creates a union between two metric sets
+func (d *Distribution) Join(metric Metric) {
+	otherDist, ok := metric.(*Distribution)
+	if !ok {
+		return
+	}
+	for _, val := range otherDist.Values {
+		d.AddPoint(val)
+	}
+
 }
 
 // ToAPIMetric converts a distribution into an API ready format.
