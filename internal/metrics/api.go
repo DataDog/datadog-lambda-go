@@ -8,7 +8,12 @@ import (
 )
 
 type (
-	// APIClient sends metrics to Datadog
+	// Client sends metrics to Datadog
+	Client interface {
+		SendMetrics(metrics []APIMetric) error
+	}
+
+	// APIClient send metrics to Datadog, via the Datadog API
 	APIClient struct {
 		apiKey     string
 		appKey     string
