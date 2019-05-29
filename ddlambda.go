@@ -39,6 +39,8 @@ const (
 // WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
 // It returns a modified handler that can be passed directly to the lambda.Start function.
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
+
+	// Set up state that is shared between handler invocations
 	tl := trace.Listener{}
 	ml := metrics.MakeListener(cfg.toMetricsConfig())
 	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
@@ -58,8 +60,8 @@ func AddTraceHeaders(ctx context.Context, req *http.Request) {
 	}
 }
 
-// DistributionMetric sends a distribution metric to DataDog
-func DistributionMetric(ctx context.Context, metric string, value float64, tags ...string) {
+// Distribution sends a distribution metric to DataDog
+func Distribution(ctx context.Context, metric string, value float64, tags ...string) {
 	pr := metrics.GetProcessor(ctx)
 	if pr == nil {
 		return

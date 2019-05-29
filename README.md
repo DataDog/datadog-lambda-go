@@ -32,7 +32,7 @@ func main() {
   lambda.Start(ddlambda.WrapHandler(myHandler, &ddlambda.Config{
     BatchInterval: time.Seconds * 15
     APIKey: "my-api-key",
-    APPKey: "my-app-key",
+    AppKey: "my-app-key",
   }))
   */
 }
@@ -42,15 +42,13 @@ func myHandler(ctx context.Context, event MyEvent) (string, error) {
 }
 ```
 
-
-
 ## Custom Metrics
 
 Custom metrics can be submitted using the `DistributionMetric` function. The metrics are submitted as [distribution metrics](https://docs.datadoghq.com/graphing/metrics/distributions/).
 
 ```go
-ddlambda.DistributionMetric(
-  ctx, // Use the context object, (or child), passed into your handler
+ddlambda.Distribution(
+  ctx, // Use the context object, (or child), that was passed into your handler
   "coffee_house.order_value", // Metric name
   12.45, // The value
   "product:latte", "order:online" // Associated tags
