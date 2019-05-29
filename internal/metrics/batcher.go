@@ -45,7 +45,7 @@ func (b *Batcher) AddMetric(timestamp time.Time, metric Metric) {
 func (b *Batcher) ToAPIMetrics(timestamp time.Time) []APIMetric {
 
 	ar := []APIMetric{}
-	interval := time.Duration(0) // TODO Get actual interval
+	interval := time.Duration(b.batchInterval) / time.Second
 
 	for _, metric := range b.metrics {
 		values := metric.ToAPIMetric(timestamp, interval)

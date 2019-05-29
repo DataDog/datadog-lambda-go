@@ -68,11 +68,12 @@ func (p *processor) FinishProcessing() {
 	// Closes the metrics channel, and waits for the last send to complete
 	close(p.metricsChan)
 	p.waitGroup.Wait()
+	p.isProcessing = false
 }
 
 func (p *processor) processMetrics() {
 
-	ticker := p.timeService.NewTicker(time.Duration(p.batchInterval) * time.Second)
+	ticker := p.timeService.NewTicker(time.Duration(p.batchInterval))
 
 	shouldExit := false
 	for !shouldExit {

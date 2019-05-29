@@ -138,7 +138,6 @@ The file content for `datadog-sampling-priority-2.json`:
 }
 ```
 
-
 ## Non-proxy integration
 
 If your Lambda function is triggered by API Gateway via the non-proxy integration, then you have to set up a mapping template, which passes the Datadog trace context from the incoming HTTP request headers to the Lambda function via the event object.
