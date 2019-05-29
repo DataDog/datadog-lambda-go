@@ -78,14 +78,13 @@ func (p *processor) processMetrics() {
 	ticker := p.timeService.NewTicker(p.batchInterval)
 
 	doneChan := p.context.Done()
-
 	shouldExit := false
 	for !shouldExit {
 		shouldSendBatch := false
 		// Batches metrics until timeout is reached
 		select {
 		case <-doneChan:
-			// This process is being cancelled by the context, exit without flushing
+			// This process is being cancelled by the context,(probably due to a lambda deadline), exit without flushing.
 			shouldExit = true
 			close(p.metricsChan)
 		case m, ok := <-p.metricsChan:

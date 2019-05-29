@@ -24,7 +24,7 @@ type (
 
 // MakeListener initializes a new metrics lambda listener
 func MakeListener(config Config) Listener {
-	apiClient := MakeAPIClient(baseAPIURL, config.APIKey, config.AppKey)
+	apiClient := MakeAPIClient(context.Background(), baseAPIURL, config.APIKey, config.AppKey)
 	if config.BatchInterval <= 0 {
 		config.BatchInterval = defaultBatchInterval
 	}
@@ -45,6 +45,9 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure)
 
 	ctx = AddProcessor(ctx, pr)
+	// Setting the context on the client will mean that future requests will be cancelled correctly
+	// if the lambda times out.
+	l.apiClient.context = ctx
 
 	pr.StartProcessing()
 

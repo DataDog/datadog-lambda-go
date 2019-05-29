@@ -48,8 +48,10 @@ Custom metrics can be submitted using the `Distribution` function. The metrics a
 
 ```go
 
+
 ddlambda.Distribution(
-  // Use the context object, (or a child context), that was passed into your handler function, or grab it globally using ddlambda.GetContext()
+  // Context, (ctx), should be the same object passed into your lambda handler function, (or a child).
+  // If you don't want to pass the context through your call hierarchy, you can use ddlambda.GetContext()
   ctx,
   "coffee_house.order_value", // Metric name
   12.45, // The value
@@ -74,6 +76,7 @@ To enable this feature, make sure any outbound requests have Datadog's tracing h
 ```go
   req, err := http.NewRequest("GET", "http://api.youcompany.com/status")
   // Use the same Context object given to your lambda handler.
+  // If you don't want to pass the context through your call hierarchy, you can use ddlambda.GetContext()
   ddlambda.AddTraceHeaders(ctx, req)
 
   client := http.Client{}

@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -19,6 +20,7 @@ type (
 		appKey     string
 		baseAPIURL string
 		httpClient *http.Client
+		context    context.Context
 	}
 
 	postMetricsModel struct {
@@ -27,13 +29,14 @@ type (
 )
 
 // MakeAPIClient creates a new API client with the given api and app keys
-func MakeAPIClient(baseAPIURL, apiKey, appKey string) *APIClient {
+func MakeAPIClient(ctx context.Context, baseAPIURL, apiKey, appKey string) *APIClient {
 	httpClient := &http.Client{}
 	return &APIClient{
-		apiKey,
-		appKey,
-		baseAPIURL,
-		httpClient,
+		apiKey:     apiKey,
+		appKey:     appKey,
+		baseAPIURL: baseAPIURL,
+		httpClient: httpClient,
+		context:    ctx,
 	}
 }
 
@@ -43,6 +46,8 @@ func (cl *APIClient) PrewarmConnection() error {
 	if err != nil {
 		return fmt.Errorf("Couldn't create prewarming request: %v", err)
 	}
+	req = req.WithContext(cl.context)
+
 	cl.addAPICredentials(req)
 	_, err = cl.httpClient.Do(req)
 	if err != nil {
@@ -63,6 +68,8 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	if err != nil {
 		return fmt.Errorf("Couldn't create send metrics request:%v", err)
 	}
+	req = req.WithContext(cl.context)
+
 	defer req.Body.Close()
 
 	cl.addAPICredentials(req)
