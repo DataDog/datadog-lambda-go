@@ -1,10 +1,15 @@
-package trace
+package wrapper
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"reflect"
+)
+
+var (
+	// CurrentContext is the last create lambda context object.
+	CurrentContext context.Context
 )
 
 type (
@@ -15,8 +20,8 @@ type (
 	}
 )
 
-// WrapHandlerWithListener wraps a lambda handler to capture context and adds the DataDog tracing context.
-func WrapHandlerWithListener(handler interface{}, hl HandlerListener) interface{} {
+// WrapHandlerWithListeners wraps a lambda handler, and calls listeners before and after every invocation.
+func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener) interface{} {
 
 	err := validateHandler(handler)
 	if err != nil {
@@ -24,10 +29,16 @@ func WrapHandlerWithListener(handler interface{}, hl HandlerListener) interface{
 		return handler
 	}
 
+	// Return custom handler, to be called once per invocation
 	return func(ctx context.Context, msg json.RawMessage) (interface{}, error) {
-		ctx = hl.HandlerStarted(ctx, msg)
+		for _, listener := range listeners {
+			ctx = listener.HandlerStarted(ctx, msg)
+		}
+		CurrentContext = ctx
 		result, err := callHandler(ctx, msg, handler)
-		hl.HandlerFinished(ctx)
+		for _, listener := range listeners {
+			listener.HandlerFinished(ctx)
+		}
 		return result, err
 	}
 }
@@ -68,7 +79,6 @@ func validateHandler(handler interface{}) error {
 func callHandler(ctx context.Context, msg json.RawMessage, handler interface{}) (interface{}, error) {
 	ev, err := unmarshalEventForHandler(msg, handler)
 	if err != nil {
-		// TODO Log error here
 		return nil, err
 	}
 	handlerType := reflect.TypeOf(handler)

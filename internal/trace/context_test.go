@@ -2,6 +2,8 @@ package trace
 
 import (
 	"context"
+	"encoding/json"
+	"io/ioutil"
 	"testing"
 
 	"github.com/aws/aws-xray-sdk-go/header"
@@ -27,8 +29,18 @@ func mockLambdaTraceContext(ctx context.Context, traceID, parentID string, sampl
 	return context.WithValue(ctx, xray.LambdaTraceHeaderKey, headerString)
 }
 
+func loadRawJSON(t *testing.T, filename string) *json.RawMessage {
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		assert.Fail(t, "Couldn't find JSON file")
+		return nil
+	}
+	msg := json.RawMessage{}
+	msg.UnmarshalJSON(bytes)
+	return &msg
+}
 func TestUnmarshalEventForTraceMetadataNonProxyEvent(t *testing.T) {
-	ev := loadRawJSON(t, "testdata/apig-event-metadata.json")
+	ev := loadRawJSON(t, "../testdata/apig-event-metadata.json")
 
 	headers, ok := unmarshalEventForTraceContext(*ev)
 	assert.True(t, ok)
@@ -42,14 +54,14 @@ func TestUnmarshalEventForTraceMetadataNonProxyEvent(t *testing.T) {
 }
 
 func TestUnmarshalEventForInvalidData(t *testing.T) {
-	ev := loadRawJSON(t, "testdata/invalid.json")
+	ev := loadRawJSON(t, "../testdata/invalid.json")
 
 	_, ok := unmarshalEventForTraceContext(*ev)
 	assert.False(t, ok)
 }
 
 func TestUnmarshalEventForMissingData(t *testing.T) {
-	ev := loadRawJSON(t, "testdata/non-proxy-no-metadata.json")
+	ev := loadRawJSON(t, "../testdata/non-proxy-no-metadata.json")
 
 	_, ok := unmarshalEventForTraceContext(*ev)
 	assert.False(t, ok)
@@ -108,7 +120,7 @@ func TestXrayTraceContextWithSegment(t *testing.T) {
 }
 
 func TestExtractTraceContextFromContext(t *testing.T) {
-	ev := loadRawJSON(t, "testdata/apig-event-no-metadata.json")
+	ev := loadRawJSON(t, "../testdata/apig-event-no-metadata.json")
 	ctx := mockLambdaTraceContext(context.Background(), "1-5ce31dc2-2c779014b90ce44db5e03875", "779014b90ce44db5e03875", true)
 
 	newCTX, err := ExtractTraceContext(ctx, *ev)
@@ -120,7 +132,7 @@ func TestExtractTraceContextFromContext(t *testing.T) {
 	assert.NotNil(t, headers[parentIDHeader])
 }
 func TestExtractTraceContextFromEvent(t *testing.T) {
-	ev := loadRawJSON(t, "testdata/apig-event-metadata.json")
+	ev := loadRawJSON(t, "../testdata/apig-event-metadata.json")
 	ctx := mockLambdaTraceContext(context.Background(), "1-5ce31dc2-2c779014b90ce44db5e03875", "779014b90ce44db5e03875", true)
 
 	newCTX, err := ExtractTraceContext(ctx, *ev)
@@ -136,7 +148,7 @@ func TestExtractTraceContextFromEvent(t *testing.T) {
 }
 
 func TestExtractTraceContextFail(t *testing.T) {
-	ev := loadRawJSON(t, "testdata/apig-event-no-metadata.json")
+	ev := loadRawJSON(t, "../testdata/apig-event-no-metadata.json")
 	ctx := context.Background()
 
 	_, err := ExtractTraceContext(ctx, *ev)
@@ -144,7 +156,7 @@ func TestExtractTraceContextFail(t *testing.T) {
 }
 
 func TestGetTraceHeadersWithUpdatedParent(t *testing.T) {
-	ev := loadRawJSON(t, "testdata/apig-event-metadata.json")
+	ev := loadRawJSON(t, "../testdata/apig-event-metadata.json")
 	ctx := mockLambdaTraceContext(context.Background(), "1-5ce31dc2-2c779014b90ce44db5e03875", "779014b90ce44db5e03874", true)
 
 	ctx, _ = ExtractTraceContext(ctx, *ev)

@@ -1,4 +1,4 @@
-package trace
+package wrapper
 
 import (
 	"context"
@@ -41,7 +41,7 @@ func runHandlerWithJSON(t *testing.T, filename string, handler interface{}) (*mo
 
 	mhl := mockHandlerListener{}
 
-	wrappedHandler := WrapHandlerWithListener(handler, &mhl).(func(context.Context, json.RawMessage) (interface{}, error))
+	wrappedHandler := WrapHandlerWithListeners(handler, &mhl).(func(context.Context, json.RawMessage) (interface{}, error))
 
 	response, err := wrappedHandler(ctx, *payload)
 	return &mhl, response, err
@@ -130,7 +130,7 @@ func TestWrapHandlerAPIGEvent(t *testing.T) {
 		return 5, nil
 	}
 
-	_, response, err := runHandlerWithJSON(t, "testdata/apig-event-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/apig-event-no-metadata.json", handler)
 
 	assert.True(t, called)
 	assert.NoError(t, err)
@@ -146,7 +146,7 @@ func TestWrapHandlerNonProxyEvent(t *testing.T) {
 		return 5, nil
 	}
 
-	_, response, err := runHandlerWithJSON(t, "testdata/non-proxy-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
 
 	assert.True(t, called)
 	assert.NoError(t, err)
@@ -162,7 +162,7 @@ func TestWrapHandlerEventArgumentOnly(t *testing.T) {
 		return 5, nil
 	}
 
-	_, response, err := runHandlerWithJSON(t, "testdata/non-proxy-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
 
 	assert.True(t, called)
 	assert.NoError(t, err)
@@ -177,7 +177,7 @@ func TestWrapHandlerNoArguments(t *testing.T) {
 		return 5, nil
 	}
 
-	_, response, err := runHandlerWithJSON(t, "testdata/non-proxy-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
 
 	assert.True(t, called)
 	assert.NoError(t, err)
@@ -192,7 +192,7 @@ func TestWrapHandlerInvalidData(t *testing.T) {
 		return 5, nil
 	}
 
-	_, response, err := runHandlerWithJSON(t, "testdata/invalid.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/invalid.json", handler)
 
 	assert.False(t, called)
 	assert.Error(t, err)
@@ -208,7 +208,7 @@ func TestWrapHandlerReturnsError(t *testing.T) {
 		return 5, defaultErr
 	}
 
-	_, response, err := runHandlerWithJSON(t, "testdata/non-proxy-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
 
 	assert.True(t, called)
 	assert.Equal(t, defaultErr, err)
@@ -222,7 +222,7 @@ func TestWrapHandlerReturnsOriginalHandlerIfInvalid(t *testing.T) {
 	}
 	mhl := mockHandlerListener{}
 
-	wrappedHandler := WrapHandlerWithListener(handler, &mhl)
+	wrappedHandler := WrapHandlerWithListeners(handler, &mhl)
 
 	assert.Equal(t, reflect.ValueOf(handler).Pointer(), reflect.ValueOf(wrappedHandler).Pointer())
 
