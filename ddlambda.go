@@ -66,9 +66,9 @@ func GetContext() context.Context {
 	return wrapper.CurrentContext
 }
 
-// Distribution sends a distribution metric to DataDog
-func Distribution(ctx context.Context, metric string, value float64, tags ...string) {
-	pr := metrics.GetProcessor(ctx)
+// DistributionWithContext sends a distribution metric to DataDog
+func DistributionWithContext(ctx context.Context, metric string, value float64, tags ...string) {
+	pr := metrics.GetProcessor(GetContext())
 	if pr == nil {
 		return
 	}
@@ -83,6 +83,11 @@ func Distribution(ctx context.Context, metric string, value float64, tags ...str
 	}
 	m.AddPoint(value)
 	pr.AddMetric(&m)
+}
+
+// Distribution sends a distribution metric to DataDog
+func Distribution(metric string, value float64, tags ...string) {
+	DistributionWithContext(GetContext(), metric, value, tags...)
 }
 
 func (cfg *Config) toMetricsConfig() metrics.Config {
