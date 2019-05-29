@@ -2,8 +2,10 @@ package ddlambda
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/DataDog/dd-lambda-go/internal/metrics"
@@ -62,6 +64,10 @@ func DistributionMetric(ctx context.Context, metric string, value float64, tags 
 	if pr == nil {
 		return
 	}
+
+	// We add our own runtime tag to the metric for version tracking
+	tags = append(tags, getRuntimeTag())
+
 	m := metrics.Distribution{
 		Name:   metric,
 		Tags:   tags,
@@ -92,4 +98,9 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		mc.AppKey = os.Getenv(DatadogAPIKeyEnvVar)
 	}
 	return mc
+}
+
+func getRuntimeTag() string {
+	v := runtime.Version()
+	return fmt.Sprintf("dd_lambda_layer:datadog-%s", v)
 }
