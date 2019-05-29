@@ -7,6 +7,11 @@ import (
 	"reflect"
 )
 
+var (
+	// CurrentContext is the last create lambda context object.
+	CurrentContext context.Context
+)
+
 type (
 	// HandlerListener is a point where listener logic can be injected into a handler
 	HandlerListener interface {
@@ -29,6 +34,7 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 		for _, listener := range listeners {
 			ctx = listener.HandlerStarted(ctx, msg)
 		}
+		CurrentContext = ctx
 		result, err := callHandler(ctx, msg, handler)
 		for _, listener := range listeners {
 			listener.HandlerFinished(ctx)

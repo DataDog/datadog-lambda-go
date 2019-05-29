@@ -60,6 +60,12 @@ func AddTraceHeaders(ctx context.Context, req *http.Request) {
 	}
 }
 
+// GetContext retrieves the last created lambda context.
+// Only use this if you aren't manually passing context through your call hierarchy.
+func GetContext() context.Context {
+	return wrapper.CurrentContext
+}
+
 // Distribution sends a distribution metric to DataDog
 func Distribution(ctx context.Context, metric string, value float64, tags ...string) {
 	pr := metrics.GetProcessor(ctx)

@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ type (
 	}
 
 	processor struct {
+		context           context.Context
 		metricsChan       chan Metric
 		timeService       TimeService
 		waitGroup         sync.WaitGroup
@@ -31,10 +33,11 @@ type (
 )
 
 // MakeProcessor creates a new metrics context
-func MakeProcessor(client Client, timeService TimeService, batchInterval time.Duration, shouldRetryOnFail bool) Processor {
+func MakeProcessor(ctx context.Context, client Client, timeService TimeService, batchInterval time.Duration, shouldRetryOnFail bool) Processor {
 	batcher := MakeBatcher(batchInterval)
 
 	return &processor{
+		context:           ctx,
 		metricsChan:       make(chan Metric, 2000),
 		batchInterval:     batchInterval,
 		waitGroup:         sync.WaitGroup{},
@@ -68,18 +71,23 @@ func (p *processor) FinishProcessing() {
 	// Closes the metrics channel, and waits for the last send to complete
 	close(p.metricsChan)
 	p.waitGroup.Wait()
-	p.isProcessing = false
 }
 
 func (p *processor) processMetrics() {
 
 	ticker := p.timeService.NewTicker(p.batchInterval)
 
+	doneChan := p.context.Done()
+
 	shouldExit := false
 	for !shouldExit {
 		shouldSendBatch := false
 		// Batches metrics until timeout is reached
 		select {
+		case <-doneChan:
+			// This process is being cancelled by the context, exit without flushing
+			shouldExit = true
+			close(p.metricsChan)
 		case m, ok := <-p.metricsChan:
 			if !ok {
 				// The channel has now been closed
@@ -89,6 +97,7 @@ func (p *processor) processMetrics() {
 				p.batcher.AddMetric(p.timeService.Now(), m)
 			}
 		case <-ticker.C:
+			// We are ready to send a batch to our backend
 			shouldSendBatch = true
 		}
 		if shouldSendBatch {
@@ -102,6 +111,7 @@ func (p *processor) processMetrics() {
 		}
 	}
 	ticker.Stop()
+	p.isProcessing = false
 	p.waitGroup.Done()
 }
 

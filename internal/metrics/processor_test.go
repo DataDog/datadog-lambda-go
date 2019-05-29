@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -58,7 +59,7 @@ func TestProcessorBatches(t *testing.T) {
 	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	nowUnix := float64(mts.now.Unix())
 
-	processor := MakeProcessor(&mc, &mts, 1000, false)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -104,7 +105,7 @@ func TestProcessorBatchesPerTick(t *testing.T) {
 	secondTimeUnix := float64(secondTime.Unix())
 	mts.now = firstTime
 
-	processor := MakeProcessor(&mc, &mts, 1000, false)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -179,7 +180,7 @@ func TestProcessorPerformsRetry(t *testing.T) {
 	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 
 	shouldRetry := true
-	processor := MakeProcessor(&mc, &mts, 1000, shouldRetry)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, shouldRetry)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -194,4 +195,29 @@ func TestProcessorPerformsRetry(t *testing.T) {
 	processor.FinishProcessing()
 
 	assert.Equal(t, 3, mc.sendMetricsCalledCount)
+}
+
+func TestProcessorCancelsWithContext(t *testing.T) {
+	mc := makeMockClient()
+	mts := makeMockTimeService()
+
+	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+
+	shouldRetry := true
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	processor := MakeProcessor(ctx, &mc, &mts, 1000, shouldRetry)
+
+	d1 := Distribution{
+		Name:   "metric-1",
+		Tags:   []string{"a", "b", "c"},
+		Values: []float64{1, 2, 3},
+	}
+
+	processor.AddMetric(&d1)
+
+	// After calling cancelFunc, no metrics should be processed/sent
+	cancelFunc()
+	processor.FinishProcessing()
+
+	assert.Equal(t, 0, mc.sendMetricsCalledCount)
 }

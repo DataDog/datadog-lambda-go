@@ -42,9 +42,10 @@ func MakeListener(config Config) Listener {
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
 
 	ts := MakeTimeService()
-	pr := MakeProcessor(l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure)
+	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure)
 
 	ctx = AddProcessor(ctx, pr)
+
 	pr.StartProcessing()
 
 	return ctx

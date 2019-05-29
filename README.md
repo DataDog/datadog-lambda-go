@@ -44,11 +44,13 @@ func myHandler(ctx context.Context, event MyEvent) (string, error) {
 
 ## Custom Metrics
 
-Custom metrics can be submitted using the `DistributionMetric` function. The metrics are submitted as [distribution metrics](https://docs.datadoghq.com/graphing/metrics/distributions/).
+Custom metrics can be submitted using the `Distribution` function. The metrics are submitted as [distribution metrics](https://docs.datadoghq.com/graphing/metrics/distributions/).
 
 ```go
+
 ddlambda.Distribution(
-  ctx, // Use the context object, (or child), that was passed into your handler
+  // Use the context object, (or a child context), that was passed into your handler function, or grab it globally using ddlambda.GetContext()
+  ctx,
   "coffee_house.order_value", // Metric name
   12.45, // The value
   "product:latte", "order:online" // Associated tags
