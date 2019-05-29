@@ -12,7 +12,7 @@ type (
 	// Batcher batches
 	Batcher struct {
 		metrics       map[string]Metric
-		batchInterval float64
+		batchInterval time.Duration
 	}
 	// BatchKey identifies a batch of metrics
 	BatchKey struct {
@@ -24,7 +24,7 @@ type (
 )
 
 // MakeBatcher creates a new batcher object
-func MakeBatcher(batchInterval float64) *Batcher {
+func MakeBatcher(batchInterval time.Duration) *Batcher {
 	return &Batcher{
 		batchInterval: batchInterval,
 		metrics:       map[string]Metric{},
@@ -45,7 +45,7 @@ func (b *Batcher) AddMetric(timestamp time.Time, metric Metric) {
 func (b *Batcher) ToAPIMetrics(timestamp time.Time) []APIMetric {
 
 	ar := []APIMetric{}
-	interval := time.Duration(b.batchInterval) / time.Second
+	interval := b.batchInterval / time.Second
 
 	for _, metric := range b.metrics {
 		values := metric.ToAPIMetric(timestamp, interval)
@@ -57,7 +57,7 @@ func (b *Batcher) ToAPIMetrics(timestamp time.Time) []APIMetric {
 }
 
 func (b *Batcher) getInterval(timestamp time.Time) float64 {
-	return float64(timestamp.Unix()) - math.Mod(float64(timestamp.Unix()), b.batchInterval)
+	return float64(timestamp.Unix()) - math.Mod(float64(timestamp.Unix()), float64(b.batchInterval))
 }
 
 func (b *Batcher) getStringKey(timestamp time.Time, bk BatchKey) string {

@@ -22,7 +22,7 @@ type (
 		metricsChan       chan Metric
 		timeService       TimeService
 		waitGroup         sync.WaitGroup
-		batchInterval     float64
+		batchInterval     time.Duration
 		client            Client
 		batcher           *Batcher
 		shouldRetryOnFail bool
@@ -31,7 +31,7 @@ type (
 )
 
 // MakeProcessor creates a new metrics context
-func MakeProcessor(client Client, timeService TimeService, batchInterval float64, shouldRetryOnFail bool) Processor {
+func MakeProcessor(client Client, timeService TimeService, batchInterval time.Duration, shouldRetryOnFail bool) Processor {
 	batcher := MakeBatcher(batchInterval)
 
 	return &processor{
@@ -73,7 +73,7 @@ func (p *processor) FinishProcessing() {
 
 func (p *processor) processMetrics() {
 
-	ticker := p.timeService.NewTicker(time.Duration(p.batchInterval))
+	ticker := p.timeService.NewTicker(p.batchInterval)
 
 	shouldExit := false
 	for !shouldExit {
