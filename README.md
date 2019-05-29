@@ -27,7 +27,7 @@ import (
 
 func main() {
   // Wrap your lambda handler like this
-  lambda.Start( ddlambda.WrapHandler(myHandler, nil))
+  lambda.Start(ddlambda.WrapHandler(myHandler, nil))
   /* OR with manual configuration options
   lambda.Start(ddlambda.WrapHandler(myHandler, &ddlambda.Config{
     BatchInterval: time.Seconds * 15
@@ -99,22 +99,22 @@ The file content for `datadog-sampling-priority-1.json`:
 
 ```json
 {
-    "SamplingRule": {
-        "RuleName": "Datadog-Sampling-Priority-1",
-        "ResourceARN": "*",
-        "Priority": 9998,
-        "FixedRate": 1,
-        "ReservoirSize": 100,
-        "ServiceName": "*",
-        "ServiceType": "AWS::APIGateway::Stage",
-        "Host": "*",
-        "HTTPMethod": "*",
-        "URLPath": "*",
-        "Version": 1,
-        "Attributes": {
-            "x-datadog-sampling-priority": "1"
-        }
+  "SamplingRule": {
+    "RuleName": "Datadog-Sampling-Priority-1",
+    "ResourceARN": "*",
+    "Priority": 9998,
+    "FixedRate": 1,
+    "ReservoirSize": 100,
+    "ServiceName": "*",
+    "ServiceType": "AWS::APIGateway::Stage",
+    "Host": "*",
+    "HTTPMethod": "*",
+    "URLPath": "*",
+    "Version": 1,
+    "Attributes": {
+      "x-datadog-sampling-priority": "1"
     }
+  }
 }
 ```
 
@@ -122,22 +122,22 @@ The file content for `datadog-sampling-priority-2.json`:
 
 ```json
 {
-    "SamplingRule": {
-        "RuleName": "Datadog-Sampling-Priority-2",
-        "ResourceARN": "*",
-        "Priority": 9999,
-        "FixedRate": 1,
-        "ReservoirSize": 100,
-        "ServiceName": "*",
-        "ServiceType": "AWS::APIGateway::Stage",
-        "Host": "*",
-        "HTTPMethod": "*",
-        "URLPath": "*",
-        "Version": 1,
-        "Attributes": {
-            "x-datadog-sampling-priority": "2"
-        }
+  "SamplingRule": {
+    "RuleName": "Datadog-Sampling-Priority-2",
+    "ResourceARN": "*",
+    "Priority": 9999,
+    "FixedRate": 1,
+    "ReservoirSize": 100,
+    "ServiceName": "*",
+    "ServiceType": "AWS::APIGateway::Stage",
+    "Host": "*",
+    "HTTPMethod": "*",
+    "URLPath": "*",
+    "Version": 1,
+    "Attributes": {
+      "x-datadog-sampling-priority": "2"
     }
+  }
 }
 ```
 
