@@ -8,7 +8,7 @@ import (
 )
 
 type (
-	// Processor is used to batch metrics on a background thread, and send them on to a client.
+	// Processor is used to batch metrics on a background thread, and send them on to a client periodically.
 	Processor interface {
 		// AddMetric sends a metric to the agent
 		AddMetric(metric Metric)
@@ -77,21 +77,21 @@ func (p *processor) processMetrics() {
 
 	shouldExit := false
 	for !shouldExit {
-		shouldProcess := false
+		shouldSendBatch := false
 		// Batches metrics until timeout is reached
 		select {
 		case m, ok := <-p.metricsChan:
 			if !ok {
 				// The channel has now been closed
-				shouldProcess = true
+				shouldSendBatch = true
 				shouldExit = true
 			} else {
 				p.batcher.AddMetric(p.timeService.Now(), m)
 			}
 		case <-ticker.C:
-			shouldProcess = true
+			shouldSendBatch = true
 		}
-		if shouldProcess {
+		if shouldSendBatch {
 			if shouldExit && p.shouldRetryOnFail {
 				// If we are shutting down, and we just failed to send our last batch, do a retry
 				bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(defaultRetryInterval), 2)

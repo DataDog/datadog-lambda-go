@@ -9,7 +9,7 @@ import (
 )
 
 type (
-	// Batcher batches
+	// Batcher aggregates metrics with common properties,(metric name, tags, type etc)
 	Batcher struct {
 		metrics       map[string]Metric
 		batchInterval time.Duration
