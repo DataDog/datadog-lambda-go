@@ -185,7 +185,10 @@ func convertHexIDToUint64(hexNumber string) (uint64, error) {
 
 // Converts an X-Ray entity ID (hex) to a Datadog parent id (uint64).
 func convertXRayEntityIDToAPMParentID(entityID string) (string, error) {
-	val, err := convertHexIDToUint64(entityID)
+	if len(entityID) < 16 {
+		return "0", fmt.Errorf("couldn't convert to trace id, too short")
+	}
+	val, err := convertHexIDToUint64(entityID[len(entityID)-16:])
 	if err != nil {
 		return "0", fmt.Errorf("couldn't convert entity id to trace id:  %v", err)
 	}

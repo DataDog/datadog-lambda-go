@@ -91,13 +91,19 @@ func TestConvertXRayTraceIDIncorrectCharacters(t *testing.T) {
 }
 
 func TestConvertXRayEntityID(t *testing.T) {
-	output, err := convertXRayEntityIDToAPMParentID("779014b90ce44db5e03875")
+	output, err := convertXRayEntityIDToAPMParentID("0b11cc4230d3e09e")
 	assert.NoError(t, err)
-	assert.Equal(t, "8615408872177552821", output)
+	assert.Equal(t, "797643193680388254", output)
 }
 
 func TestConvertXRayEntityIDInvalidFormat(t *testing.T) {
-	output, err := convertXRayEntityIDToAPMParentID(";79014b90ce44db5e03875")
+	output, err := convertXRayEntityIDToAPMParentID(";b11cc4230d3e09e")
+	assert.Error(t, err)
+	assert.Equal(t, "0", output)
+}
+
+func TestConvertXRayEntityIDTooShort(t *testing.T) {
+	output, err := convertXRayEntityIDToAPMParentID("c4230d3e09e")
 	assert.Error(t, err)
 	assert.Equal(t, "0", output)
 }
