@@ -1,11 +1,11 @@
-# dd-lambda-go
+# datadog-lambda-go
 
 Datadog's Lambda Go client library enables distributed tracing between serverful and serverless environments.
 
 ## Installation
 
 ```bash
-go get github.com/DataDog/dd-lambda-go
+go get github.com/DataDog/datadog-lambda-go
 ```
 
 The following Datadog environment variables should be defined via the AWS CLI or Serverless Framework:
@@ -22,7 +22,7 @@ package main
 
 import (
   "github.com/aws/aws-lambda-go/lambda"
-  "github.com/DataDog/dd-lambda-go"
+  "github.com/DataDog/datadog-lambda-go"
 )
 
 func main() {
@@ -71,7 +71,7 @@ Because the trace context is propagated through HTTP request headers, the Lambda
 To enable this feature, make sure any outbound requests have Datadog's tracing headers.
 
 ```go
-  req, err := http.NewRequest("GET", "http://api.youcompany.com/status")
+  req, err := http.NewRequest("GET", "http://example.com/status")
   // Use the same Context object given to your lambda handler.
   // If you don't want to pass the context through your call hierarchy, you can use ddlambda.GetContext()
   ddlambda.AddTraceHeaders(ctx, req)
@@ -154,7 +154,7 @@ You can also open an issue for a feature request.
 
 ## Contributing
 
-If you find an issue with this package and have a fix, please feel free to open a pull request following the procedures.
+If you find an issue with this package and have a fix, please feel free to open a pull request following the [procedures](https://github.com/DataDog/dd-lambda-go/blob/master/CONTRIBUTING.md).
 
 ## License
 
