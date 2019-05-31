@@ -94,7 +94,6 @@ func (p *processor) processMetrics() {
 		case <-doneChan:
 			// This process is being cancelled by the context,(probably due to a lambda deadline), exit without flushing.
 			shouldExit = true
-			close(p.metricsChan)
 		case m, ok := <-p.metricsChan:
 			if !ok {
 				// The channel has now been closed
