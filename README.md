@@ -50,9 +50,6 @@ Custom metrics can be submitted using the `Distribution` function. The metrics a
 
 
 ddlambda.Distribution(
-  // Context, (ctx), should be the same object passed into your lambda handler function, (or a child).
-  // If you don't want to pass the context through your call hierarchy, you can use ddlambda.GetContext()
-  ctx,
   "coffee_house.order_value", // Metric name
   12.45, // The value
   "product:latte", "order:online" // Associated tags
