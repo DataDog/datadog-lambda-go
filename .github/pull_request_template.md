@@ -1,4 +1,4 @@
-*Note: Please remember to review the [contribution guidelines](https://github.com/DataDog/dd-lambda-go/blob/master/CONTRIBUTING.md)
+*Note: Please remember to review the [contribution guidelines](https://github.com/DataDog/datadog-lambda-go/blob/master/CONTRIBUTING.md)
 if you have not yet done so.*
 
 ### What does this PR do?

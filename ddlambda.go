@@ -16,9 +16,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/DataDog/dd-lambda-go/internal/metrics"
-	"github.com/DataDog/dd-lambda-go/internal/trace"
-	"github.com/DataDog/dd-lambda-go/internal/wrapper"
+	"github.com/DataDog/datadog-lambda-go/internal/metrics"
+	"github.com/DataDog/datadog-lambda-go/internal/trace"
+	"github.com/DataDog/datadog-lambda-go/internal/wrapper"
 )
 
 type (
