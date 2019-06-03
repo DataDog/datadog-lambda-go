@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -11,6 +11,7 @@ package metrics
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -24,7 +25,7 @@ type (
 	// Config gives options for how the listener should work
 	Config struct {
 		APIKey               string
-		AppKey               string
+		Site                 string
 		ShouldRetryOnFailure bool
 		BatchInterval        time.Duration
 	}
@@ -32,7 +33,10 @@ type (
 
 // MakeListener initializes a new metrics lambda listener
 func MakeListener(config Config) Listener {
-	apiClient := MakeAPIClient(context.Background(), baseAPIURL, config.APIKey, config.AppKey)
+
+	baseAPIURL := fmt.Sprintf("https://api.%s/api/v1/", config.Site)
+
+	apiClient := MakeAPIClient(context.Background(), baseAPIURL, config.APIKey)
 	if config.BatchInterval <= 0 {
 		config.BatchInterval = defaultBatchInterval
 	}

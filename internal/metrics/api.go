@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -25,7 +25,6 @@ type (
 	// APIClient send metrics to Datadog, via the Datadog API
 	APIClient struct {
 		apiKey     string
-		appKey     string
 		baseAPIURL string
 		httpClient *http.Client
 		context    context.Context
@@ -37,11 +36,10 @@ type (
 )
 
 // MakeAPIClient creates a new API client with the given api and app keys
-func MakeAPIClient(ctx context.Context, baseAPIURL, apiKey, appKey string) *APIClient {
+func MakeAPIClient(ctx context.Context, baseAPIURL, apiKey string) *APIClient {
 	httpClient := &http.Client{}
 	return &APIClient{
 		apiKey:     apiKey,
-		appKey:     appKey,
 		baseAPIURL: baseAPIURL,
 		httpClient: httpClient,
 		context:    ctx,
@@ -98,7 +96,6 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 func (cl *APIClient) addAPICredentials(req *http.Request) {
 	query := req.URL.Query()
 	query.Add(apiKeyParam, cl.apiKey)
-	query.Add(appKeyParam, cl.appKey)
 	req.URL.RawQuery = query.Encode()
 }
 
