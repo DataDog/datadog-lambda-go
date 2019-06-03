@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -87,9 +87,9 @@ func DistributionWithContext(ctx context.Context, metric string, value float64, 
 	m := metrics.Distribution{
 		Name:   metric,
 		Tags:   tags,
-		Values: []float64{},
+		Values: []metrics.MetricValue{},
 	}
-	m.AddPoint(value)
+	m.AddPoint(time.Now(), value)
 	pr.AddMetric(&m)
 }
 
