@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -72,12 +72,12 @@ func TestProcessorBatches(t *testing.T) {
 	d1 := Distribution{
 		Name:   "metric-1",
 		Tags:   []string{"a", "b", "c"},
-		Values: []float64{1, 2, 3},
+		Values: []MetricValue{{Timestamp: mts.now, Value: 1}, {Timestamp: mts.now, Value: 2}, {Timestamp: mts.now, Value: 3}},
 	}
 	d2 := Distribution{
 		Name:   "metric-1",
 		Tags:   []string{"a", "b", "c"},
-		Values: []float64{4, 5, 6},
+		Values: []MetricValue{{Timestamp: mts.now, Value: 4}, {Timestamp: mts.now, Value: 5}, {Timestamp: mts.now, Value: 6}},
 	}
 
 	processor.AddMetric(&d1)
@@ -118,22 +118,22 @@ func TestProcessorBatchesPerTick(t *testing.T) {
 	d1 := Distribution{
 		Name:   "metric-1",
 		Tags:   []string{"a", "b", "c"},
-		Values: []float64{1, 2},
+		Values: []MetricValue{{Timestamp: firstTime, Value: 1}, {Timestamp: firstTime, Value: 2}},
 	}
 	d2 := Distribution{
 		Name:   "metric-1",
 		Tags:   []string{"a", "b", "c"},
-		Values: []float64{3},
+		Values: []MetricValue{{Timestamp: firstTime, Value: 3}},
 	}
 	d3 := Distribution{
 		Name:   "metric-1",
 		Tags:   []string{"a", "b", "c"},
-		Values: []float64{4, 5},
+		Values: []MetricValue{{Timestamp: secondTime, Value: 4}, {Timestamp: secondTime, Value: 5}},
 	}
 	d4 := Distribution{
 		Name:   "metric-1",
 		Tags:   []string{"a", "b", "c"},
-		Values: []float64{6},
+		Values: []MetricValue{{Timestamp: secondTime, Value: 6}},
 	}
 
 	processor.StartProcessing()
@@ -193,7 +193,7 @@ func TestProcessorPerformsRetry(t *testing.T) {
 	d1 := Distribution{
 		Name:   "metric-1",
 		Tags:   []string{"a", "b", "c"},
-		Values: []float64{1, 2, 3},
+		Values: []MetricValue{{Timestamp: mts.now, Value: 1}, {Timestamp: mts.now, Value: 2}, {Timestamp: mts.now, Value: 3}},
 	}
 
 	mc.err = errors.New("Some error")
@@ -218,7 +218,7 @@ func TestProcessorCancelsWithContext(t *testing.T) {
 	d1 := Distribution{
 		Name:   "metric-1",
 		Tags:   []string{"a", "b", "c"},
-		Values: []float64{1, 2, 3},
+		Values: []MetricValue{{Timestamp: mts.now, Value: 1}, {Timestamp: mts.now, Value: 2}, {Timestamp: mts.now, Value: 3}},
 	}
 
 	processor.AddMetric(&d1)

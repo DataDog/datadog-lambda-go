@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -21,19 +21,19 @@ func TestGetMetricDifferentTagOrder(t *testing.T) {
 	batcher := MakeBatcher(10)
 	dm1 := Distribution{
 		Name:   "metric-1",
-		Values: []float64{1, 2},
+		Values: []MetricValue{{Timestamp: tm, Value: 1}, {Timestamp: tm, Value: 2}},
 		Tags:   []string{"a", "b", "c"},
 	}
 	dm2 := Distribution{
 		Name:   "metric-1",
-		Values: []float64{3, 4},
+		Values: []MetricValue{{Timestamp: tm, Value: 3}, {Timestamp: tm, Value: 4}},
 		Tags:   []string{"c", "b", "a"},
 	}
 
-	batcher.AddMetric(tm, &dm1)
-	batcher.AddMetric(tm, &dm2)
+	batcher.AddMetric(&dm1)
+	batcher.AddMetric(&dm2)
 
-	assert.Equal(t, []float64{1, 2, 3, 4}, dm1.Values)
+	assert.Equal(t, []MetricValue{{Timestamp: tm, Value: 1}, {Timestamp: tm, Value: 2}, {Timestamp: tm, Value: 3}, {Timestamp: tm, Value: 4}}, dm1.Values)
 }
 
 func TestGetMetricFailDifferentName(t *testing.T) {
@@ -43,19 +43,19 @@ func TestGetMetricFailDifferentName(t *testing.T) {
 
 	dm1 := Distribution{
 		Name:   "metric-1",
-		Values: []float64{1, 2},
+		Values: []MetricValue{{Timestamp: tm, Value: 1}, {Timestamp: tm, Value: 2}},
 		Tags:   []string{"a", "b", "c"},
 	}
 	dm2 := Distribution{
 		Name:   "metric-2",
-		Values: []float64{3, 4},
+		Values: []MetricValue{{Timestamp: tm, Value: 3}, {Timestamp: tm, Value: 4}},
 		Tags:   []string{"c", "b", "a"},
 	}
 
-	batcher.AddMetric(tm, &dm1)
-	batcher.AddMetric(tm, &dm2)
+	batcher.AddMetric(&dm1)
+	batcher.AddMetric(&dm2)
 
-	assert.Equal(t, []float64{1, 2}, dm1.Values)
+	assert.Equal(t, []MetricValue{{Timestamp: tm, Value: 1}, {Timestamp: tm, Value: 2}}, dm1.Values)
 
 }
 
@@ -67,22 +67,22 @@ func TestGetMetricFailDifferentHost(t *testing.T) {
 	host2 := "my-host-2"
 
 	dm1 := Distribution{
-		Name:   "metric-1",
-		Values: []float64{1, 2},
-		Tags:   []string{"a", "b", "c"},
-		Host:   &host1,
+		Values: []MetricValue{{Timestamp: tm, Value: 1}, {Timestamp: tm, Value: 2}},
+
+		Tags: []string{"a", "b", "c"},
+		Host: &host1,
 	}
 	dm2 := Distribution{
 		Name:   "metric-1",
-		Values: []float64{3, 4},
+		Values: []MetricValue{{Timestamp: tm, Value: 3}, {Timestamp: tm, Value: 4}},
 		Tags:   []string{"a", "b", "c"},
 		Host:   &host2,
 	}
 
-	batcher.AddMetric(tm, &dm1)
-	batcher.AddMetric(tm, &dm2)
+	batcher.AddMetric(&dm1)
+	batcher.AddMetric(&dm2)
 
-	assert.Equal(t, []float64{1, 2}, dm1.Values)
+	assert.Equal(t, []MetricValue{{Timestamp: tm, Value: 1}, {Timestamp: tm, Value: 2}}, dm1.Values)
 }
 
 func TestGetMetricSameHost(t *testing.T) {
@@ -94,21 +94,21 @@ func TestGetMetricSameHost(t *testing.T) {
 
 	dm1 := Distribution{
 		Name:   "metric-1",
-		Values: []float64{1, 2},
+		Values: []MetricValue{{Timestamp: tm, Value: 1}, {Timestamp: tm, Value: 2}},
 		Tags:   []string{"a", "b", "c"},
 		Host:   &host,
 	}
 	dm2 := Distribution{
 		Name:   "metric-1",
-		Values: []float64{3, 4},
+		Values: []MetricValue{{Timestamp: tm, Value: 3}, {Timestamp: tm, Value: 4}},
 		Tags:   []string{"a", "b", "c"},
 		Host:   &host,
 	}
 
-	batcher.AddMetric(tm, &dm1)
-	batcher.AddMetric(tm, &dm2)
+	batcher.AddMetric(&dm1)
+	batcher.AddMetric(&dm2)
 
-	assert.Equal(t, []float64{1, 2, 3, 4}, dm1.Values)
+	assert.Equal(t, []MetricValue{{Timestamp: tm, Value: 1}, {Timestamp: tm, Value: 2}, {Timestamp: tm, Value: 3}, {Timestamp: tm, Value: 4}}, dm1.Values)
 }
 
 func TestToAPIMetricsSameInterval(t *testing.T) {
@@ -120,17 +120,17 @@ func TestToAPIMetricsSameInterval(t *testing.T) {
 		Name:   "metric-1",
 		Tags:   []string{"a", "b", "c"},
 		Host:   &hostname,
-		Values: []float64{},
+		Values: []MetricValue{},
 	}
 
-	dm.AddPoint(1)
-	dm.AddPoint(2)
-	dm.AddPoint(3)
+	dm.AddPoint(tm, 1)
+	dm.AddPoint(tm, 2)
+	dm.AddPoint(tm, 3)
 
-	batcher.AddMetric(tm, &dm)
+	batcher.AddMetric(&dm)
 
 	floatTime := float64(tm.Unix())
-	result := batcher.ToAPIMetrics(tm)
+	result := batcher.ToAPIMetrics()
 	expected := []APIMetric{
 		{
 			Name:       "metric-1",

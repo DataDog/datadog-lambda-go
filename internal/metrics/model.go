@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -15,8 +15,8 @@ import (
 type (
 	// Metric represents a metric that can have any kind of
 	Metric interface {
-		AddPoint(value float64)
-		ToAPIMetric(timestamp time.Time, interval time.Duration) []APIMetric
+		AddPoint(timestamp time.Time, value float64)
+		ToAPIMetric(interval time.Duration) []APIMetric
 		ToBatchKey() BatchKey
 		Join(metric Metric)
 	}
@@ -31,18 +31,24 @@ type (
 		Points     [][]float64 `json:"points"`
 	}
 
+	// MetricValue represents a datapoint for a metric
+	MetricValue struct {
+		Value     float64
+		Timestamp time.Time
+	}
+
 	// Distribution is a type of metric that is aggregated over multiple hosts
 	Distribution struct {
 		Name   string
 		Tags   []string
 		Host   *string
-		Values []float64
+		Values []MetricValue
 	}
 )
 
 // AddPoint adds a point to the distribution metric
-func (d *Distribution) AddPoint(value float64) {
-	d.Values = append(d.Values, value)
+func (d *Distribution) AddPoint(timestamp time.Time, value float64) {
+	d.Values = append(d.Values, MetricValue{Timestamp: timestamp, Value: value})
 }
 
 // ToBatchKey returns a key that can be used to batch the metric
@@ -62,19 +68,19 @@ func (d *Distribution) Join(metric Metric) {
 		return
 	}
 	for _, val := range otherDist.Values {
-		d.AddPoint(val)
+		d.AddPoint(val.Timestamp, val.Value)
 	}
 
 }
 
 // ToAPIMetric converts a distribution into an API ready format.
-func (d *Distribution) ToAPIMetric(timestamp time.Time, interval time.Duration) []APIMetric {
+func (d *Distribution) ToAPIMetric(interval time.Duration) []APIMetric {
 	points := make([][]float64, len(d.Values))
 
-	currentTime := float64(timestamp.Unix())
-
 	for i, val := range d.Values {
-		points[i] = []float64{currentTime, val}
+		currentTime := float64(val.Timestamp.Unix())
+
+		points[i] = []float64{currentTime, val.Value}
 	}
 
 	return []APIMetric{

@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -100,7 +100,7 @@ func (p *processor) processMetrics() {
 				shouldSendBatch = true
 				shouldExit = true
 			} else {
-				p.batcher.AddMetric(p.timeService.Now(), m)
+				p.batcher.AddMetric(m)
 			}
 		case <-ticker.C:
 			// We are ready to send a batch to our backend
@@ -122,7 +122,7 @@ func (p *processor) processMetrics() {
 }
 
 func (p *processor) sendMetricsBatch() error {
-	mts := p.batcher.ToAPIMetrics(p.timeService.Now())
+	mts := p.batcher.ToAPIMetrics()
 	if len(mts) > 0 {
 		err := p.client.SendMetrics(mts)
 		if err != nil {
