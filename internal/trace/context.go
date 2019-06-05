@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -82,7 +82,17 @@ func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) map[st
 
 func addTraceContextToXRay(ctx context.Context, traceContext map[string]string) error {
 	_, segment := xray.BeginSubsegment(ctx, xraySubsegmentName)
-	err := segment.AddMetadataToNamespace(xraySubsegmentKey, xraySubsegmentNamespace, traceContext)
+
+	traceID := traceContext[traceIDHeader]
+	parentID := traceContext[parentIDHeader]
+	sampled := traceContext[samplingPriorityHeader]
+	metadata := map[string]string{
+		"trace-id":          traceID,
+		"parent-id":         parentID,
+		"sampling-priority": sampled,
+	}
+
+	err := segment.AddMetadataToNamespace(xraySubsegmentKey, xraySubsegmentNamespace, metadata)
 	if err != nil {
 		return fmt.Errorf("couldn't save trace context to XRay: %v", err)
 	}
