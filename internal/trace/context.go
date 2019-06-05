@@ -92,7 +92,7 @@ func addTraceContextToXRay(ctx context.Context, traceContext map[string]string) 
 		"sampling-priority": sampled,
 	}
 
-	err := segment.AddMetadataToNamespace(xraySubsegmentKey, xraySubsegmentNamespace, metadata)
+	err := segment.AddMetadataToNamespace(xraySubsegmentNamespace, xraySubsegmentKey, metadata)
 	if err != nil {
 		return fmt.Errorf("couldn't save trace context to XRay: %v", err)
 	}
