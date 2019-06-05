@@ -10,8 +10,11 @@ go get github.com/DataDog/datadog-lambda-go
 
 The following Datadog environment variables should be defined via the AWS CLI or Serverless Framework:
 
-- DATADOG_API_KEY
-- DATADOG_APP_KEY
+- DD_API_KEY
+
+Set the following Datadog environment variable to `datadoghq.eu` to send your data to the Datadog EU site.
+
+- DD_SITE
 
 ## Usage
 

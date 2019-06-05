@@ -26,22 +26,23 @@ type (
 	Config struct {
 		// APIKey is your Datadog API key. This is used for sending metrics.
 		APIKey string
-		// AppKey is your Datadog App key. This is used for sending metrics.
-		AppKey string
 		// ShouldRetryOnFailure is used to turn on retry logic when sending metrics via the API. This can negatively effect the performance of your lambda,
 		// and should only be turned on if you can't afford to lose metrics data under poor network conditions.
 		ShouldRetryOnFailure bool
 		// BatchInterval is the period of time which metrics are grouped together for processing to be sent to the API or written to logs.
 		// Any pending metrics are flushed at the end of the lambda.
 		BatchInterval time.Duration
+		// Site is the host to send metrics to. If empty, this value is read from the 'DD_SITE' environment variable, or if that is empty
+		// will default to 'datadoghq.com'.
+		Site string
 	}
 )
 
 const (
 	// DatadogAPIKeyEnvVar is the environment variable that will be used as an API key by default
-	DatadogAPIKeyEnvVar = "DATADOG_API_KEY"
-	// DatadogAPPKeyEnvVar is the environment variable that will be used as an API key by default
-	DatadogAPPKeyEnvVar = "DATADOG_APP_KEY"
+	DatadogAPIKeyEnvVar = "DD_API_KEY"
+	// DatadogSiteEnvVar is the environment variable that will be used as the API host.
+	DatadogSiteEnvVar = "DD_SITE"
 )
 
 // WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
@@ -108,15 +109,14 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		mc.BatchInterval = cfg.BatchInterval
 		mc.ShouldRetryOnFailure = cfg.ShouldRetryOnFailure
 		mc.APIKey = cfg.APIKey
-		mc.AppKey = cfg.AppKey
 	}
 
 	if mc.APIKey == "" {
 		mc.APIKey = os.Getenv(DatadogAPIKeyEnvVar)
 
 	}
-	if mc.AppKey == "" {
-		mc.AppKey = os.Getenv(DatadogAPIKeyEnvVar)
+	if mc.Site == "" {
+		mc.Site = os.Getenv(DatadogSiteEnvVar)
 	}
 	return mc
 }
