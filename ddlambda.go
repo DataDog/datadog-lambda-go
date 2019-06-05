@@ -117,9 +117,6 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 	}
 	if mc.Site == "" {
 		mc.Site = os.Getenv(DatadogSiteEnvVar)
-		if (mc.Site == "") {
-			mc.Site = 
-		}
 	}
 	return mc
 }

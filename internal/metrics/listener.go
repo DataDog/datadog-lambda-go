@@ -34,6 +34,10 @@ type (
 // MakeListener initializes a new metrics lambda listener
 func MakeListener(config Config) Listener {
 
+	site := config.Site
+	if site == "" {
+		site = defaultSite
+	}
 	baseAPIURL := fmt.Sprintf("https://api.%s/api/v1/", config.Site)
 
 	apiClient := MakeAPIClient(context.Background(), baseAPIURL, config.APIKey)
