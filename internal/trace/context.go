@@ -42,6 +42,12 @@ func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Conte
 		if err != nil {
 			return ctx, err
 		}
+		// Set parent ID to the functions parent.
+		xrayTraceContext, err := convertTraceContextFromXRay(ctx)
+		if err != nil {
+			traceContext[parentIDHeader] = xrayTraceContext[parentIDHeader]
+		}
+
 		return context.WithValue(ctx, traceContextKey, traceContext), nil
 	}
 
@@ -69,7 +75,7 @@ func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) map[st
 					parentID = newParentID
 				}
 			} else {
-				println("Xray current segment is empty, defaulting to global parent segment")
+				println("Xray current segment is empty, defaulting to parent segment")
 			}
 		}
 
