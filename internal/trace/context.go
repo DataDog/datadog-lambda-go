@@ -44,7 +44,7 @@ func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Conte
 		}
 		// Set parent ID to the functions parent.
 		xrayTraceContext, err := convertTraceContextFromXRay(ctx)
-		if err != nil {
+		if err == nil {
 			traceContext[parentIDHeader] = xrayTraceContext[parentIDHeader]
 		}
 
