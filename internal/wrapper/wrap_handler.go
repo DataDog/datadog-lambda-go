@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -94,8 +94,15 @@ func callHandler(ctx context.Context, msg json.RawMessage, handler interface{}) 
 	args := []reflect.Value{}
 
 	if handlerType.NumIn() == 1 {
-		// When there is only one argument, argument is always the event payload.
-		args = []reflect.Value{ev.Elem()}
+		// When there is only one argument, argument is either the event payload, or the context.
+		contextType := reflect.TypeOf((*context.Context)(nil)).Elem()
+		firstArgType := handlerType.In(0)
+		if firstArgType.Implements(contextType) {
+			args = []reflect.Value{reflect.ValueOf(ctx)}
+		} else {
+			args = []reflect.Value{ev.Elem()}
+
+		}
 	} else if handlerType.NumIn() == 2 {
 		// Or when there are two arguments, context is always first, followed by event payload.
 		args = []reflect.Value{reflect.ValueOf(ctx), ev.Elem()}
@@ -130,6 +137,13 @@ func unmarshalEventForHandler(ev json.RawMessage, handler interface{}) (reflect.
 	}
 
 	messageType := handlerType.In(handlerType.NumIn() - 1)
+	contextType := reflect.TypeOf((*context.Context)(nil)).Elem()
+	firstArgType := handlerType.In(0)
+
+	if handlerType.NumIn() == 1 && firstArgType.Implements(contextType) {
+		return reflect.ValueOf(nil), nil
+	}
+
 	newMessage := reflect.New(messageType)
 	err := json.Unmarshal(ev, newMessage.Interface())
 	if err != nil {

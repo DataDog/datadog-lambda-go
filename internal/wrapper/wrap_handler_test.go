@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -234,4 +234,18 @@ func TestWrapHandlerReturnsOriginalHandlerIfInvalid(t *testing.T) {
 
 	assert.Equal(t, reflect.ValueOf(handler).Pointer(), reflect.ValueOf(wrappedHandler).Pointer())
 
+}
+
+func TestWrapHandlerContextOnly(t *testing.T) {
+	called := true
+	var handler = func(ctx context.Context) (interface{}, error) {
+		return nil, nil
+	}
+
+	mhl := mockHandlerListener{}
+	wrappedHandler := WrapHandlerWithListeners(handler, &mhl).(func(context.Context, json.RawMessage) (interface{}, error))
+
+	_, err := wrappedHandler(context.Background(), nil)
+	assert.NoError(t, err)
+	assert.True(t, called)
 }
