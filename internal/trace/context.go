@@ -31,7 +31,7 @@ type contextKeytype int
 
 var traceContextKey = new(contextKeytype)
 
-// ExtractTraceContext returns a list of headers with the current
+// ExtractTraceContext returns a list of headers with the current trace context
 func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Context, error) {
 
 	// First priority is always any trace context from incoming headers
@@ -42,7 +42,11 @@ func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Conte
 		if err != nil {
 			return ctx, err
 		}
-		// Set parent ID to the functions parent.
+		// The parentID from the incoming datadog headers needs to be saved as metadata so the xray converter can
+		// link segments across functions. However, that parentID does not match the ID of the xray segment
+		// lambda has created. So we read in the xray id of the current lambda, and use that as our parentId to
+		// forward on to any outbound requests, (unless the user has created a subsegment, in which case we use that
+		// id as the parentID).
 		xrayTraceContext, err := convertTraceContextFromXRay(ctx)
 		if err == nil {
 			traceContext[parentIDHeader] = xrayTraceContext[parentIDHeader]
