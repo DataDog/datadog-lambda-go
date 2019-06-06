@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -155,7 +155,7 @@ func TestExtractTraceContextFromEvent(t *testing.T) {
 
 	expected := map[string]string{
 		traceIDHeader:          "1231452342",
-		parentIDHeader:         "45678910",
+		parentIDHeader:         "13334283619152181365", // Use the parentID from the context, not the event
 		samplingPriorityHeader: "2",
 	}
 	assert.Equal(t, expected, headers)
