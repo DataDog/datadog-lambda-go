@@ -63,10 +63,13 @@ func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) map[st
 		if useCurrentSegmentAsParent {
 			segment := xray.GetSegment(ctx)
 			if segment != nil {
+				println("Xray current segment is set")
 				newParentID, err := convertXRayEntityIDToAPMParentID(segment.ID)
 				if err == nil {
 					parentID = newParentID
 				}
+			} else {
+				println("Xray current segment is empty, defaulting to global parent segment")
 			}
 		}
 
