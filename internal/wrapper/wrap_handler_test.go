@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed
  * under the Apache License Version 2.0.
- * 
+ *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
  * Copyright 2019 Datadog, Inc.
  */
@@ -177,6 +177,20 @@ func TestWrapHandlerEventArgumentOnly(t *testing.T) {
 	assert.Equal(t, 5, response)
 }
 
+func TestWrapHandlerContextArgumentOnly(t *testing.T) {
+	called := true
+	var handler = func(ctx context.Context) (interface{}, error) {
+		return nil, nil
+	}
+
+	mhl := mockHandlerListener{}
+	wrappedHandler := WrapHandlerWithListeners(handler, &mhl).(func(context.Context, json.RawMessage) (interface{}, error))
+
+	_, err := wrappedHandler(context.Background(), nil)
+	assert.NoError(t, err)
+	assert.True(t, called)
+}
+
 func TestWrapHandlerNoArguments(t *testing.T) {
 	called := false
 
@@ -221,6 +235,22 @@ func TestWrapHandlerReturnsError(t *testing.T) {
 	assert.True(t, called)
 	assert.Equal(t, defaultErr, err)
 	assert.Equal(t, 5, response)
+}
+
+func TestWrapHandlerReturnsErrorOnly(t *testing.T) {
+	called := false
+	defaultErr := errors.New("Some error")
+
+	handler := func(request mockNonProxyEvent) error {
+		called = true
+		return defaultErr
+	}
+
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
+
+	assert.True(t, called)
+	assert.Equal(t, defaultErr, err)
+	assert.Equal(t, nil, response)
 }
 
 func TestWrapHandlerReturnsOriginalHandlerIfInvalid(t *testing.T) {
