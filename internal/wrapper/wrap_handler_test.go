@@ -177,6 +177,20 @@ func TestWrapHandlerEventArgumentOnly(t *testing.T) {
 	assert.Equal(t, 5, response)
 }
 
+func TestWrapHandlerContextArgumentOnly(t *testing.T) {
+	called := true
+	var handler = func(ctx context.Context) (interface{}, error) {
+		return nil, nil
+	}
+
+	mhl := mockHandlerListener{}
+	wrappedHandler := WrapHandlerWithListeners(handler, &mhl).(func(context.Context, json.RawMessage) (interface{}, error))
+
+	_, err := wrappedHandler(context.Background(), nil)
+	assert.NoError(t, err)
+	assert.True(t, called)
+}
+
 func TestWrapHandlerNoArguments(t *testing.T) {
 	called := false
 
@@ -223,6 +237,22 @@ func TestWrapHandlerReturnsError(t *testing.T) {
 	assert.Equal(t, 5, response)
 }
 
+func TestWrapHandlerReturnsErrorOnly(t *testing.T) {
+	called := false
+	defaultErr := errors.New("Some error")
+
+	handler := func(request mockNonProxyEvent) error {
+		called = true
+		return defaultErr
+	}
+
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
+
+	assert.True(t, called)
+	assert.Equal(t, defaultErr, err)
+	assert.Equal(t, nil, response)
+}
+
 func TestWrapHandlerReturnsOriginalHandlerIfInvalid(t *testing.T) {
 
 	var handler interface{} = func(arg1, arg2, arg3 int) (int, error) {
@@ -234,18 +264,4 @@ func TestWrapHandlerReturnsOriginalHandlerIfInvalid(t *testing.T) {
 
 	assert.Equal(t, reflect.ValueOf(handler).Pointer(), reflect.ValueOf(wrappedHandler).Pointer())
 
-}
-
-func TestWrapHandlerContextOnly(t *testing.T) {
-	called := true
-	var handler = func(ctx context.Context) (interface{}, error) {
-		return nil, nil
-	}
-
-	mhl := mockHandlerListener{}
-	wrappedHandler := WrapHandlerWithListeners(handler, &mhl).(func(context.Context, json.RawMessage) (interface{}, error))
-
-	_, err := wrappedHandler(context.Background(), nil)
-	assert.NoError(t, err)
-	assert.True(t, called)
 }
