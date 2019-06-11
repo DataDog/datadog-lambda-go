@@ -14,6 +14,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
 
 type (
@@ -100,6 +102,7 @@ func (cl *APIClient) addAPICredentials(req *http.Request) {
 }
 
 func (cl *APIClient) makeRoute(route string) string {
+	logger.LogMessage(fmt.Sprintf("sending message to route %s", route))
 	return fmt.Sprintf("%s/%s", cl.baseAPIURL, route)
 }
 

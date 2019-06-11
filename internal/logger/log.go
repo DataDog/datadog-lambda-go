@@ -27,3 +27,17 @@ func LogError(message string, err error) {
 
 	log.Println(string(result))
 }
+
+// LogMessage logs a structured lgo message to stdout
+func LogMessage(message string) {
+	type logStructure struct {
+		Message string `json:"message"`
+	}
+	finalMessage := logStructure{
+		Message: fmt.Sprintf("datadog: %s", message),
+	}
+
+	result, _ := json.Marshal(finalMessage)
+
+	log.Println(string(result))
+}
