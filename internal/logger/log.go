@@ -11,12 +11,17 @@ func LogError(message string, err error) {
 
 	type logStructure struct {
 		Message    string `json:"error"`
-		InnerError error  `json:"innerError,omitempty"`
+		InnerError string `json:"innerError,omitempty"`
+	}
+
+	var innerError string
+	if err != nil {
+		innerError = err.Error()
 	}
 
 	finalMessage := logStructure{
 		Message:    fmt.Sprintf("datadog: %s", message),
-		InnerError: err,
+		InnerError: innerError,
 	}
 	result, _ := json.Marshal(finalMessage)
 
