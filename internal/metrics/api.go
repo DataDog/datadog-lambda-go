@@ -89,7 +89,7 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return fmt.Errorf("Failed to send metrics to API. Status Code %d", resp.StatusCode)
 	}
 	return nil
