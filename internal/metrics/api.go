@@ -72,7 +72,9 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	}
 	body := bytes.NewBuffer(content)
 
-	req, err := http.NewRequest("POST", cl.makeRoute("series"), body)
+	// For the moment we only support distribution metrics.
+	// Other metric types use the "series" endpoint, which takes an identical payload.
+	req, err := http.NewRequest("POST", cl.makeRoute("distribution_points"), body)
 	if err != nil {
 		return fmt.Errorf("Couldn't create send metrics request:%v", err)
 	}

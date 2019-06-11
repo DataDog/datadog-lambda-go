@@ -53,7 +53,7 @@ func TestSendMetricsSuccess(t *testing.T) {
 		body, _ := ioutil.ReadAll(r.Body)
 		s := string(body)
 
-		assert.Equal(t, "/series?api_key=12345", r.URL.String())
+		assert.Equal(t, "/distribution_points?api_key=12345", r.URL.String())
 		assert.Equal(t, "{\"series\":[{\"metric\":\"metric-1\",\"tags\":[\"a\",\"b\",\"c\"],\"type\":\"distribution\",\"points\":[[1,2],[3,4],[5,6]]}]}", s)
 
 	}))
@@ -86,7 +86,7 @@ func TestSendMetricsBadRequest(t *testing.T) {
 		body, _ := ioutil.ReadAll(r.Body)
 		s := string(body)
 
-		assert.Equal(t, "/series?api_key=12345", r.URL.String())
+		assert.Equal(t, "/distribution_points?api_key=12345", r.URL.String())
 		assert.Equal(t, "{\"series\":[{\"metric\":\"metric-1\",\"tags\":[\"a\",\"b\",\"c\"],\"type\":\"distribution\",\"points\":[[1,2],[3,4],[5,6]]}]}", s)
 
 	}))
