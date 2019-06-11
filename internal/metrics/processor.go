@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/cenkalti/backoff"
 )
 
@@ -110,9 +111,15 @@ func (p *processor) processMetrics() {
 			if shouldExit && p.shouldRetryOnFail {
 				// If we are shutting down, and we just failed to send our last batch, do a retry
 				bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(defaultRetryInterval), 2)
-				backoff.Retry(p.sendMetricsBatch, bo)
+				err := backoff.Retry(p.sendMetricsBatch, bo)
+				if err != nil {
+					logger.LogError("failed to flush metrics to datadog API after retry", err)
+				}
 			} else {
-				p.sendMetricsBatch()
+				err := p.sendMetricsBatch()
+				if err != nil {
+					logger.LogError("failed to flush metrics to datadog API", err)
+				}
 			}
 		}
 	}

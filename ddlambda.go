@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/metrics"
 	"github.com/DataDog/datadog-lambda-go/internal/trace"
 	"github.com/DataDog/datadog-lambda-go/internal/wrapper"
@@ -79,6 +80,7 @@ func GetContext() context.Context {
 func DistributionWithContext(ctx context.Context, metric string, value float64, tags ...string) {
 	pr := metrics.GetProcessor(GetContext())
 	if pr == nil {
+		logger.LogError("couldn't get metrics processor from current context", nil)
 		return
 	}
 
@@ -114,6 +116,9 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 	if mc.APIKey == "" {
 		mc.APIKey = os.Getenv(DatadogAPIKeyEnvVar)
 
+	}
+	if mc.APIKey == "" {
+		logger.LogError("couldn't read DD_API_KEY from environment", nil)
 	}
 	if mc.Site == "" {
 		mc.Site = os.Getenv(DatadogSiteEnvVar)

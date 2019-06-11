@@ -13,6 +13,8 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
 
 var (
@@ -34,6 +36,7 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 	err := validateHandler(handler)
 	if err != nil {
 		// This wasn't a valid handler function, pass back to AWS SDK to let it handle the error.
+		logger.LogError("handlerfunction was in format ddlambda doesn't recognize", err)
 		return handler
 	}
 
