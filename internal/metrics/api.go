@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
@@ -92,7 +93,9 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("Failed to send metrics to API. Status Code %d", resp.StatusCode)
+		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		body := string(bodyBytes)
+		return fmt.Errorf("Failed to send metrics to API. Status Code %d, Body %s", resp.StatusCode, body)
 	}
 	return nil
 }
