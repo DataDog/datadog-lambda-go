@@ -93,8 +93,11 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		bodyBytes, _ := ioutil.ReadAll(resp.Body)
-		body := string(bodyBytes)
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		body := ""
+		if err == nil {
+			body = string(bodyBytes)
+		}
 		return fmt.Errorf("Failed to send metrics to API. Status Code %d, Body %s", resp.StatusCode, body)
 	}
 	return nil
