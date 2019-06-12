@@ -100,6 +100,7 @@ func DistributionWithContext(ctx context.Context, metric string, value float64, 
 		Values: []metrics.MetricValue{},
 	}
 	m.AddPoint(time.Now(), value)
+	logger.Debug(fmt.Sprintf("adding metric \"%s\", with value %f", metric, value))
 	pr.AddMetric(&m)
 }
 
