@@ -83,6 +83,8 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 
 	defer req.Body.Close()
 
+	logger.LogMessage(fmt.Sprintf("Sending payload with body %s", content))
+
 	cl.addAPICredentials(req)
 
 	resp, err := cl.httpClient.Do(req)
