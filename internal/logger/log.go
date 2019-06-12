@@ -51,7 +51,7 @@ func Error(message string, err error) {
 
 // Debug logs a structured lgo message to stdout
 func Debug(message string) {
-	if logLevel <= LevelDebug {
+	if logLevel > LevelDebug {
 		return
 	}
 	type logStructure struct {
