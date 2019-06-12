@@ -83,7 +83,7 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 
 	defer req.Body.Close()
 
-	logger.LogMessage(fmt.Sprintf("Sending payload with body %s", content))
+	logger.Debug(fmt.Sprintf("Sending payload with body %s", content))
 
 	cl.addAPICredentials(req)
 
@@ -113,7 +113,7 @@ func (cl *APIClient) addAPICredentials(req *http.Request) {
 
 func (cl *APIClient) makeRoute(route string) string {
 	url := fmt.Sprintf("%s/%s", cl.baseAPIURL, route)
-	logger.LogMessage(fmt.Sprintf("posting to url %s", url))
+	logger.Debug(fmt.Sprintf("posting to url %s", url))
 	return url
 }
 

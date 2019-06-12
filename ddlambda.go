@@ -36,6 +36,9 @@ type (
 		// Site is the host to send metrics to. If empty, this value is read from the 'DD_SITE' environment variable, or if that is empty
 		// will default to 'datadoghq.com'.
 		Site string
+
+		// DebugLogging will turn on extended debug logging.
+		DebugLogging bool
 	}
 )
 
@@ -49,6 +52,10 @@ const (
 // WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
 // It returns a modified handler that can be passed directly to the lambda.Start function.
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
+
+	if cfg != nil && cfg.DebugLogging {
+		logger.SetLogLevel(logger.LevelDebug)
+	}
 
 	// Set up state that is shared between handler invocations
 	tl := trace.Listener{}
@@ -80,7 +87,7 @@ func GetContext() context.Context {
 func DistributionWithContext(ctx context.Context, metric string, value float64, tags ...string) {
 	pr := metrics.GetProcessor(GetContext())
 	if pr == nil {
-		logger.LogError("couldn't get metrics processor from current context", nil)
+		logger.Error("couldn't get metrics processor from current context", nil)
 		return
 	}
 
@@ -118,7 +125,7 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 
 	}
 	if mc.APIKey == "" {
-		logger.LogError("couldn't read DD_API_KEY from environment", nil)
+		logger.Error("couldn't read DD_API_KEY from environment", nil)
 	}
 	if mc.Site == "" {
 		mc.Site = os.Getenv(DatadogSiteEnvVar)

@@ -113,12 +113,12 @@ func (p *processor) processMetrics() {
 				bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(defaultRetryInterval), 2)
 				err := backoff.Retry(p.sendMetricsBatch, bo)
 				if err != nil {
-					logger.LogError("failed to flush metrics to datadog API after retry", err)
+					logger.Error("failed to flush metrics to datadog API after retry", err)
 				}
 			} else {
 				err := p.sendMetricsBatch()
 				if err != nil {
-					logger.LogError("failed to flush metrics to datadog API", err)
+					logger.Error("failed to flush metrics to datadog API", err)
 				}
 			}
 		}
