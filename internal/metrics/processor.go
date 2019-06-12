@@ -10,6 +10,7 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -113,12 +114,12 @@ func (p *processor) processMetrics() {
 				bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(defaultRetryInterval), 2)
 				err := backoff.Retry(p.sendMetricsBatch, bo)
 				if err != nil {
-					logger.Error("failed to flush metrics to datadog API after retry", err)
+					logger.Error(fmt.Errorf("failed to flush metrics to datadog API after retry: %v", err))
 				}
 			} else {
 				err := p.sendMetricsBatch()
 				if err != nil {
-					logger.Error("failed to flush metrics to datadog API", err)
+					logger.Error(fmt.Errorf("failed to flush metrics to datadog API: %v", err))
 				}
 			}
 		}

@@ -87,7 +87,7 @@ func GetContext() context.Context {
 func DistributionWithContext(ctx context.Context, metric string, value float64, tags ...string) {
 	pr := metrics.GetProcessor(GetContext())
 	if pr == nil {
-		logger.Error("couldn't get metrics processor from current context", nil)
+		logger.Error(fmt.Errorf("couldn't get metrics processor from current context"))
 		return
 	}
 
@@ -126,7 +126,7 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 
 	}
 	if mc.APIKey == "" {
-		logger.Error("couldn't read DD_API_KEY from environment", nil)
+		logger.Error(fmt.Errorf("couldn't read DD_API_KEY from environment"))
 	}
 	if mc.Site == "" {
 		mc.Site = os.Getenv(DatadogSiteEnvVar)

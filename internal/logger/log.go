@@ -26,40 +26,33 @@ func SetLogLevel(ll LogLevel) {
 }
 
 // Error logs a structured error message to stdout
-func Error(message string, err error) {
+func Error(err error) {
 
 	type logStructure struct {
-		Level      string `json:"error"`
-		Message    string `json:"message"`
-		InnerError string `json:"innerError,omitempty"`
-	}
-
-	var innerError string
-	if err != nil {
-		innerError = err.Error()
+		Status  string `json:"status"`
+		Message string `json:"message"`
 	}
 
 	finalMessage := logStructure{
-		Level:      "error",
-		Message:    fmt.Sprintf("datadog: %s", message),
-		InnerError: innerError,
+		Status:  "error",
+		Message: fmt.Sprintf("datadog: %s", err.Error()),
 	}
 	result, _ := json.Marshal(finalMessage)
 
 	log.Println(string(result))
 }
 
-// Debug logs a structured lgo message to stdout
+// Debug logs a structured log message to stdout
 func Debug(message string) {
 	if logLevel > LevelDebug {
 		return
 	}
 	type logStructure struct {
-		Level   string `json:"level"`
+		Status  string `json:"status"`
 		Message string `json:"message"`
 	}
 	finalMessage := logStructure{
-		Level:   "debug",
+		Status:  "debug",
 		Message: fmt.Sprintf("datadog: %s", message),
 	}
 
