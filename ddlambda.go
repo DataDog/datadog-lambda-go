@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
@@ -46,12 +47,18 @@ const (
 	// DatadogAPIKeyEnvVar is the environment variable that will be used as an API key by default
 	DatadogAPIKeyEnvVar = "DD_API_KEY"
 	// DatadogSiteEnvVar is the environment variable that will be used as the API host.
-	DatadogSiteEnvVar = "DD_SITE"
+	DatadogSiteEnvVar     = "DD_SITE"
+	DatadogLogLevelEnvVar = "DD_LOG_LEVEL"
 )
 
 // WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
 // It returns a modified handler that can be passed directly to the lambda.Start function.
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
+
+	logLevel := os.Getenv(DatadogLogLevelEnvVar)
+	if strings.EqualFold(logLevel, "debug") {
+		logger.SetLogLevel(logger.LevelDebug)
+	}
 
 	if cfg != nil && cfg.DebugLogging {
 		logger.SetLogLevel(logger.LevelDebug)
@@ -131,6 +138,7 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 	if mc.Site == "" {
 		mc.Site = os.Getenv(DatadogSiteEnvVar)
 	}
+
 	return mc
 }
 
