@@ -13,7 +13,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
 
 type (
@@ -70,13 +73,17 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	}
 	body := bytes.NewBuffer(content)
 
-	req, err := http.NewRequest("POST", cl.makeRoute("series"), body)
+	// For the moment we only support distribution metrics.
+	// Other metric types use the "series" endpoint, which takes an identical payload.
+	req, err := http.NewRequest("POST", cl.makeRoute("distribution_points"), body)
 	if err != nil {
 		return fmt.Errorf("Couldn't create send metrics request:%v", err)
 	}
 	req = req.WithContext(cl.context)
 
 	defer req.Body.Close()
+
+	logger.Debug(fmt.Sprintf("Sending payload with body %s", content))
 
 	cl.addAPICredentials(req)
 
@@ -87,8 +94,13 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("Failed to send metrics to API. Status Code %d", resp.StatusCode)
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		body := ""
+		if err == nil {
+			body = string(bodyBytes)
+		}
+		return fmt.Errorf("Failed to send metrics to API. Status Code %d, Body %s", resp.StatusCode, body)
 	}
 	return nil
 }
@@ -100,7 +112,9 @@ func (cl *APIClient) addAPICredentials(req *http.Request) {
 }
 
 func (cl *APIClient) makeRoute(route string) string {
-	return fmt.Sprintf("%s/%s", cl.baseAPIURL, route)
+	url := fmt.Sprintf("%s/%s", cl.baseAPIURL, route)
+	logger.Debug(fmt.Sprintf("posting to url %s", url))
+	return url
 }
 
 func marshalAPIMetricsModel(metrics []APIMetric) ([]byte, error) {

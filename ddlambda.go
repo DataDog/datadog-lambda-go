@@ -14,8 +14,10 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/metrics"
 	"github.com/DataDog/datadog-lambda-go/internal/trace"
 	"github.com/DataDog/datadog-lambda-go/internal/wrapper"
@@ -35,6 +37,9 @@ type (
 		// Site is the host to send metrics to. If empty, this value is read from the 'DD_SITE' environment variable, or if that is empty
 		// will default to 'datadoghq.com'.
 		Site string
+
+		// DebugLogging will turn on extended debug logging.
+		DebugLogging bool
 	}
 )
 
@@ -43,11 +48,23 @@ const (
 	DatadogAPIKeyEnvVar = "DD_API_KEY"
 	// DatadogSiteEnvVar is the environment variable that will be used as the API host.
 	DatadogSiteEnvVar = "DD_SITE"
+	// DatadogLogLevelEnvVar is the environment variable that will be used to check the log level.
+	// if it equals "debug" everything will be logged.
+	DatadogLogLevelEnvVar = "DD_LOG_LEVEL"
 )
 
 // WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
 // It returns a modified handler that can be passed directly to the lambda.Start function.
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
+
+	logLevel := os.Getenv(DatadogLogLevelEnvVar)
+	if strings.EqualFold(logLevel, "debug") {
+		logger.SetLogLevel(logger.LevelDebug)
+	}
+
+	if cfg != nil && cfg.DebugLogging {
+		logger.SetLogLevel(logger.LevelDebug)
+	}
 
 	// Set up state that is shared between handler invocations
 	tl := trace.Listener{}
@@ -79,6 +96,7 @@ func GetContext() context.Context {
 func DistributionWithContext(ctx context.Context, metric string, value float64, tags ...string) {
 	pr := metrics.GetProcessor(GetContext())
 	if pr == nil {
+		logger.Error(fmt.Errorf("couldn't get metrics processor from current context"))
 		return
 	}
 
@@ -91,6 +109,7 @@ func DistributionWithContext(ctx context.Context, metric string, value float64, 
 		Values: []metrics.MetricValue{},
 	}
 	m.AddPoint(time.Now(), value)
+	logger.Debug(fmt.Sprintf("adding metric \"%s\", with value %f", metric, value))
 	pr.AddMetric(&m)
 }
 
@@ -115,9 +134,13 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		mc.APIKey = os.Getenv(DatadogAPIKeyEnvVar)
 
 	}
+	if mc.APIKey == "" {
+		logger.Error(fmt.Errorf("couldn't read DD_API_KEY from environment"))
+	}
 	if mc.Site == "" {
 		mc.Site = os.Getenv(DatadogSiteEnvVar)
 	}
+
 	return mc
 }
 

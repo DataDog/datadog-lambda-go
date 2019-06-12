@@ -8,13 +8,19 @@ Datadog's Lambda Go client library enables distributed tracing between serverful
 go get github.com/DataDog/datadog-lambda-go
 ```
 
-The following Datadog environment variables should be defined via the AWS CLI or Serverless Framework:
+You can set the following environment variables via the AWS CLI or Serverless Framework
 
-- DD_API_KEY
+### DD_API_KEY
 
-Set the following Datadog environment variable to `datadoghq.eu` to send your data to the Datadog EU site.
+Your datadog API key
 
-- DD_SITE
+### DD_SITE
+
+Which Datadog site to use. Set this to `datadoghq.eu` to send your data to the Datadog EU site.
+
+### DD_LOG_LEVEL
+
+How much logging datadog-lambda-go should do. Set this to "debug" for extensive logs.
 
 ## Usage
 
@@ -35,7 +41,6 @@ func main() {
   lambda.Start(ddlambda.WrapHandler(myHandler, &ddlambda.Config{
     BatchInterval: time.Seconds * 15
     APIKey: "my-api-key",
-    AppKey: "my-app-key",
   }))
   */
 }

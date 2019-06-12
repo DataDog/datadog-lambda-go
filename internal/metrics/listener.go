@@ -38,7 +38,7 @@ func MakeListener(config Config) Listener {
 	if site == "" {
 		site = defaultSite
 	}
-	baseAPIURL := fmt.Sprintf("https://api.%s/api/v1/", config.Site)
+	baseAPIURL := fmt.Sprintf("https://api.%s/api/v1", site)
 
 	apiClient := MakeAPIClient(context.Background(), baseAPIURL, config.APIKey)
 	if config.BatchInterval <= 0 {
