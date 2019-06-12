@@ -54,7 +54,7 @@ func TestSendMetricsSuccess(t *testing.T) {
 		s := string(body)
 
 		assert.Equal(t, "/distribution_points?api_key=12345", r.URL.String())
-		assert.Equal(t, "{\"series\":[{\"metric\":\"metric-1\",\"tags\":[\"a\",\"b\",\"c\"],\"type\":\"distribution\",\"points\":[[1,2],[3,4],[5,6]]}]}", s)
+		assert.Equal(t, "{\"series\":[{\"metric\":\"metric-1\",\"tags\":[\"a\",\"b\",\"c\"],\"type\":\"distribution\",\"points\":[[1,[2]],[3,[4]],[5,[6]]]}]}", s)
 
 	}))
 	defer server.Close()
@@ -65,8 +65,10 @@ func TestSendMetricsSuccess(t *testing.T) {
 			Host:       nil,
 			Tags:       []string{"a", "b", "c"},
 			MetricType: DistributionType,
-			Points: [][]float64{
-				{float64(1), float64(2)}, {float64(3), float64(4)}, {float64(5), float64(6)},
+			Points: []interface{}{
+				[]interface{}{float64(1), []interface{}{float64(2)}},
+				[]interface{}{float64(3), []interface{}{float64(4)}},
+				[]interface{}{float64(5), []interface{}{float64(6)}},
 			},
 		},
 	}
@@ -87,7 +89,7 @@ func TestSendMetricsBadRequest(t *testing.T) {
 		s := string(body)
 
 		assert.Equal(t, "/distribution_points?api_key=12345", r.URL.String())
-		assert.Equal(t, "{\"series\":[{\"metric\":\"metric-1\",\"tags\":[\"a\",\"b\",\"c\"],\"type\":\"distribution\",\"points\":[[1,2],[3,4],[5,6]]}]}", s)
+		assert.Equal(t, "{\"series\":[{\"metric\":\"metric-1\",\"tags\":[\"a\",\"b\",\"c\"],\"type\":\"distribution\",\"points\":[[1,[2]],[3,[4]],[5,[6]]]}]}", s)
 
 	}))
 	defer server.Close()
@@ -98,8 +100,10 @@ func TestSendMetricsBadRequest(t *testing.T) {
 			Host:       nil,
 			Tags:       []string{"a", "b", "c"},
 			MetricType: DistributionType,
-			Points: [][]float64{
-				{float64(1), float64(2)}, {float64(3), float64(4)}, {float64(5), float64(6)},
+			Points: []interface{}{
+				[]interface{}{float64(1), []interface{}{float64(2)}},
+				[]interface{}{float64(3), []interface{}{float64(4)}},
+				[]interface{}{float64(5), []interface{}{float64(6)}},
 			},
 		},
 	}
@@ -124,8 +128,10 @@ func TestSendMetricsCantReachServer(t *testing.T) {
 			Host:       nil,
 			Tags:       []string{"a", "b", "c"},
 			MetricType: DistributionType,
-			Points: [][]float64{
-				{float64(1), float64(2)}, {float64(3), float64(4)}, {float64(5), float64(6)},
+			Points: []interface{}{
+				[]interface{}{float64(1), []interface{}{float64(2)}},
+				[]interface{}{float64(3), []interface{}{float64(4)}},
+				[]interface{}{float64(5), []interface{}{float64(6)}},
 			},
 		},
 	}

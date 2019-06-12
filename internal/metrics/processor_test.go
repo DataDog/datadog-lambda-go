@@ -92,13 +92,13 @@ func TestProcessorBatches(t *testing.T) {
 		Name:       "metric-1",
 		Tags:       []string{"a", "b", "c"},
 		MetricType: DistributionType,
-		Points: [][]float64{
-			[]float64{nowUnix, 1},
-			[]float64{nowUnix, 2},
-			[]float64{nowUnix, 3},
-			[]float64{nowUnix, 4},
-			[]float64{nowUnix, 5},
-			[]float64{nowUnix, 6},
+		Points: []interface{}{
+			[]interface{}{nowUnix, []interface{}{float64(1)}},
+			[]interface{}{nowUnix, []interface{}{float64(2)}},
+			[]interface{}{nowUnix, []interface{}{float64(3)}},
+			[]interface{}{nowUnix, []interface{}{float64(4)}},
+			[]interface{}{nowUnix, []interface{}{float64(5)}},
+			[]interface{}{nowUnix, []interface{}{float64(6)}},
 		},
 	}}, firstBatch)
 }
@@ -161,10 +161,10 @@ func TestProcessorBatchesPerTick(t *testing.T) {
 				Name:       "metric-1",
 				Tags:       []string{"a", "b", "c"},
 				MetricType: DistributionType,
-				Points: [][]float64{
-					[]float64{firstTimeUnix, 1},
-					[]float64{firstTimeUnix, 2},
-					[]float64{firstTimeUnix, 3},
+				Points: []interface{}{
+					[]interface{}{firstTimeUnix, []interface{}{float64(1)}},
+					[]interface{}{firstTimeUnix, []interface{}{float64(2)}},
+					[]interface{}{firstTimeUnix, []interface{}{float64(3)}},
 				},
 			}},
 		[]APIMetric{
@@ -172,10 +172,10 @@ func TestProcessorBatchesPerTick(t *testing.T) {
 				Name:       "metric-1",
 				Tags:       []string{"a", "b", "c"},
 				MetricType: DistributionType,
-				Points: [][]float64{
-					[]float64{secondTimeUnix, 4},
-					[]float64{secondTimeUnix, 5},
-					[]float64{secondTimeUnix, 6},
+				Points: []interface{}{
+					[]interface{}{secondTimeUnix, []interface{}{float64(4)}},
+					[]interface{}{secondTimeUnix, []interface{}{float64(5)}},
+					[]interface{}{secondTimeUnix, []interface{}{float64(6)}},
 				},
 			}},
 	}, batches)

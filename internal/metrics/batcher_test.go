@@ -138,8 +138,10 @@ func TestToAPIMetricsSameInterval(t *testing.T) {
 			Tags:       []string{"a", "b", "c"},
 			MetricType: DistributionType,
 			Interval:   nil,
-			Points: [][]float64{
-				{floatTime, 1}, {floatTime, 2}, {floatTime, 3},
+			Points: []interface{}{
+				[]interface{}{floatTime, []interface{}{float64(1)}},
+				[]interface{}{floatTime, []interface{}{float64(2)}},
+				[]interface{}{floatTime, []interface{}{float64(3)}},
 			},
 		},
 	}

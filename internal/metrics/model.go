@@ -23,12 +23,12 @@ type (
 
 	// APIMetric is a metric that can be marshalled to send to the metrics API
 	APIMetric struct {
-		Name       string      `json:"metric"`
-		Host       *string     `json:"host,omitempty"`
-		Tags       []string    `json:"tags,omitempty"`
-		MetricType MetricType  `json:"type"`
-		Interval   *float64    `json:"interval,omitempty"`
-		Points     [][]float64 `json:"points"`
+		Name       string        `json:"metric"`
+		Host       *string       `json:"host,omitempty"`
+		Tags       []string      `json:"tags,omitempty"`
+		MetricType MetricType    `json:"type"`
+		Interval   *float64      `json:"interval,omitempty"`
+		Points     []interface{} `json:"points"`
 	}
 
 	// MetricValue represents a datapoint for a metric
@@ -75,12 +75,12 @@ func (d *Distribution) Join(metric Metric) {
 
 // ToAPIMetric converts a distribution into an API ready format.
 func (d *Distribution) ToAPIMetric(interval time.Duration) []APIMetric {
-	points := make([][]float64, len(d.Values))
+	points := make([]interface{}, len(d.Values))
 
 	for i, val := range d.Values {
 		currentTime := float64(val.Timestamp.Unix())
 
-		points[i] = []float64{currentTime, val.Value}
+		points[i] = []interface{}{currentTime, []interface{}{val.Value}}
 	}
 
 	return []APIMetric{
