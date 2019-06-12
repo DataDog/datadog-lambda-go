@@ -47,7 +47,9 @@ const (
 	// DatadogAPIKeyEnvVar is the environment variable that will be used as an API key by default
 	DatadogAPIKeyEnvVar = "DD_API_KEY"
 	// DatadogSiteEnvVar is the environment variable that will be used as the API host.
-	DatadogSiteEnvVar     = "DD_SITE"
+	DatadogSiteEnvVar = "DD_SITE"
+	// DatadogLogLevelEnvVar is the environment variable that will be used to check the log level.
+	// if it equals "debug" everything will be logged.
 	DatadogLogLevelEnvVar = "DD_LOG_LEVEL"
 )
 
