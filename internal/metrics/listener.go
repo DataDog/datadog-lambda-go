@@ -13,6 +13,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
 
 type (
@@ -56,6 +58,9 @@ func MakeListener(config Config) Listener {
 
 // HandlerStarted adds metrics service to the context
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
+	if l.apiClient.apiKey == "" {
+		logger.Error(fmt.Errorf("datadog api key isn't set, won't be able to send metrics"))
+	}
 
 	ts := MakeTimeService()
 	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure)
