@@ -95,6 +95,9 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		if resp.StatusCode == 403 {
+			logger.Debug(fmt.Sprintf("authorization failed with api key of length %d characters", len(cl.apiKey)))
+		}
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		body := ""
 		if err == nil {
