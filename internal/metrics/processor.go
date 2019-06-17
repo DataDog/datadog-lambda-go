@@ -108,6 +108,16 @@ func (p *processor) processMetrics() {
 			// We are ready to send a batch to our backend
 			shouldSendBatch = true
 		}
+		// Since the go select statement picks randomly if multiple values are available, it's possible the done channel was
+		// closed, but another channel was selected instead. We double check the done channel, to make sure this isn't he case.
+		select {
+		case <-doneChan:
+			shouldExit = true
+			shouldSendBatch = false
+		default:
+			// Non-blocking
+		}
+
 		if shouldSendBatch {
 			if shouldExit && p.shouldRetryOnFail {
 				// If we are shutting down, and we just failed to send our last batch, do a retry
