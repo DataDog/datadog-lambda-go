@@ -47,9 +47,6 @@ func MakeListener(config Config) Listener {
 		config.BatchInterval = defaultBatchInterval
 	}
 
-	// Do this in the background, doesn't matter if it returns
-	go apiClient.PrewarmConnection()
-
 	return Listener{
 		apiClient,
 		&config,

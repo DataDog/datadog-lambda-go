@@ -29,22 +29,6 @@ func TestAddAPICredentials(t *testing.T) {
 	assert.Equal(t, "http://some-api.com/endpoint?api_key=12345", req.URL.String())
 }
 
-func TestPrewarmConnection(t *testing.T) {
-
-	called := false
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-		assert.Equal(t, "/validate?api_key=12345", r.URL.String())
-	}))
-	defer server.Close()
-
-	cl := MakeAPIClient(context.Background(), server.URL, mockAPIKey)
-	err := cl.PrewarmConnection()
-
-	assert.NoError(t, err)
-	assert.True(t, called)
-}
-
 func TestSendMetricsSuccess(t *testing.T) {
 	called := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

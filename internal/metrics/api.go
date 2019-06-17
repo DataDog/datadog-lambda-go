@@ -49,22 +49,6 @@ func MakeAPIClient(ctx context.Context, baseAPIURL, apiKey string) *APIClient {
 	}
 }
 
-// PrewarmConnection sends a redundant GET request to the Datadog API to prewarm the TSL connection
-func (cl *APIClient) PrewarmConnection() error {
-	req, err := http.NewRequest("GET", cl.makeRoute("validate"), nil)
-	if err != nil {
-		return fmt.Errorf("Couldn't create prewarming request: %v", err)
-	}
-	req = req.WithContext(cl.context)
-
-	cl.addAPICredentials(req)
-	_, err = cl.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("Couldn't contact server for prewarm request")
-	}
-	return nil
-}
-
 // SendMetrics posts a batch metrics payload to the Datadog API
 func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	content, err := marshalAPIMetricsModel(metrics)
