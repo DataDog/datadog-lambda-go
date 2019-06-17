@@ -23,7 +23,7 @@ const (
 )
 
 func TestAddAPICredentials(t *testing.T) {
-	cl := MakeAPIClient(context.Background(), "", mockAPIKey)
+	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: "", apiKey: mockAPIKey})
 	req, _ := http.NewRequest("GET", "http://some-api.com/endpoint", nil)
 	cl.addAPICredentials(req)
 	assert.Equal(t, "http://some-api.com/endpoint?api_key=12345", req.URL.String())
@@ -57,7 +57,7 @@ func TestSendMetricsSuccess(t *testing.T) {
 		},
 	}
 
-	cl := MakeAPIClient(context.Background(), server.URL, mockAPIKey)
+	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: server.URL, apiKey: mockAPIKey})
 	err := cl.SendMetrics(am)
 
 	assert.NoError(t, err)
@@ -92,7 +92,7 @@ func TestSendMetricsBadRequest(t *testing.T) {
 		},
 	}
 
-	cl := MakeAPIClient(context.Background(), server.URL, mockAPIKey)
+	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: server.URL, apiKey: mockAPIKey})
 	err := cl.SendMetrics(am)
 
 	assert.Error(t, err)
@@ -120,7 +120,7 @@ func TestSendMetricsCantReachServer(t *testing.T) {
 		},
 	}
 
-	cl := MakeAPIClient(context.Background(), "httpa:///badly-formatted-url", mockAPIKey)
+	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: "httpa:///badly-formatted-url", apiKey: mockAPIKey})
 	err := cl.SendMetrics(am)
 
 	assert.Error(t, err)

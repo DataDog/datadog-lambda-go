@@ -27,10 +27,19 @@ type (
 
 	// APIClient send metrics to Datadog, via the Datadog API
 	APIClient struct {
-		apiKey     string
+		apiKey            string
+		apiKeyDecryptChan <-chan string
+		baseAPIURL        string
+		httpClient        *http.Client
+		context           context.Context
+	}
+
+	// APIClientOptions contains instantiation options from creating an APIClient.
+	APIClientOptions struct {
 		baseAPIURL string
-		httpClient *http.Client
-		context    context.Context
+		apiKey     string
+		kmsAPIKey  string
+		decrypter  Decrypter
 	}
 
 	postMetricsModel struct {
@@ -39,18 +48,30 @@ type (
 )
 
 // MakeAPIClient creates a new API client with the given api and app keys
-func MakeAPIClient(ctx context.Context, baseAPIURL, apiKey string) *APIClient {
+func MakeAPIClient(ctx context.Context, options APIClientOptions) *APIClient {
 	httpClient := &http.Client{}
-	return &APIClient{
-		apiKey:     apiKey,
-		baseAPIURL: baseAPIURL,
+	client := &APIClient{
+		apiKey:     options.apiKey,
+		baseAPIURL: options.baseAPIURL,
 		httpClient: httpClient,
 		context:    ctx,
 	}
+	if len(options.apiKey) == 0 && len(options.kmsAPIKey) != 0 {
+		client.apiKeyDecryptChan = client.decryptAPIKey(options.decrypter, options.kmsAPIKey)
+	}
+
+	return client
 }
 
 // SendMetrics posts a batch metrics payload to the Datadog API
 func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
+
+	// If the api key was provided as a kms key, wait for it to finish decrypting
+	if cl.apiKeyDecryptChan != nil {
+		cl.apiKey = <-cl.apiKeyDecryptChan
+		cl.apiKeyDecryptChan = nil
+	}
+
 	content, err := marshalAPIMetricsModel(metrics)
 	if err != nil {
 		return fmt.Errorf("Couldn't marshal metrics model: %v", err)
@@ -90,6 +111,21 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 		return fmt.Errorf("Failed to send metrics to API. Status Code %d, Body %s", resp.StatusCode, body)
 	}
 	return nil
+}
+
+func (cl *APIClient) decryptAPIKey(decrypter Decrypter, kmsAPIKey string) <-chan string {
+
+	ch := make(chan string)
+
+	go func() {
+		result, err := decrypter.Decrypt(kmsAPIKey)
+		if err != nil {
+			logger.Error(fmt.Errorf("Couldn't decrypt api kms key %s", err))
+		}
+		ch <- result
+		close(ch)
+	}()
+	return ch
 }
 
 func (cl *APIClient) addAPICredentials(req *http.Request) {
