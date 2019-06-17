@@ -19,8 +19,21 @@ import (
 )
 
 const (
-	mockAPIKey = "12345"
+	mockAPIKey          = "12345"
+	mockEncryptedAPIKey = "mockEncrypted"
+	mockDecryptedAPIKey = "mockDecrypted"
 )
+
+type (
+	mockDecrypter struct {
+		returnValue string
+		returnError error
+	}
+)
+
+func (md *mockDecrypter) Decrypt(cipherText string) (string, error) {
+	return md.returnValue, md.returnError
+}
 
 func TestAddAPICredentials(t *testing.T) {
 	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: "", apiKey: mockAPIKey})
@@ -125,4 +138,35 @@ func TestSendMetricsCantReachServer(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.False(t, called)
+}
+
+func TestDecryptsUsingKMSKey(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		assert.Equal(t, "/distribution_points?api_key=mockDecrypted", r.URL.String())
+	}))
+	defer server.Close()
+
+	am := []APIMetric{
+		{
+			Name:       "metric-1",
+			Host:       nil,
+			Tags:       []string{"a", "b", "c"},
+			MetricType: DistributionType,
+			Points: []interface{}{
+				[]interface{}{float64(1), []interface{}{float64(2)}},
+				[]interface{}{float64(3), []interface{}{float64(4)}},
+				[]interface{}{float64(5), []interface{}{float64(6)}},
+			},
+		},
+	}
+	md := mockDecrypter{}
+	md.returnValue = mockDecryptedAPIKey
+
+	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: server.URL, apiKey: "", kmsAPIKey: mockEncryptedAPIKey, decrypter: &md})
+	err := cl.SendMetrics(am)
+
+	assert.NoError(t, err)
+	assert.True(t, called)
 }
