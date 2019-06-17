@@ -132,14 +132,17 @@ func (p *processor) processMetrics() {
 func (p *processor) sendMetricsBatch() error {
 	mts := p.batcher.ToAPIMetrics()
 	if len(mts) > 0 {
+		oldBatcher := p.batcher
+		p.batcher = MakeBatcher(p.batchInterval)
+
 		err := p.client.SendMetrics(mts)
 		if err != nil {
+			if p.shouldRetryOnFail {
+				// If we want to retry on error, keep the metrics in the batcher until they are sent correctly.
+				p.batcher = oldBatcher
+			}
 			return err
 		}
-		// All the metrics in the batcher were sent successfully,
-		// the batcher can now be cleared. If there was an error,
-		// the metrics will stay in the batcher and be sent in the next cycle.
-		p.batcher = MakeBatcher(p.batchInterval)
 	}
 	return nil
 }
