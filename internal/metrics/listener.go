@@ -98,7 +98,7 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, tags ...s
 	tags = append(tags, getRuntimeTag())
 
 	if l.config.ShouldUseLogForwarder {
-
+		logger.Debug("sending metric via log forwarder")
 		unixTime := time.Now().Unix()
 		lm := logMetric{
 			MetricName: metric,
