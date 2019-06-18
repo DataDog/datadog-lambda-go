@@ -27,6 +27,8 @@ type (
 		StartProcessing()
 		// FinishProcessing shuts down the agent, and tries to flush any remaining metrics
 		FinishProcessing()
+		// Whether the processor is still processing
+		IsProcessing() bool
 	}
 
 	processor struct {
@@ -81,6 +83,10 @@ func (p *processor) FinishProcessing() {
 	// Closes the metrics channel, and waits for the last send to complete
 	close(p.metricsChan)
 	p.waitGroup.Wait()
+}
+
+func (p *processor) IsProcessing() bool {
+	return p.isProcessing
 }
 
 func (p *processor) processMetrics() {

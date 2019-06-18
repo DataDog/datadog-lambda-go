@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
@@ -22,6 +23,7 @@ type (
 	Listener struct {
 		apiClient *APIClient
 		config    *Config
+		processor Processor
 	}
 
 	// Config gives options for how the listener should work
@@ -37,14 +39,8 @@ type (
 // MakeListener initializes a new metrics lambda listener
 func MakeListener(config Config) Listener {
 
-	site := config.Site
-	if site == "" {
-		site = defaultSite
-	}
-	baseAPIURL := fmt.Sprintf("https://api.%s/api/v1", site)
-
 	apiClient := MakeAPIClient(context.Background(), APIClientOptions{
-		baseAPIURL: baseAPIURL,
+		baseAPIURL: config.Site,
 		apiKey:     config.APIKey,
 		decrypter:  MakeKMSDecrypter(),
 		kmsAPIKey:  config.KMSAPIKey,
@@ -54,8 +50,9 @@ func MakeListener(config Config) Listener {
 	}
 
 	return Listener{
-		apiClient,
-		&config,
+		apiClient: apiClient,
+		config:    &config,
+		processor: nil,
 	}
 }
 
@@ -67,8 +64,9 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	ts := MakeTimeService()
 	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure)
+	l.processor = pr
 
-	ctx = AddProcessor(ctx, pr)
+	ctx = AddListener(ctx, l)
 	// Setting the context on the client will mean that future requests will be cancelled correctly
 	// if the lambda times out.
 	l.apiClient.context = ctx
@@ -80,8 +78,26 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 // HandlerFinished implemented as part of the wrapper.HandlerListener interface
 func (l *Listener) HandlerFinished(ctx context.Context) {
-	pr := GetProcessor(ctx)
-	if pr != nil {
-		pr.FinishProcessing()
+	if l.processor != nil {
+		l.processor.FinishProcessing()
 	}
+}
+
+// AddDistributionMetric sends a distribution metric
+func (l *Listener) AddDistributionMetric(metric string, value float64, tags ...string) {
+	// We add our own runtime tag to the metric for version tracking
+	tags = append(tags, getRuntimeTag())
+
+	m := Distribution{
+		Name:   metric,
+		Tags:   tags,
+		Values: []MetricValue{},
+	}
+	m.AddPoint(time.Now(), value)
+	logger.Debug(fmt.Sprintf("adding metric \"%s\", with value %f", metric, value))
+	l.processor.AddMetric(&m)
+}
+func getRuntimeTag() string {
+	v := runtime.Version()
+	return fmt.Sprintf("dd_lambda_layer:datadog-%s", v)
 }

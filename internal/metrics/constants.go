@@ -15,7 +15,6 @@ const (
 	appKeyParam          = "application_key"
 	defaultRetryInterval = time.Millisecond * 250
 	defaultBatchInterval = time.Second * 15
-	defaultSite          = "datadoghq.com"
 )
 
 // MetricType enumerates all the available metric types
