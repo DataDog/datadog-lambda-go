@@ -49,3 +49,18 @@ func TestAddDistributionMetricWithAPI(t *testing.T) {
 	listener.HandlerFinished(ctx)
 	assert.True(t, called)
 }
+
+func TestAddDistributionMetricWithLogForwarder(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, ShouldUseLogForwarder: true})
+	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
+	listener.AddDistributionMetric("the-metric", 2, "tag:a", "tag:b")
+	listener.HandlerFinished(ctx)
+	assert.False(t, called)
+}

@@ -28,11 +28,19 @@ type (
 
 	// Config gives options for how the listener should work
 	Config struct {
-		APIKey               string
-		KMSAPIKey            string
-		Site                 string
-		ShouldRetryOnFailure bool
-		BatchInterval        time.Duration
+		APIKey                string
+		KMSAPIKey             string
+		Site                  string
+		ShouldRetryOnFailure  bool
+		ShouldUseLogForwarder bool
+		BatchInterval         time.Duration
+	}
+
+	logMetric struct {
+		MetricName string   `json:"m"`
+		Value      float64  `json:"v"`
+		Timestamp  int64    `json:"e"`
+		Tags       []string `json:"t"`
 	}
 )
 
@@ -58,7 +66,7 @@ func MakeListener(config Config) Listener {
 
 // HandlerStarted adds metrics service to the context
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	if l.apiClient.apiKey == "" && l.config.KMSAPIKey == "" {
+	if l.apiClient.apiKey == "" && l.config.KMSAPIKey == "" && !l.config.ShouldUseLogForwarder {
 		logger.Error(fmt.Errorf("datadog api key isn't set, won't be able to send metrics"))
 	}
 
@@ -85,9 +93,26 @@ func (l *Listener) HandlerFinished(ctx context.Context) {
 
 // AddDistributionMetric sends a distribution metric
 func (l *Listener) AddDistributionMetric(metric string, value float64, tags ...string) {
+
 	// We add our own runtime tag to the metric for version tracking
 	tags = append(tags, getRuntimeTag())
 
+	if l.config.ShouldUseLogForwarder {
+		unixTime := time.Now().Unix()
+		lm := logMetric{
+			MetricName: metric,
+			Value:      value,
+			Timestamp:  unixTime,
+			Tags:       tags,
+		}
+		result, err := json.Marshal(lm)
+		if err != nil {
+			logger.Error(fmt.Errorf("failed to marshall metric for log forwarder with error %v", err))
+			return
+		}
+		println(string(result))
+		return
+	}
 	m := Distribution{
 		Name:   metric,
 		Tags:   tags,
