@@ -222,10 +222,10 @@ func TestProcessorCancelsWithContext(t *testing.T) {
 	}
 
 	processor.AddMetric(&d1)
-
 	// After calling cancelFunc, no metrics should be processed/sent
 	cancelFunc()
-	<-time.Tick(time.Millisecond * 10)
+	//<-time.Tick(time.Millisecond * 100)
+
 	processor.FinishProcessing()
 
 	assert.Equal(t, 0, mc.sendMetricsCalledCount)

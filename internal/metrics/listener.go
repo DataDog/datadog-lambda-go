@@ -27,6 +27,7 @@ type (
 	// Config gives options for how the listener should work
 	Config struct {
 		APIKey               string
+		KMSAPIKey            string
 		Site                 string
 		ShouldRetryOnFailure bool
 		BatchInterval        time.Duration
@@ -42,7 +43,12 @@ func MakeListener(config Config) Listener {
 	}
 	baseAPIURL := fmt.Sprintf("https://api.%s/api/v1", site)
 
-	apiClient := MakeAPIClient(context.Background(), baseAPIURL, config.APIKey)
+	apiClient := MakeAPIClient(context.Background(), APIClientOptions{
+		baseAPIURL: baseAPIURL,
+		apiKey:     config.APIKey,
+		decrypter:  MakeKMSDecrypter(),
+		kmsAPIKey:  config.KMSAPIKey,
+	})
 	if config.BatchInterval <= 0 {
 		config.BatchInterval = defaultBatchInterval
 	}
