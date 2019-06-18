@@ -58,7 +58,7 @@ const (
 	// if it equals "debug" everything will be logged.
 	DatadogLogLevelEnvVar = "DD_LOG_LEVEL"
 	// DatadogShouldUseLogForwarderEnvVar is the environment variable that is used to enable log forwarding of metrics.
-	DatadogShouldUseLogForwarderEnvVar = "DATADOG_FLUSH_TO_LOG"
+	DatadogShouldUseLogForwarderEnvVar = "DD_FLUSH_TO_LOG"
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
 )
