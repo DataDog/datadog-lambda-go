@@ -122,16 +122,6 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		mc.ShouldUseLogForwarder = cfg.ShouldUseLogForwarder
 	}
 
-	if mc.APIKey == "" {
-		mc.APIKey = os.Getenv(DatadogAPIKeyEnvVar)
-
-	}
-	if mc.KMSAPIKey == "" {
-		mc.KMSAPIKey = os.Getenv(DatadogKMSAPIKeyEnvVar)
-	}
-	if mc.APIKey == "" && mc.KMSAPIKey == "" {
-		logger.Error(fmt.Errorf("couldn't read DD_API_KEY or DD_KMS_API_KEY from environment"))
-	}
 	if mc.Site == "" {
 		mc.Site = os.Getenv(DatadogSiteEnvVar)
 	}
@@ -143,6 +133,17 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 	if !mc.ShouldUseLogForwarder {
 		shouldUseLogForwarder := os.Getenv(DatadogShouldUseLogForwarderEnvVar)
 		mc.ShouldUseLogForwarder = strings.EqualFold(shouldUseLogForwarder, "true")
+	}
+
+	if mc.APIKey == "" {
+		mc.APIKey = os.Getenv(DatadogAPIKeyEnvVar)
+
+	}
+	if mc.KMSAPIKey == "" {
+		mc.KMSAPIKey = os.Getenv(DatadogKMSAPIKeyEnvVar)
+	}
+	if mc.APIKey == "" && mc.KMSAPIKey == "" && !mc.ShouldUseLogForwarder {
+		logger.Error(fmt.Errorf("couldn't read DD_API_KEY or DD_KMS_API_KEY from environment"))
 	}
 
 	return mc
