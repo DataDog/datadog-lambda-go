@@ -22,6 +22,10 @@ Which Datadog site to use. Set this to `datadoghq.eu` to send your data to the D
 
 How much logging datadog-lambda-go should do. Set this to "debug" for extensive logs.
 
+### DD_FLUSH_TO_LOG
+
+If your Lambda function powers a performance-critical task (e.g., a consumer-facing API). You can avoid the added latencies of metric-submitting API calls, by setting this value to true. Custom metrics will be submitted asynchronously through CloudWatch Logs and the Datadog log forwarder.
+
 ## Usage
 
 Datadog needs to be able to read headers from the incoming Lambda event. Wrap your Lambda handler function like so:
