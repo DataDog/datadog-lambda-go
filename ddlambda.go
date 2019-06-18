@@ -105,6 +105,7 @@ func Distribution(metric string, value float64, tags ...string) {
 		logger.Error(fmt.Errorf("couldn't get metrics listener from current context"))
 		return
 	}
+	listener.AddDistributionMetric(metric, value, tags...)
 }
 
 func (cfg *Config) toMetricsConfig() metrics.Config {
