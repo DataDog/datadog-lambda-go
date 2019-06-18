@@ -32,6 +32,9 @@ type (
 		// ShouldRetryOnFailure is used to turn on retry logic when sending metrics via the API. This can negatively effect the performance of your lambda,
 		// and should only be turned on if you can't afford to lose metrics data under poor network conditions.
 		ShouldRetryOnFailure bool
+		// ShouldUseLogForwarder enabled the log forwarding method for sending metrics to Datadog. This approach requires the user to set up a custom lambda
+		// function that forwards metrics from cloudwatch to the Datadog api. This approach doesn't have any impact on the performance of your lambda function.
+		ShouldUseLogForwarder bool
 		// BatchInterval is the period of time which metrics are grouped together for processing to be sent to the API or written to logs.
 		// Any pending metrics are flushed at the end of the lambda.
 		BatchInterval time.Duration
@@ -54,7 +57,9 @@ const (
 	// DatadogLogLevelEnvVar is the environment variable that will be used to check the log level.
 	// if it equals "debug" everything will be logged.
 	DatadogLogLevelEnvVar = "DD_LOG_LEVEL"
-	// Default site to send API message to.
+	// DatadogShouldUseLogForwarderEnvVar is the environment variable that is used to enable log forwarding of metrics.
+	DatadogShouldUseLogForwarderEnvVar = "DATADOG_FLUSH_TO_LOG"
+	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
 )
 
@@ -63,11 +68,7 @@ const (
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
 
 	logLevel := os.Getenv(DatadogLogLevelEnvVar)
-	if strings.EqualFold(logLevel, "debug") {
-		logger.SetLogLevel(logger.LevelDebug)
-	}
-
-	if cfg != nil && cfg.DebugLogging {
+	if strings.EqualFold(logLevel, "debug") || (cfg != nil && cfg.DebugLogging) {
 		logger.SetLogLevel(logger.LevelDebug)
 	}
 
@@ -117,13 +118,13 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		mc.ShouldRetryOnFailure = cfg.ShouldRetryOnFailure
 		mc.APIKey = cfg.APIKey
 		mc.KMSAPIKey = cfg.KMSAPIKey
+		mc.ShouldUseLogForwarder = cfg.ShouldUseLogForwarder
 	}
 
 	if mc.APIKey == "" {
 		mc.APIKey = os.Getenv(DatadogAPIKeyEnvVar)
 
 	}
-
 	if mc.KMSAPIKey == "" {
 		mc.KMSAPIKey = os.Getenv(DatadogKMSAPIKeyEnvVar)
 	}
@@ -137,6 +138,11 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		mc.Site = DefaultSite
 	}
 	mc.Site = fmt.Sprintf("https://api.%s/api/v1", mc.Site)
+
+	if !mc.ShouldUseLogForwarder {
+		shouldUseLogForwarder := os.Getenv(DatadogShouldUseLogForwarderEnvVar)
+		mc.ShouldUseLogForwarder = strings.EqualFold(shouldUseLogForwarder, "true")
+	}
 
 	return mc
 }

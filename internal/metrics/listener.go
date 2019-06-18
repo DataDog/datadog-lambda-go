@@ -98,6 +98,7 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, tags ...s
 	tags = append(tags, getRuntimeTag())
 
 	if l.config.ShouldUseLogForwarder {
+
 		unixTime := time.Now().Unix()
 		lm := logMetric{
 			MetricName: metric,
@@ -110,7 +111,8 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, tags ...s
 			logger.Error(fmt.Errorf("failed to marshall metric for log forwarder with error %v", err))
 			return
 		}
-		println(string(result))
+		payload := string(result)
+		println(payload)
 		return
 	}
 	m := Distribution{
