@@ -61,7 +61,7 @@ func MakeListener(config Config) Listener {
 
 // HandlerStarted adds metrics service to the context
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	if l.apiClient.apiKey == "" {
+	if l.apiClient.apiKey == "" && l.apiClient.kmsAPIKey == "" {
 		logger.Error(fmt.Errorf("datadog api key isn't set, won't be able to send metrics"))
 	}
 
