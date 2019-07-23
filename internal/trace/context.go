@@ -120,17 +120,22 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (map[string]string, bool)
 		return traceContext, false
 	}
 
-	traceID, ok := eh.Headers[traceIDHeader]
+	lowercaseHeaders := map[string]string{}
+	for k, v := range eh.Headers {
+		lowercaseHeaders[strings.ToLower(k)] = v
+	}
+
+	traceID, ok := lowercaseHeaders[traceIDHeader]
 	if !ok {
 		return traceContext, false
 	}
 
-	parentID, ok := eh.Headers[parentIDHeader]
+	parentID, ok := lowercaseHeaders[parentIDHeader]
 	if !ok {
 		return traceContext, false
 	}
 
-	samplingPriority, ok := eh.Headers[samplingPriorityHeader]
+	samplingPriority, ok := lowercaseHeaders[samplingPriorityHeader]
 	if !ok {
 		return traceContext, false
 	}
