@@ -61,6 +61,20 @@ func TestUnmarshalEventForTraceMetadataNonProxyEvent(t *testing.T) {
 	assert.Equal(t, expected, headers)
 }
 
+func TestUnmarshalEventForTraceMetadataWithMixedCaseHeaders(t *testing.T) {
+	ev := loadRawJSON(t, "../testdata/non-proxy-mixed-case-metadata.json")
+
+	headers, ok := unmarshalEventForTraceContext(*ev)
+	assert.True(t, ok)
+
+	expected := map[string]string{
+		traceIDHeader:          "1231452342",
+		parentIDHeader:         "45678910",
+		samplingPriorityHeader: "2",
+	}
+	assert.Equal(t, expected, headers)
+}
+
 func TestUnmarshalEventForInvalidData(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/invalid.json")
 
