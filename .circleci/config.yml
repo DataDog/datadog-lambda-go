@@ -4,11 +4,12 @@ jobs:
   verify_build:
     working_directory: ~/repo
     docker:
-      - image: circleci/go:1.12
+      - image: circleci/golang:1.12.7
     steps:
       - checkout
-      - run: go lint
-      - run: go test -race -coverprofile=coverage.txt -covermode=atomic
+      - run: go get -u golang.org/x/lint/golint
+      - run: golint
+      - run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
       - run: bash <(curl -s https://codecov.io/bash)
 
 workflows:
