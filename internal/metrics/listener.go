@@ -92,14 +92,14 @@ func (l *Listener) HandlerFinished(ctx context.Context) {
 }
 
 // AddDistributionMetric sends a distribution metric
-func (l *Listener) AddDistributionMetric(metric string, value float64, tags ...string) {
+func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp time.Time, tags ...string) {
 
 	// We add our own runtime tag to the metric for version tracking
 	tags = append(tags, getRuntimeTag())
 
 	if l.config.ShouldUseLogForwarder {
 		logger.Debug("sending metric via log forwarder")
-		unixTime := time.Now().Unix()
+		unixTime := timestamp.Unix()
 		lm := logMetric{
 			MetricName: metric,
 			Value:      value,
@@ -120,7 +120,7 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, tags ...s
 		Tags:   tags,
 		Values: []MetricValue{},
 	}
-	m.AddPoint(time.Now(), value)
+	m.AddPoint(timestamp, value)
 	logger.Debug(fmt.Sprintf("adding metric \"%s\", with value %f", metric, value))
 	l.processor.AddMetric(&m)
 }
