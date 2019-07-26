@@ -1,0 +1,17 @@
+version: 2.1
+
+jobs:
+  verify_build:
+    working_directory: ~/repo
+    docker:
+      - image: circleci/go:1.12
+    steps:
+      - checkout
+      - run: go lint
+      - run: go test -race -coverprofile=coverage.txt -covermode=atomic
+      - run: bash <(curl -s https://codecov.io/bash)
+
+workflows:
+  workflow:
+    jobs:
+      - verify_build
