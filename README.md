@@ -62,12 +62,12 @@ func myHandler(ctx context.Context, event MyEvent) (string, error) {
 
 ## Custom Metrics
 
-Custom metrics can be submitted using the `Distribution` function. The metrics are submitted as [distribution metrics](https://docs.datadoghq.com/graphing/metrics/distributions/).
+Custom metrics can be submitted using the `Metric` function. The metrics are submitted as [distribution metrics](https://docs.datadoghq.com/graphing/metrics/distributions/).
 
-**IMPORTANT NOTE:** If you have already been submitting the same custom metric as non-distribution metric (e.g., gauge, count, or histogram) without using the datadog-lambda-go lib, you MUST pick a new metric name to use for `ddlambda.Distribution`. Otherwise that existing metric will be converted to a distribution metric and the historical data prior to the conversion will be no longer queryable.
+**IMPORTANT NOTE:** If you have already been submitting the same custom metric as non-distribution metric (e.g., gauge, count, or histogram) without using the datadog-lambda-go lib, you MUST pick a new metric name to use for `ddlambda.Metric`. Otherwise that existing metric will be converted to a distribution metric and the historical data prior to the conversion will be no longer queryable.
 
 ```go
-ddlambda.Distribution(
+ddlambda.Metric(
   "coffee_house.order_value", // Metric name
   12.45, // The value
   "product:latte", "order:online" // Associated tags

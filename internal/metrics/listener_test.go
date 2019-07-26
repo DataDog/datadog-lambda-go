@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -45,7 +46,7 @@ func TestAddDistributionMetricWithAPI(t *testing.T) {
 
 	listener := MakeListener(Config{APIKey: "12345", Site: server.URL})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
-	listener.AddDistributionMetric("the-metric", 2, "tag:a", "tag:b")
+	listener.AddDistributionMetric("the-metric", 2, time.Now(), "tag:a", "tag:b")
 	listener.HandlerFinished(ctx)
 	assert.True(t, called)
 }
@@ -60,7 +61,7 @@ func TestAddDistributionMetricWithLogForwarder(t *testing.T) {
 
 	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, ShouldUseLogForwarder: true})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
-	listener.AddDistributionMetric("the-metric", 2, "tag:a", "tag:b")
+	listener.AddDistributionMetric("the-metric", 2, time.Now(), "tag:a", "tag:b")
 	listener.HandlerFinished(ctx)
 	assert.False(t, called)
 }

@@ -99,13 +99,24 @@ func GetContext() context.Context {
 }
 
 // Distribution sends a distribution metric to DataDog
+// Deprecated: Use Metric method instead
 func Distribution(metric string, value float64, tags ...string) {
+	Metric(metric, value, tags...)
+}
+
+// Metric sends a distribution metric to DataDog
+func Metric(metric string, value float64, tags ...string) {
+	MetricWithTimestamp(metric, value, time.Now(), tags...)
+}
+
+// MetricWithTimestamp sends a distribution metric to DataDog with a custom timestamp
+func MetricWithTimestamp(metric string, value float64, timestamp time.Time, tags ...string) {
 	listener := metrics.GetListener(GetContext())
 	if listener == nil {
 		logger.Error(fmt.Errorf("couldn't get metrics listener from current context"))
 		return
 	}
-	listener.AddDistributionMetric(metric, value, tags...)
+	listener.AddDistributionMetric(metric, value, timestamp, tags...)
 }
 
 func (cfg *Config) toMetricsConfig() metrics.Config {
