@@ -49,7 +49,7 @@ func main() {
   lambda.Start(ddlambda.WrapHandler(myHandler, nil))
   /* OR with manual configuration options
   lambda.Start(ddlambda.WrapHandler(myHandler, &ddlambda.Config{
-    BatchInterval: time.Seconds * 15
+    BatchInterval: time.Second * 15
     APIKey: "my-api-key",
   }))
   */
