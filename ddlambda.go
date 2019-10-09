@@ -44,6 +44,9 @@ type (
 
 		// DebugLogging will turn on extended debug logging.
 		DebugLogging bool
+
+		// Trace library operations with AWS X-Ray.
+		Trace bool
 	}
 )
 
@@ -73,9 +76,9 @@ func WrapHandler(handler interface{}, cfg *Config) interface{} {
 	}
 
 	// Set up state that is shared between handler invocations
-	tl := trace.Listener{}
+	tl := trace.NewListener(cfg.Trace)
 	ml := metrics.MakeListener(cfg.toMetricsConfig())
-	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
+	return wrapper.WrapHandlerWithListeners(handler, tl, &ml)
 }
 
 // GetTraceHeaders reads a map containing the DataDog trace headers from a context object.
@@ -131,6 +134,7 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		mc.APIKey = cfg.APIKey
 		mc.KMSAPIKey = cfg.KMSAPIKey
 		mc.ShouldUseLogForwarder = cfg.ShouldUseLogForwarder
+		mc.Trace = cfg.Trace
 	}
 
 	if mc.Site == "" {

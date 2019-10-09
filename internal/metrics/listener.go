@@ -21,6 +21,7 @@ import (
 type (
 	// Listener implements wrapper.HandlerListener, injecting metrics into the context
 	Listener struct {
+		trace     bool
 		apiClient *APIClient
 		config    *Config
 		processor Processor
@@ -34,6 +35,7 @@ type (
 		ShouldRetryOnFailure  bool
 		ShouldUseLogForwarder bool
 		BatchInterval         time.Duration
+		Trace                 bool
 	}
 
 	logMetric struct {
@@ -61,7 +63,16 @@ func MakeListener(config Config) Listener {
 		apiClient: apiClient,
 		config:    &config,
 		processor: nil,
+		trace:     config.Trace,
 	}
+}
+
+func (l *Listener) Trace() bool {
+	return l.trace
+}
+
+func (l *Listener) Name() string {
+	return "Datadog-Metrics"
 }
 
 // HandlerStarted adds metrics service to the context
