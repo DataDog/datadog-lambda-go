@@ -16,6 +16,7 @@ import (
 	"reflect"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
 var (
@@ -24,8 +25,11 @@ var (
 )
 
 type (
-	// HandlerListener is a point where listener logic can be injected into a handler
+	// HandlerListener is a point where listener logic can be
+	// injected into a handler
 	HandlerListener interface {
+		Name() string
+		Trace() bool
 		HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context
 		HandlerFinished(ctx context.Context)
 	}
@@ -33,7 +37,6 @@ type (
 
 // WrapHandlerWithListeners wraps a lambda handler, and calls listeners before and after every invocation.
 func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener) interface{} {
-
 	err := validateHandler(handler)
 	if err != nil {
 		// This wasn't a valid handler function, pass back to AWS SDK to let it handle the error.
@@ -44,12 +47,27 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 	// Return custom handler, to be called once per invocation
 	return func(ctx context.Context, msg json.RawMessage) (interface{}, error) {
 		for _, listener := range listeners {
-			ctx = listener.HandlerStarted(ctx, msg)
+			if listener.Trace() {
+				xray.Capture(ctx, fmt.Sprintf("%s-HandlerStarted", listener.Name()), func(ictx context.Context) error {
+					ctx = listener.HandlerStarted(ictx, msg)
+					return nil
+				})
+			} else {
+				ctx = listener.HandlerStarted(ctx, msg)
+			}
 		}
 		CurrentContext = ctx
 		result, err := callHandler(ctx, msg, handler)
 		for _, listener := range listeners {
-			listener.HandlerFinished(ctx)
+			if listener.Trace() {
+				xray.Capture(ctx, fmt.Sprintf("%s-HandlerFinished", listener.Name()), func(ctx context.Context) error {
+					listener.HandlerFinished(ctx)
+					return nil
+				})
+
+			} else {
+				listener.HandlerFinished(ctx)
+			}
 		}
 		return result, err
 	}

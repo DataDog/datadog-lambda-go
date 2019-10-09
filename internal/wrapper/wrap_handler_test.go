@@ -33,6 +33,14 @@ type (
 	}
 )
 
+func (mhl *mockHandlerListener) Name() string {
+	return "mhl"
+}
+
+func (mhl *mockHandlerListener) Trace() bool {
+	return false
+}
+
 func (mhl *mockHandlerListener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
 	mhl.inputCTX = ctx
 	mhl.inputMSG = msg
