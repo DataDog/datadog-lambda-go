@@ -67,7 +67,7 @@ Custom metrics can be submitted using the `Metric` function. The metrics are sub
 **IMPORTANT NOTE:** If you have already been submitting the same custom metric as non-distribution metric (e.g., gauge, count, or histogram) without using the datadog-lambda-go lib, you MUST pick a new metric name to use for `ddlambda.Metric`. Otherwise that existing metric will be converted to a distribution metric and the historical data prior to the conversion will be no longer queryable.
 
 ```go
-ddlambda.Metric(
+ddlambda.Distribution(
   "coffee_house.order_value", // Metric name
   12.45, // The value
   "product:latte", "order:online" // Associated tags
