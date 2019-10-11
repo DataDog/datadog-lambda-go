@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/DataDog/datadog-lambda-go/logger"
 	"github.com/aws/aws-xray-sdk-go/xray"
 )
 

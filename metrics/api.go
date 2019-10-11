@@ -16,7 +16,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/DataDog/datadog-lambda-go/logger"
 )
 
 type (

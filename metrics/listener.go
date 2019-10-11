@@ -15,7 +15,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/DataDog/datadog-lambda-go/logger"
 )
 
 type (
