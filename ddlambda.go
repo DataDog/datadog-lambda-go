@@ -131,6 +131,7 @@ func MetricWithTimestamp(metric string, value float64, timestamp time.Time, tags
 // InvokeDryRun is a utility to easily run your lambda for testing
 func InvokeDryRun(callback func(ctx context.Context), cfg *Config) (interface{}, error) {
 	wrapped := WrapHandler(callback, cfg)
+	// Convert the wrapped handler to it's underlying raw handler type
 	handler, ok := wrapped.(func(ctx context.Context, msg json.RawMessage) (interface{}, error))
 	if !ok {
 		logger.Debug("Could not unwrap lambda during dry run")
