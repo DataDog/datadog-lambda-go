@@ -51,6 +51,7 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 		for _, listener := range listeners {
 			listener.HandlerFinished(ctx)
 		}
+		CurrentContext = nil
 		return result, err
 	}
 }

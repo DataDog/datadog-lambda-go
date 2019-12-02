@@ -10,6 +10,7 @@ package ddlambda
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -111,12 +112,31 @@ func Metric(metric string, value float64, tags ...string) {
 
 // MetricWithTimestamp sends a distribution metric to DataDog with a custom timestamp
 func MetricWithTimestamp(metric string, value float64, timestamp time.Time, tags ...string) {
-	listener := metrics.GetListener(GetContext())
+	ctx := GetContext()
+
+	if ctx == nil {
+		logger.Debug("no context available, did you wrap your handler?")
+		return
+	}
+
+	listener := metrics.GetListener(ctx)
+
 	if listener == nil {
 		logger.Error(fmt.Errorf("couldn't get metrics listener from current context"))
 		return
 	}
 	listener.AddDistributionMetric(metric, value, timestamp, tags...)
+}
+
+// InvokeDryRun is a utility to easily run your lambda for testing
+func InvokeDryRun(callback func(ctx context.Context), cfg *Config) (interface{}, error) {
+	wrapped := WrapHandler(callback, cfg)
+	// Convert the wrapped handler to it's underlying raw handler type
+	handler, ok := wrapped.(func(ctx context.Context, msg json.RawMessage) (interface{}, error))
+	if !ok {
+		logger.Debug("Could not unwrap lambda during dry run")
+	}
+	return handler(context.Background(), json.RawMessage("{}"))
 }
 
 func (cfg *Config) toMetricsConfig() metrics.Config {
@@ -130,6 +150,7 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		mc.ShouldRetryOnFailure = cfg.ShouldRetryOnFailure
 		mc.APIKey = cfg.APIKey
 		mc.KMSAPIKey = cfg.KMSAPIKey
+		mc.Site = cfg.Site
 		mc.ShouldUseLogForwarder = cfg.ShouldUseLogForwarder
 	}
 
@@ -139,7 +160,11 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 	if mc.Site == "" {
 		mc.Site = DefaultSite
 	}
-	mc.Site = fmt.Sprintf("https://api.%s/api/v1", mc.Site)
+	if strings.HasPrefix(mc.Site, "https://") || strings.HasPrefix(mc.Site, "http://") {
+		mc.Site = fmt.Sprintf("%s/api/v1", mc.Site)
+	} else {
+		mc.Site = fmt.Sprintf("https://api.%s/api/v1", mc.Site)
+	}
 
 	if !mc.ShouldUseLogForwarder {
 		shouldUseLogForwarder := os.Getenv(DatadogShouldUseLogForwarderEnvVar)
