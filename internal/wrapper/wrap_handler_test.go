@@ -12,12 +12,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/DataDog/datadog-lambda-go/internal/metrics"
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambdacontext"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
-
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/stretchr/testify/assert"
 )
 
 type (
@@ -264,4 +267,74 @@ func TestWrapHandlerReturnsOriginalHandlerIfInvalid(t *testing.T) {
 
 	assert.Equal(t, reflect.ValueOf(handler).Pointer(), reflect.ValueOf(wrappedHandler).Pointer())
 
+}
+
+func TestGetEnhancedMetricsTags(t *testing.T) {
+	ctx := context.WithValue(context.Background(), "cold_start", false)
+
+	lambdacontext.MemoryLimitInMB = 256
+	lambdacontext.FunctionName = "go-lambda-test"
+	lc := &lambdacontext.LambdaContext{
+		InvokedFunctionArn: "arn:aws:lambda:us-east-1:123497558138:function:go-lambda-test",
+	}
+	tags := getEnhancedMetricsTags(lambdacontext.NewContext(ctx, lc))
+
+	assert.ElementsMatch(t, tags, []string{"functionname:go-lambda-test", "region:us-east-1", "memorysize:256", "cold_start:false", "account_id:123497558138"})
+}
+
+func TestGetEnhancedMetricsTagsNoLambdaContext(t *testing.T) {
+	ctx := context.WithValue(context.Background(), "cold_start", true)
+	tags := getEnhancedMetricsTags(ctx)
+
+	assert.Empty(t, tags)
+}
+
+func TestSubmitEnhancedMetrics(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	ml := metrics.MakeListener(
+		metrics.Config{
+			APIKey:                "abc-123",
+			Site:                  server.URL,
+			EnhancedMetrics:       true,
+		},
+	)
+	ctx := context.WithValue(context.Background(), "cold_start", false)
+
+	ctx = ml.HandlerStarted(ctx, json.RawMessage{})
+	submitEnhancedMetrics("invocations", ctx)
+	submitEnhancedMetrics("errors", ctx)
+	ml.HandlerFinished(ctx)
+
+	assert.True(t, called)
+}
+
+func TestDoNotSubmitEnhancedMetrics(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	ml := metrics.MakeListener(
+		metrics.Config{
+			APIKey:                "abc-123",
+			Site:                  server.URL,
+			EnhancedMetrics:       false,
+		},
+	)
+	ctx := context.WithValue(context.Background(), "cold_start", true)
+
+	ctx = ml.HandlerStarted(ctx, json.RawMessage{})
+	submitEnhancedMetrics("invocations", ctx)
+	submitEnhancedMetrics("errors", ctx)
+	ml.HandlerFinished(ctx)
+
+	assert.False(t, called)
 }

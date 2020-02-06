@@ -13,9 +13,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
-
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/DataDog/datadog-lambda-go/internal/metrics"
+	"github.com/aws/aws-lambda-go/lambdacontext"
+	"reflect"
+	"strings"
+	"time"
 )
 
 var (
@@ -33,24 +36,30 @@ type (
 
 // WrapHandlerWithListeners wraps a lambda handler, and calls listeners before and after every invocation.
 func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener) interface{} {
-
 	err := validateHandler(handler)
 	if err != nil {
 		// This wasn't a valid handler function, pass back to AWS SDK to let it handle the error.
 		logger.Error(fmt.Errorf("handler function was in format ddlambda doesn't recognize: %v", err))
 		return handler
 	}
+	coldStart := true
 
 	// Return custom handler, to be called once per invocation
 	return func(ctx context.Context, msg json.RawMessage) (interface{}, error) {
 		for _, listener := range listeners {
 			ctx = listener.HandlerStarted(ctx, msg)
 		}
+		ctx = context.WithValue(ctx, "cold_start", coldStart)
 		CurrentContext = ctx
+		submitEnhancedMetrics("invocations", ctx)
 		result, err := callHandler(ctx, msg, handler)
+		if err != nil {
+			submitEnhancedMetrics("errors", ctx)
+		}
 		for _, listener := range listeners {
 			listener.HandlerFinished(ctx)
 		}
+		coldStart = false
 		CurrentContext = nil
 		return result, err
 	}
@@ -155,4 +164,30 @@ func unmarshalEventForHandler(ev json.RawMessage, handler interface{}) (reflect.
 		return reflect.ValueOf(nil), err
 	}
 	return newMessage, err
+}
+
+func submitEnhancedMetrics(metricName string, ctx context.Context) {
+	listener := metrics.GetListener(ctx)
+	if listener != nil && listener.Config.EnhancedMetrics {
+		tags := getEnhancedMetricsTags(ctx)
+		listener.AddDistributionMetric(fmt.Sprintf("aws.lambda.enhanced.%s", metricName), 1, time.Now(), tags...)
+	}
+}
+
+func getEnhancedMetricsTags(ctx context.Context) []string {
+	isColdStart := ctx.Value("cold_start").(bool)
+
+	if lc, ok := lambdacontext.FromContext(ctx); ok {
+		// ex: arn:aws:lambda:us-east-1:123497558138:function:golang-layer
+		splitArn := strings.Split(lc.InvokedFunctionArn, ":")
+
+		functionName := fmt.Sprintf("functionname:%s", lambdacontext.FunctionName)
+		region := fmt.Sprintf("region:%s", splitArn[3])
+		accountId := fmt.Sprintf("account_id:%s", splitArn[4])
+		memorySize := fmt.Sprintf("memorysize:%d", lambdacontext.MemoryLimitInMB)
+		coldStart := fmt.Sprintf("cold_start:%t", isColdStart)
+		return []string{functionName, region, accountId, memorySize, coldStart}
+	}
+	logger.Debug("could not retrieve the LambdaContext from Context")
+	return []string{}
 }

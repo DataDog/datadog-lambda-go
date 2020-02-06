@@ -22,7 +22,7 @@ type (
 	// Listener implements wrapper.HandlerListener, injecting metrics into the context
 	Listener struct {
 		apiClient *APIClient
-		config    *Config
+		Config    *Config
 		processor Processor
 	}
 
@@ -34,6 +34,7 @@ type (
 		ShouldRetryOnFailure  bool
 		ShouldUseLogForwarder bool
 		BatchInterval         time.Duration
+		EnhancedMetrics       bool
 	}
 
 	logMetric struct {
@@ -59,19 +60,19 @@ func MakeListener(config Config) Listener {
 
 	return Listener{
 		apiClient: apiClient,
-		config:    &config,
+		Config:    &config,
 		processor: nil,
 	}
 }
 
 // HandlerStarted adds metrics service to the context
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	if l.apiClient.apiKey == "" && l.config.KMSAPIKey == "" && !l.config.ShouldUseLogForwarder {
+	if l.apiClient.apiKey == "" && l.Config.KMSAPIKey == "" && !l.Config.ShouldUseLogForwarder {
 		logger.Error(fmt.Errorf("datadog api key isn't set, won't be able to send metrics"))
 	}
 
 	ts := MakeTimeService()
-	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure)
+	pr := MakeProcessor(ctx, l.apiClient, ts, l.Config.BatchInterval, l.Config.ShouldRetryOnFailure)
 	l.processor = pr
 
 	ctx = AddListener(ctx, l)
@@ -97,7 +98,7 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp
 	// We add our own runtime tag to the metric for version tracking
 	tags = append(tags, getRuntimeTag())
 
-	if l.config.ShouldUseLogForwarder {
+	if l.Config.ShouldUseLogForwarder {
 		logger.Debug("sending metric via log forwarder")
 		unixTime := timestamp.Unix()
 		lm := logMetric{
