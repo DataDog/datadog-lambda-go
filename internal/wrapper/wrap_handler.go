@@ -13,12 +13,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DataDog/datadog-lambda-go/internal/logger"
-	"github.com/DataDog/datadog-lambda-go/internal/metrics"
-	"github.com/aws/aws-lambda-go/lambdacontext"
 	"reflect"
-	"strings"
-	"time"
+
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
 
 var (
@@ -46,15 +43,14 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 
 	// Return custom handler, to be called once per invocation
 	return func(ctx context.Context, msg json.RawMessage) (interface{}, error) {
+		ctx = context.WithValue(ctx, "cold_start", coldStart)
 		for _, listener := range listeners {
 			ctx = listener.HandlerStarted(ctx, msg)
 		}
-		ctx = context.WithValue(ctx, "cold_start", coldStart)
 		CurrentContext = ctx
-		submitEnhancedMetrics("invocations", ctx)
 		result, err := callHandler(ctx, msg, handler)
 		if err != nil {
-			submitEnhancedMetrics("errors", ctx)
+			ctx = context.WithValue(ctx, "error", true)
 		}
 		for _, listener := range listeners {
 			listener.HandlerFinished(ctx)
@@ -164,30 +160,4 @@ func unmarshalEventForHandler(ev json.RawMessage, handler interface{}) (reflect.
 		return reflect.ValueOf(nil), err
 	}
 	return newMessage, err
-}
-
-func submitEnhancedMetrics(metricName string, ctx context.Context) {
-	listener := metrics.GetListener(ctx)
-	if listener != nil && listener.Config.EnhancedMetrics {
-		tags := getEnhancedMetricsTags(ctx)
-		listener.AddDistributionMetric(fmt.Sprintf("aws.lambda.enhanced.%s", metricName), 1, time.Now(), tags...)
-	}
-}
-
-func getEnhancedMetricsTags(ctx context.Context) []string {
-	isColdStart := ctx.Value("cold_start").(bool)
-
-	if lc, ok := lambdacontext.FromContext(ctx); ok {
-		// ex: arn:aws:lambda:us-east-1:123497558138:function:golang-layer
-		splitArn := strings.Split(lc.InvokedFunctionArn, ":")
-
-		functionName := fmt.Sprintf("functionname:%s", lambdacontext.FunctionName)
-		region := fmt.Sprintf("region:%s", splitArn[3])
-		accountId := fmt.Sprintf("account_id:%s", splitArn[4])
-		memorySize := fmt.Sprintf("memorysize:%d", lambdacontext.MemoryLimitInMB)
-		coldStart := fmt.Sprintf("cold_start:%t", isColdStart)
-		return []string{functionName, region, accountId, memorySize, coldStart}
-	}
-	logger.Debug("could not retrieve the LambdaContext from Context")
-	return []string{}
 }
