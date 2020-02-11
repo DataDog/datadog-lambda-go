@@ -45,6 +45,8 @@ type (
 
 		// DebugLogging will turn on extended debug logging.
 		DebugLogging bool
+		// EnhancedMetrics enables the reporting of enhanced metrics under `aws.lambda.enhanced*` and adds enhanced metric tags
+		EnhancedMetrics bool
 	}
 )
 
@@ -62,6 +64,8 @@ const (
 	DatadogShouldUseLogForwarderEnvVar = "DD_FLUSH_TO_LOG"
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
+	// EnhancedMetrics is the environment variable used to enable enhanced metrics
+	EnhancedMetrics = "DD_ENHANCED_METRICS"
 )
 
 // WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
@@ -180,6 +184,11 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 	}
 	if mc.APIKey == "" && mc.KMSAPIKey == "" && !mc.ShouldUseLogForwarder {
 		logger.Error(fmt.Errorf("couldn't read DD_API_KEY or DD_KMS_API_KEY from environment"))
+	}
+
+	if !mc.EnhancedMetrics {
+		enhancedMetrics := os.Getenv(EnhancedMetrics)
+		mc.EnhancedMetrics = strings.EqualFold(enhancedMetrics, "true")
 	}
 
 	return mc

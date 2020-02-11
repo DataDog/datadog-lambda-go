@@ -33,24 +33,29 @@ type (
 
 // WrapHandlerWithListeners wraps a lambda handler, and calls listeners before and after every invocation.
 func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener) interface{} {
-
 	err := validateHandler(handler)
 	if err != nil {
 		// This wasn't a valid handler function, pass back to AWS SDK to let it handle the error.
 		logger.Error(fmt.Errorf("handler function was in format ddlambda doesn't recognize: %v", err))
 		return handler
 	}
+	coldStart := true
 
 	// Return custom handler, to be called once per invocation
 	return func(ctx context.Context, msg json.RawMessage) (interface{}, error) {
+		ctx = context.WithValue(ctx, "cold_start", coldStart)
 		for _, listener := range listeners {
 			ctx = listener.HandlerStarted(ctx, msg)
 		}
 		CurrentContext = ctx
 		result, err := callHandler(ctx, msg, handler)
+		if err != nil {
+			ctx = context.WithValue(ctx, "error", true)
+		}
 		for _, listener := range listeners {
 			listener.HandlerFinished(ctx)
 		}
+		coldStart = false
 		CurrentContext = nil
 		return result, err
 	}
