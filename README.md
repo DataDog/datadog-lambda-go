@@ -32,6 +32,10 @@ How much logging datadog-lambda-go should do. Set this to "debug" for extensive 
 
 If your Lambda function powers a performance-critical task (e.g., a consumer-facing API). You can avoid the added latencies of metric-submitting API calls, by setting this value to true. Custom metrics will be submitted asynchronously through CloudWatch Logs and the Datadog log forwarder.
 
+### DD_ENHANCED_METRICS
+
+Enables incremental metrics of `aws.lambda.enhanced.invocations` and `aws.lambda.enhanced.errors`, tagged with `cold_start:true|false`.
+
 ## Usage
 
 Datadog needs to be able to read headers from the incoming Lambda event. Wrap your Lambda handler function like so:
