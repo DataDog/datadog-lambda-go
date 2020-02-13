@@ -34,7 +34,7 @@ If your Lambda function powers a performance-critical task (e.g., a consumer-fac
 
 ### DD_ENHANCED_METRICS
 
-Enables incremental metrics of `aws.lambda.enhanced.invocations` and `aws.lambda.enhanced.errors`, tagged with `cold_start:true|false`.
+If you set the value of this variable to "true" then the Lambda layer will increment a Lambda integration metric called `aws.lambda.enhanced.invocations` with each invocation and `aws.lambda.enhanced.errors` if the invocation results in an error. These metrics are tagged with the function name, region, account, runtime, memorysize, and `cold_start:true|false`.
 
 ## Usage
 
