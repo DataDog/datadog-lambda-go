@@ -64,8 +64,8 @@ const (
 	DatadogShouldUseLogForwarderEnvVar = "DD_FLUSH_TO_LOG"
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
-	// EnhancedMetrics is the environment variable used to enable enhanced metrics
-	EnhancedMetrics = "DD_ENHANCED_METRICS"
+	// DefaultEnhancedMetrics enables enhanced metrics by default.
+	DefaultEnhancedMetrics = true
 )
 
 // WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
@@ -186,8 +186,11 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		logger.Error(fmt.Errorf("couldn't read DD_API_KEY or DD_KMS_API_KEY from environment"))
 	}
 
+	enhancedMetrics := os.Getenv("DD_ENHANCED_METRICS")
+	if enhancedMetrics == "" {
+		mc.EnhancedMetrics = DefaultEnhancedMetrics
+	}
 	if !mc.EnhancedMetrics {
-		enhancedMetrics := os.Getenv(EnhancedMetrics)
 		mc.EnhancedMetrics = strings.EqualFold(enhancedMetrics, "true")
 	}
 
