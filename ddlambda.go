@@ -129,7 +129,7 @@ func MetricWithTimestamp(metric string, value float64, timestamp time.Time, tags
 		logger.Error(fmt.Errorf("couldn't get metrics listener from current context"))
 		return
 	}
-	listener.AddDistributionMetric(metric, value, timestamp, tags...)
+	listener.AddDistributionMetric(metric, value, timestamp, false, tags...)
 }
 
 // InvokeDryRun is a utility to easily run your lambda for testing

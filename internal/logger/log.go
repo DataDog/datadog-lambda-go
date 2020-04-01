@@ -3,7 +3,9 @@ package logger
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"os"
 )
 
 // LogLevel represents the level of logging that should be performed
@@ -17,12 +19,19 @@ const (
 )
 
 var (
-	logLevel = LevelError
+	logLevel           = LevelError
+	output   io.Writer = os.Stdout
 )
 
 // SetLogLevel set the level of logging for the ddlambda
 func SetLogLevel(ll LogLevel) {
 	logLevel = ll
+}
+
+//
+func SetOutput(w io.Writer) {
+	log.SetOutput(w)
+	output = w
 }
 
 // Error logs a structured error message to stdout
@@ -59,4 +68,9 @@ func Debug(message string) {
 	result, _ := json.Marshal(finalMessage)
 
 	log.Println(string(result))
+}
+
+// Raw prints a raw message to the logs.
+func Raw(message string) {
+	fmt.Fprintln(output, message)
 }
