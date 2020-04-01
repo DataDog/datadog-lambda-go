@@ -28,7 +28,7 @@ func SetLogLevel(ll LogLevel) {
 	logLevel = ll
 }
 
-//
+// SetOutput changes the writer for the logger
 func SetOutput(w io.Writer) {
 	log.SetOutput(w)
 	output = w
