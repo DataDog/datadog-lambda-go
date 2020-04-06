@@ -9,16 +9,29 @@
 package metrics
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/aws/aws-lambda-go/lambdacontext"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/aws/aws-lambda-go/lambdacontext"
+
 	"github.com/stretchr/testify/assert"
 )
+
+func captureOutput(f func()) string {
+	var buf bytes.Buffer
+	logger.SetOutput(&buf)
+	f()
+	logger.SetOutput(os.Stderr)
+	return buf.String()
+}
 
 func TestHandlerAddsItselfToContext(t *testing.T) {
 	listener := MakeListener(Config{})
@@ -47,7 +60,7 @@ func TestAddDistributionMetricWithAPI(t *testing.T) {
 
 	listener := MakeListener(Config{APIKey: "12345", Site: server.URL})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
-	listener.AddDistributionMetric("the-metric", 2, time.Now(), "tag:a", "tag:b")
+	listener.AddDistributionMetric("the-metric", 2, time.Now(), false, "tag:a", "tag:b")
 	listener.HandlerFinished(ctx)
 	assert.True(t, called)
 }
@@ -62,7 +75,21 @@ func TestAddDistributionMetricWithLogForwarder(t *testing.T) {
 
 	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, ShouldUseLogForwarder: true})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
-	listener.AddDistributionMetric("the-metric", 2, time.Now(), "tag:a", "tag:b")
+	listener.AddDistributionMetric("the-metric", 2, time.Now(), false, "tag:a", "tag:b")
+	listener.HandlerFinished(ctx)
+	assert.False(t, called)
+}
+func TestAddDistributionMetricWithForceLogForwarder(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, ShouldUseLogForwarder: false})
+	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
+	listener.AddDistributionMetric("the-metric", 2, time.Now(), true, "tag:a", "tag:b")
 	listener.HandlerFinished(ctx)
 	assert.False(t, called)
 }
@@ -96,17 +123,21 @@ func TestSubmitEnhancedMetrics(t *testing.T) {
 	defer server.Close()
 	ml := MakeListener(
 		Config{
-			APIKey:                "abc-123",
-			Site:                  server.URL,
-			EnhancedMetrics:       true,
+			APIKey:          "abc-123",
+			Site:            server.URL,
+			EnhancedMetrics: true,
 		},
 	)
 	ctx := context.WithValue(context.Background(), "cold_start", false)
 
-	ctx = ml.HandlerStarted(ctx, json.RawMessage{})
-	ml.HandlerFinished(ctx)
+	output := captureOutput(func() {
+		ctx = ml.HandlerStarted(ctx, json.RawMessage{})
+		ml.HandlerFinished(ctx)
+	})
 
-	assert.True(t, called)
+	assert.False(t, called)
+	expected := "{\"m\":\"aws.lambda.enhanced.invocations\",\"v\":1,"
+	assert.True(t, strings.Contains(output, expected))
 }
 
 func TestDoNotSubmitEnhancedMetrics(t *testing.T) {
@@ -119,17 +150,21 @@ func TestDoNotSubmitEnhancedMetrics(t *testing.T) {
 
 	ml := MakeListener(
 		Config{
-			APIKey:                "abc-123",
-			Site:                  server.URL,
-			EnhancedMetrics:       false,
+			APIKey:          "abc-123",
+			Site:            server.URL,
+			EnhancedMetrics: false,
 		},
 	)
 	ctx := context.WithValue(context.Background(), "cold_start", true)
 
-	ctx = ml.HandlerStarted(ctx, json.RawMessage{})
-	ml.HandlerFinished(ctx)
+	output := captureOutput(func() {
+		ctx = ml.HandlerStarted(ctx, json.RawMessage{})
+		ml.HandlerFinished(ctx)
+	})
 
 	assert.False(t, called)
+	expected := "{\"m\":\"aws.lambda.enhanced.invocations\",\"v\":1,"
+	assert.False(t, strings.Contains(output, expected))
 }
 
 func TestSubmitEnhancedMetricsOnlyErrors(t *testing.T) {
@@ -142,17 +177,22 @@ func TestSubmitEnhancedMetricsOnlyErrors(t *testing.T) {
 
 	ml := MakeListener(
 		Config{
-			APIKey:                "abc-123",
-			Site:                  server.URL,
-			EnhancedMetrics:       false,
+			APIKey:          "abc-123",
+			Site:            server.URL,
+			EnhancedMetrics: false,
 		},
 	)
+
 	ctx := context.WithValue(context.Background(), "cold_start", true)
 
-	ctx = ml.HandlerStarted(ctx, json.RawMessage{})
-	ml.config.EnhancedMetrics = true
-	ctx = context.WithValue(ctx, "error", true)
-	ml.HandlerFinished(ctx)
+	output := captureOutput(func() {
+		ctx = ml.HandlerStarted(ctx, json.RawMessage{})
+		ml.config.EnhancedMetrics = true
+		ctx = context.WithValue(ctx, "error", true)
+		ml.HandlerFinished(ctx)
+	})
 
-	assert.True(t, called)
+	assert.False(t, called)
+	expected := "{\"m\":\"aws.lambda.enhanced.errors\",\"v\":1,"
+	assert.True(t, strings.Contains(output, expected))
 }

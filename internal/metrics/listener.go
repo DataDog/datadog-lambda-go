@@ -99,12 +99,12 @@ func (l *Listener) HandlerFinished(ctx context.Context) {
 }
 
 // AddDistributionMetric sends a distribution metric
-func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp time.Time, tags ...string) {
+func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp time.Time, forceLogForwarder bool, tags ...string) {
 
 	// We add our own runtime tag to the metric for version tracking
 	tags = append(tags, getRuntimeTag())
 
-	if l.config.ShouldUseLogForwarder {
+	if l.config.ShouldUseLogForwarder || forceLogForwarder {
 		logger.Debug("sending metric via log forwarder")
 		unixTime := timestamp.Unix()
 		lm := logMetric{
@@ -119,7 +119,7 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp
 			return
 		}
 		payload := string(result)
-		println(payload)
+		logger.Raw(payload)
 		return
 	}
 	m := Distribution{
@@ -140,7 +140,7 @@ func getRuntimeTag() string {
 func (l *Listener) submitEnhancedMetrics(metricName string, ctx context.Context) {
 	if l.config.EnhancedMetrics {
 		tags := getEnhancedMetricsTags(ctx)
-		l.AddDistributionMetric(fmt.Sprintf("aws.lambda.enhanced.%s", metricName), 1, time.Now(), tags...)
+		l.AddDistributionMetric(fmt.Sprintf("aws.lambda.enhanced.%s", metricName), 1, time.Now(), true, tags...)
 	}
 }
 
