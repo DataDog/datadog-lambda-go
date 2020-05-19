@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -59,6 +60,25 @@ func TestAddDistributionMetricWithAPI(t *testing.T) {
 	defer server.Close()
 
 	listener := MakeListener(Config{APIKey: "12345", Site: server.URL})
+	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
+	listener.AddDistributionMetric("the-metric", 2, time.Now(), false, "tag:a", "tag:b")
+	listener.HandlerFinished(ctx)
+	assert.True(t, called)
+}
+
+func TestAddDistributionMetricWithGlobalTags(t *testing.T) {
+
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/distribution_points?api_key=12345", r.URL.String())
+		payload, _ := ioutil.ReadAll(r.Body)
+		assert.Contains(t, string(payload), "globaltag:a")
+		called = true
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, GlobalTags: []string{"globaltag:a"}})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
 	listener.AddDistributionMetric("the-metric", 2, time.Now(), false, "tag:a", "tag:b")
 	listener.HandlerFinished(ctx)

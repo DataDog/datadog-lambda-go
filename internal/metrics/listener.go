@@ -12,10 +12,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-lambda-go/lambdacontext"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-lambda-go/lambdacontext"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
@@ -37,6 +38,7 @@ type (
 		ShouldUseLogForwarder bool
 		BatchInterval         time.Duration
 		EnhancedMetrics       bool
+		GlobalTags            []string
 	}
 
 	logMetric struct {
@@ -100,6 +102,9 @@ func (l *Listener) HandlerFinished(ctx context.Context) {
 
 // AddDistributionMetric sends a distribution metric
 func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp time.Time, forceLogForwarder bool, tags ...string) {
+
+	// add global tabs
+	tags = append(tags, l.config.GlobalTags...)
 
 	// We add our own runtime tag to the metric for version tracking
 	tags = append(tags, getRuntimeTag())
