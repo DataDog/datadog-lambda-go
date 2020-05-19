@@ -104,7 +104,9 @@ func (l *Listener) HandlerFinished(ctx context.Context) {
 func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp time.Time, forceLogForwarder bool, tags ...string) {
 
 	// add global tabs
-	tags = append(tags, l.config.GlobalTags...)
+	if l.config.GlobalTags != nil && len(l.config.GlobalTags) > 0 {
+		tags = append(tags, l.config.GlobalTags...)
+	}
 
 	// We add our own runtime tag to the metric for version tracking
 	tags = append(tags, getRuntimeTag())
