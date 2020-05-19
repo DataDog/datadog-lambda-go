@@ -47,6 +47,9 @@ type (
 		DebugLogging bool
 		// EnhancedMetrics enables the reporting of enhanced metrics under `aws.lambda.enhanced*` and adds enhanced metric tags
 		EnhancedMetrics bool
+
+		// GlobalTags are normal tags which are appended to every metric.
+		GlobalTags []string
 	}
 )
 
@@ -62,6 +65,8 @@ const (
 	DatadogLogLevelEnvVar = "DD_LOG_LEVEL"
 	// DatadogShouldUseLogForwarderEnvVar is the environment variable that is used to enable log forwarding of metrics.
 	DatadogShouldUseLogForwarderEnvVar = "DD_FLUSH_TO_LOG"
+	// DatadogGlobalTags is the environment variable used to add tags to all metrics
+	DatadogGlobalTags = "DD_TAGS"
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
 	// DefaultEnhancedMetrics enables enhanced metrics by default.
@@ -192,6 +197,14 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 	}
 	if !mc.EnhancedMetrics {
 		mc.EnhancedMetrics = strings.EqualFold(enhancedMetrics, "true")
+	}
+
+	if mc.GlobalTags == nil {
+		val := os.Getenv(DatadogGlobalTags)
+		mc.GlobalTags = []string{}
+		if len(val) > 0 {
+			mc.GlobalTags = strings.Split(os.Getenv(DatadogGlobalTags), ",")
+		}
 	}
 
 	return mc
