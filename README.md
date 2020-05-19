@@ -36,6 +36,15 @@ If your Lambda function powers a performance-critical task (e.g., a consumer-fac
 
 The Lambda layer will increment a Lambda integration metric called `aws.lambda.enhanced.invocations` with each invocation and `aws.lambda.enhanced.errors` if the invocation results in an error. These metrics are tagged with the function name, region, account, runtime, memorysize, and `cold_start:true|false`. This is enabled by default.
 
+### DD_TAGS
+
+A comma-delimetered list of tag:value pairs which are added to all metrics emitted (ie. in addition to any tags used when calling the `.Metric()` function).
+
+Example - This will add 2 tags to all metrics emitted from this runtime:
+```
+DD_TAGS=layer:api,team:intake
+```
+
 ## Usage
 
 Datadog needs to be able to read headers from the incoming Lambda event. Wrap your Lambda handler function like so:
