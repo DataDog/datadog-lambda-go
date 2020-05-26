@@ -203,7 +203,7 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		val := os.Getenv(DatadogGlobalTags)
 		mc.GlobalTags = []string{}
 		if len(val) > 0 {
-			mc.GlobalTags = strings.Split(os.Getenv(DatadogGlobalTags), ",")
+			mc.GlobalTags = strings.Split(val, ",")
 		}
 	}
 
