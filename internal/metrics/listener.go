@@ -152,6 +152,7 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		// ex: arn:aws:lambda:us-east-1:123497558138:function:golang-layer:alias
 		splitArn := strings.Split(lc.InvokedFunctionArn, ":")
+
 		var alias string
 		var executedVersion string
 
@@ -163,22 +164,25 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 		resource := fmt.Sprintf("resource:%s", lambdacontext.FunctionName)
 
 		tags := []string{functionName, region, accountId, memorySize, coldStart}
+
+		// Check if our slice contains an alias or version
 		if len(splitArn) > 7 {
 			alias = splitArn[7]
-		}
-		// Check we have an arn
-		if alias != "" {
-			// Drop the $ from $Latest based on ddog tagging convention
-			if strings.HasPrefix(alias, "$") {
-				alias = alias[1:]
-				// Check we have an alias and not a version. An alias can't be a number or start with $
-			} else if !isNumeric(alias) {
+
+			// If we have an alias...
+			switch alias != "" {
+			// If the alias is $Latest, drop the $ for ddog tag conventio
+			case strings.HasPrefix(alias, "$"):
+				alias = strings.TrimPrefix(alias, "$")
+			// If this is not a version number, we will have an alias and executed version
+			case isNotNumeric(alias):
 				executedVersion = fmt.Sprintf("executedversion:%s", lambdacontext.FunctionVersion)
 				tags = append(tags, executedVersion)
 			}
+
 			resource = fmt.Sprintf("resource:%s:%s", lambdacontext.FunctionName, alias)
 		}
-		// Add the resource to the tags
+
 		tags = append(tags, resource)
 
 		return tags
@@ -188,7 +192,7 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 	return []string{}
 }
 
-func isNumeric(s string) bool {
-	_, err := strconv.ParseFloat(s, 64)
-	return err == nil
+func isNotNumeric(s string) bool {
+	_, err := strconv.ParseInt(s, 0, 64)
+	return err != nil
 }
