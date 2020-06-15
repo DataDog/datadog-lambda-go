@@ -12,10 +12,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-lambda-go/lambdacontext"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-lambda-go/lambdacontext"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
@@ -148,16 +150,52 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 	isColdStart := ctx.Value("cold_start")
 
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
-		// ex: arn:aws:lambda:us-east-1:123497558138:function:golang-layer
+		// ex: aS
 		splitArn := strings.Split(lc.InvokedFunctionArn, ":")
+		var alias string
+		var executedversion string
+		var resource string
 
 		functionName := fmt.Sprintf("functionname:%s", lambdacontext.FunctionName)
 		region := fmt.Sprintf("region:%s", splitArn[3])
 		accountId := fmt.Sprintf("account_id:%s", splitArn[4])
 		memorySize := fmt.Sprintf("memorysize:%d", lambdacontext.MemoryLimitInMB)
 		coldStart := fmt.Sprintf("cold_start:%t", isColdStart.(bool))
-		return []string{functionName, region, accountId, memorySize, coldStart}
+
+		tags := []string{functionName, region, accountId, memorySize, coldStart}
+		if len(splitArn) > 7 {
+			alias = splitArn[7]
+		}
+		// Check we have an arn
+		if alias != "" {
+			// Drop the $ from $Latest based on ddog tagging convention
+			if strings.HasPrefix(alias, "$") {
+				alias = alias[1:]
+				// Check we have an alias and not a version. An alias can't be a number or start with $
+			} else if !isNumeric(alias) {
+				executedversion = fmt.Sprintf("executedversion:%s", lambdacontext.FunctionVersion)
+				fmt.Print("hi")
+				tags = append(tags, executedversion)
+			}
+			resource = fmt.Sprintf("resource:%s:%s", lambdacontext.FunctionName, alias)
+		} else {
+			resource = fmt.Sprintf("resource:%s", lambdacontext.FunctionName)
+		}
+		// Add the resource to the tags
+		tags = append(tags, resource)
+
+		return tags
 	}
+
 	logger.Debug("could not retrieve the LambdaContext from Context")
 	return []string{}
+}
+
+func checkLength(s string) bool {
+	return len(s) > 7
+}
+
+func isNumeric(s string) bool {
+	_, err := strconv.ParseFloat(s, 64)
+	return err == nil
 }
