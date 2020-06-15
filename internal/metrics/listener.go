@@ -174,7 +174,6 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 				// Check we have an alias and not a version. An alias can't be a number or start with $
 			} else if !isNumeric(alias) {
 				executedversion = fmt.Sprintf("executedversion:%s", lambdacontext.FunctionVersion)
-				fmt.Print("hi")
 				tags = append(tags, executedversion)
 			}
 			resource = fmt.Sprintf("resource:%s:%s", lambdacontext.FunctionName, alias)
