@@ -150,17 +150,17 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 	isColdStart := ctx.Value("cold_start")
 
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
-		// ex: aS
+		// ex: arn:aws:lambda:us-east-1:123497558138:function:golang-layer:alias
 		splitArn := strings.Split(lc.InvokedFunctionArn, ":")
 		var alias string
-		var executedversion string
-		var resource string
+		var executedVersion string
 
 		functionName := fmt.Sprintf("functionname:%s", lambdacontext.FunctionName)
 		region := fmt.Sprintf("region:%s", splitArn[3])
 		accountId := fmt.Sprintf("account_id:%s", splitArn[4])
 		memorySize := fmt.Sprintf("memorysize:%d", lambdacontext.MemoryLimitInMB)
 		coldStart := fmt.Sprintf("cold_start:%t", isColdStart.(bool))
+		resource := fmt.Sprintf("resource:%s", lambdacontext.FunctionName)
 
 		tags := []string{functionName, region, accountId, memorySize, coldStart}
 		if len(splitArn) > 7 {
@@ -173,12 +173,10 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 				alias = alias[1:]
 				// Check we have an alias and not a version. An alias can't be a number or start with $
 			} else if !isNumeric(alias) {
-				executedversion = fmt.Sprintf("executedversion:%s", lambdacontext.FunctionVersion)
-				tags = append(tags, executedversion)
+				executedVersion = fmt.Sprintf("executedversion:%s", lambdacontext.FunctionVersion)
+				tags = append(tags, executedVersion)
 			}
 			resource = fmt.Sprintf("resource:%s:%s", lambdacontext.FunctionName, alias)
-		} else {
-			resource = fmt.Sprintf("resource:%s", lambdacontext.FunctionName)
 		}
 		// Add the resource to the tags
 		tags = append(tags, resource)
@@ -188,10 +186,6 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 
 	logger.Debug("could not retrieve the LambdaContext from Context")
 	return []string{}
-}
-
-func checkLength(s string) bool {
-	return len(s) > 7
 }
 
 func isNumeric(s string) bool {
