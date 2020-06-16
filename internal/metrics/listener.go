@@ -12,10 +12,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-lambda-go/lambdacontext"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-lambda-go/lambdacontext"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
@@ -148,16 +150,49 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 	isColdStart := ctx.Value("cold_start")
 
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
-		// ex: arn:aws:lambda:us-east-1:123497558138:function:golang-layer
+		// ex: arn:aws:lambda:us-east-1:123497558138:function:golang-layer:alias
 		splitArn := strings.Split(lc.InvokedFunctionArn, ":")
+
+		var alias string
+		var executedVersion string
 
 		functionName := fmt.Sprintf("functionname:%s", lambdacontext.FunctionName)
 		region := fmt.Sprintf("region:%s", splitArn[3])
 		accountId := fmt.Sprintf("account_id:%s", splitArn[4])
 		memorySize := fmt.Sprintf("memorysize:%d", lambdacontext.MemoryLimitInMB)
 		coldStart := fmt.Sprintf("cold_start:%t", isColdStart.(bool))
-		return []string{functionName, region, accountId, memorySize, coldStart}
+		resource := fmt.Sprintf("resource:%s", lambdacontext.FunctionName)
+
+		tags := []string{functionName, region, accountId, memorySize, coldStart}
+
+		// Check if our slice contains an alias or version
+		if len(splitArn) > 7 {
+			alias = splitArn[7]
+
+			// If we have an alias...
+			switch alias != "" {
+			// If the alias is $Latest, drop the $ for ddog tag conventio
+			case strings.HasPrefix(alias, "$"):
+				alias = strings.TrimPrefix(alias, "$")
+			// If this is not a version number, we will have an alias and executed version
+			case isNotNumeric(alias):
+				executedVersion = fmt.Sprintf("executedversion:%s", lambdacontext.FunctionVersion)
+				tags = append(tags, executedVersion)
+			}
+
+			resource = fmt.Sprintf("resource:%s:%s", lambdacontext.FunctionName, alias)
+		}
+
+		tags = append(tags, resource)
+
+		return tags
 	}
+
 	logger.Debug("could not retrieve the LambdaContext from Context")
 	return []string{}
+}
+
+func isNotNumeric(s string) bool {
+	_, err := strconv.ParseInt(s, 0, 64)
+	return err != nil
 }
