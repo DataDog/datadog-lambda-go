@@ -51,7 +51,7 @@ type (
 // MakeAPIClient creates a new API client with the given api and app keys
 func MakeAPIClient(ctx context.Context, options APIClientOptions) *APIClient {
 	httpClient := &http.Client{
-		Timeout: time.Second * 10,
+		Timeout: time.Second * 5,
 	}
 	client := &APIClient{
 		apiKey:     options.apiKey,
