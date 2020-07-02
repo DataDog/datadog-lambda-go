@@ -170,7 +170,7 @@ If your Lambda function is deployed by the Serverless Framework, such a mapping 
 
 If you encounter a bug with this package, we want to hear about it. Before opening a new issue, search the existing issues to avoid duplicates.
 
-When opening an issue, include the Datadog Lambda Layer version, Python version, and stack trace if available. In addition, include the steps to reproduce when appropriate.
+When opening an issue, include the datadog-lambda-go version, `go version`, and stack trace if available. In addition, include the steps to reproduce when appropriate.
 
 You can also open an issue for a feature request.
 
@@ -182,4 +182,4 @@ If you find an issue with this package and have a fix, please feel free to open 
 
 Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
 
-This product includes software developed at Datadog (https://www.datadoghq.com/). Copyright 2019 Datadog, Inc.
+This product includes software developed at Datadog (https://www.datadoghq.com/). Copyright 2020 Datadog, Inc.
