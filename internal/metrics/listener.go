@@ -195,6 +195,12 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 		// ex: arn:aws:lambda:us-east-1:123497558138:function:golang-layer:alias
 		splitArn := strings.Split(lc.InvokedFunctionArn, ":")
 
+		// malformed arn string
+		if len(splitArn) < 5 {
+			logger.Debug("malformed arn string in the LambdaContext")
+			return []string{}
+		}
+
 		var alias string
 		var executedVersion string
 
