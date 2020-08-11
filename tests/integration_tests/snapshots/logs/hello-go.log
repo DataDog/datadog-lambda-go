@@ -1,0 +1,16 @@
+START RequestId: XXXX Version: $LATEST
+XXXX-XX-XXTXX:XX:XX.XXXZ [Info] using daemon endpoints from environment variable AWS_XRAY_DAEMON_ADDRESS: 169.254.79.2:2000
+XXXX-XX-XXTXX:XX:XX.XXXZ [Info] Emitter using address: 169.254.79.2:2000
+XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: sending metric via log forwarder"}
+{"m":"aws.lambda.enhanced.invocations","v":1,"e":XXXX,"t":["functionname:hello-dog-go-dev-hello-go","region:us-east-1","account_id:XXXX","memorysize:128","cold_start:true","resource:hello-dog-go-dev-hello-go","dd_lambda_layer:datadog-go1.XX.X"]}
+XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: adding metric \"hello-go.dog\", with value 0.000000"}
+Start Logging Headers
+Request header: x-datadog-trace-id:XXXX
+Request header: x-datadog-sampling-priority: 2
+Request header: x-datadog-parent-id:XXXX
+End Logging Headers
+XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: posting to url https://api.datadoghq.com/api/v1/distribution_points"}
+XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Sending payload with body {\"series\":[{\"metric\":\"hello-go.dog\",\"tags\":[\"dd_lambda_layer:datadog-go1.XX.X\"],\"type\":\"distribution\",\points\":[[XXXX,[0]]]}]}"}
+END RequestId: XXXX
+REPORT RequestId: XXXX	Duration: XXXX ms	Billed Duration: XXXX ms	Memory Size: 128 MB	Max Memory Used: XXXX MB	Init Duration: XXXX ms	
+XRAY TraceId: XXXX	SegmentId: XXXX	Sampled: true	
