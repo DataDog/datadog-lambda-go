@@ -31,8 +31,7 @@ if [ -n "$UPDATE_SNAPSHOTS" ]; then
 fi
 
 echo "Bulding Go binary"
-make clean
-make build
+GOOS=linux go build -ldflags="-s -w" -o bin/hello
 
 echo "Deploying function"
 sls deploy --api-key $DD_API_KEY
