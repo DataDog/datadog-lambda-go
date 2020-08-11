@@ -1,6 +1,5 @@
-# Hello Dog
+# Integration tests
 
-Used for testing the go-lambda-dd.
 
 ## Requirements
 
@@ -8,18 +7,12 @@ Used for testing the go-lambda-dd.
 - Go
 - Dep
 - Make
+- DD_API_KEY
 
-## Building
-
-```bash
-make clean
-make build
-```
-
-## Deployment
-
-To deploy to the demo account use the following
+## Running
 
 ```bash
-aws-vault exec demo-account-admin -- sls deploy --api-key <API_KEY>
+DD_API_KEY=<API_KEY> aws-vault exec sandbox-account-admin -- ./run_integration_tests.sh
 ```
+
+Use `UPDATE_SNAPSHOTS=true` to update snapshots
