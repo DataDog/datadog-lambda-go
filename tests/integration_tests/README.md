@@ -5,8 +5,6 @@
 
 - Node
 - Go
-- Dep
-- Make
 - DD_API_KEY
 
 ## Running
