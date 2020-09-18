@@ -29,7 +29,7 @@ Check out the instructions for [submitting custom metrics from AWS Lambda functi
 Use `ddlambda.AddTraceHeaders(ctx, req)` to inject the Datadog tracing headers to the outbound requests.
 
 ```go
-  req, err := http.NewRequest("GET", "http://example.com/status")
+  req, err := http.NewRequest("GET", "http://example.com/status", nil)
   // Use the same Context object given to your lambda handler.
   // If you don't want to pass the context through your call hierarchy, you can use ddlambda.GetContext()
   ddlambda.AddTraceHeaders(ctx, req)
