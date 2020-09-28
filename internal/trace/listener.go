@@ -36,19 +36,21 @@ func MakeListener(config Config) Listener {
 }
 
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	ctx, _ = ExtractTraceContext(ctx, msg)
+	traceContext, _ = ExtractTraceContext(ctx, msg)
+	isColdStart := ctx.Value("cold_start")
 
+
+	// TODO: Get functionName
+	// TODO: Get ddContext
 	if l.ddTraceEnabled:
 		createFunctionExecutionSpan(ctx, functionName, isColdStart, ddContext, l.mergeXRayTraces)
 
-	return ctx
+	return traceContext
 }
 
 // HandlerFinished is implemented as part of the HandlerListener interface, but doesn't do anything
 func (l *Listener) HandlerFinished(ctx context.Context) {
 }
-
-// TODO: Add MakeListener function that allows creation of listener with custom env vars
 
 
 // TODO: Convert createFunctionExecutionSpan to Go
