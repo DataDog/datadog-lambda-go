@@ -51,17 +51,23 @@ type (
 )
 
 const (
-	// DatadogAPIKeyEnvVar is the environment variable that will be used as an API key by default
+	// The following constants specify the environment variables that will...
+	// ...set the API key
 	DatadogAPIKeyEnvVar = "DD_API_KEY"
-	// DatadogKMSAPIKeyEnvVar is the environment variable that will be sent to KMS for decryption, then used as an API key.
+	// ...be sent to KMS for decryption, then used as an API key.
 	DatadogKMSAPIKeyEnvVar = "DD_KMS_API_KEY"
-	// DatadogSiteEnvVar is the environment variable that will be used as the API host.
+	// ...be used as the API host.
 	DatadogSiteEnvVar = "DD_SITE"
-	// DatadogLogLevelEnvVar is the environment variable that will be used to check the log level.
+	// ...be used to check the log level.
 	// if it equals "debug" everything will be logged.
 	DatadogLogLevelEnvVar = "DD_LOG_LEVEL"
-	// DatadogShouldUseLogForwarderEnvVar is the environment variable that is used to enable log forwarding of metrics.
+	// ...be used to enable log forwarding of metrics.
 	DatadogShouldUseLogForwarderEnvVar = "DD_FLUSH_TO_LOG"
+	// ...be used to check if DD tracing is enabled.
+	DatadogTraceEnabledEnvVar = "DD_TRACE_ENABLED"
+	// ...be used to check if XRay traces should be merged
+	DatadogMergeXRayTracesEnvVar = "DD_MERGE_XRAY_TRACES"
+
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
 	// DefaultEnhancedMetrics enables enhanced metrics by default.
@@ -69,7 +75,7 @@ const (
 )
 
 // WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
-// It returns a modified handler that can be passed directly to the lambda.Start function.
+// It returns a modified handler that can be passed directly to the lambda. Start function.
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
 
 	logLevel := os.Getenv(DatadogLogLevelEnvVar)
@@ -78,7 +84,7 @@ func WrapHandler(handler interface{}, cfg *Config) interface{} {
 	}
 
 	// Set up state that is shared between handler invocations
-	tl := trace.Listener{}
+	tl := trace.MakeListener(cfg.toTraceConfig())
 	ml := metrics.MakeListener(cfg.toMetricsConfig())
 	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
 }
@@ -141,6 +147,29 @@ func InvokeDryRun(callback func(ctx context.Context), cfg *Config) (interface{},
 		logger.Debug("Could not unwrap lambda during dry run")
 	}
 	return handler(context.Background(), json.RawMessage("{}"))
+}
+
+func (cfg *Config) toTraceConfig() trace.Config {
+	
+	traceConfig := trace.Config {
+		ddTraceEnabled: cfg.ddTraceEnabled,
+		mergeXRayTraces: cfg.mergeXRayTraces,
+	}
+
+	if cfg != nil {
+		traceConfig.ddTraceEnabled = cfg.ddTraceEnabled
+		traceConfig.mergeXRayTraces = cfg.mergeXRayTraces
+	}
+
+	if traceConfig.ddTraceEnabled == "" {
+		traceConfig.ddTraceEnabled = os.Getenv(DatadogTraceEnabledEnvVar)
+	}
+
+	if traceConfig.mergeXRayTraces == "" {
+		traceConfig.mergeXRayTraces = os.Getenv(DatadogMergeXRayTracesEnvVar)
+	}
+
+	return traceConfig
 }
 
 func (cfg *Config) toMetricsConfig() metrics.Config {
