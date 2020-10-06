@@ -10,7 +10,7 @@ Datadog Lambda Library for Go enables enhanced Lambda metrics, distributed traci
 
 ## Installation
 
-Follow the [installation instructions](https://docs.datadoghq.com/serverless/installation/go/), and view your function's enhanced metrics, traces and logs in Datadog.
+Follow the [installation instructions](https://docs.datadoghq.com/serverless/installation/go/) and view your function's enhanced metrics, traces and logs in Datadog.
 
 ## Enhanced Metrics
 
@@ -26,7 +26,7 @@ Check out the instructions for [submitting custom metrics from AWS Lambda functi
 
 ## Tracing
 
-Use `ddlambda.AddTraceHeaders(ctx, req)` to inject the Datadog tracing headers to the outbound requests.
+Use `ddlambda.AddTraceHeaders(ctx, req)` to inject the Datadog tracing headers into outbound requests.
 
 ```go
   req, err := http.NewRequest("GET", "http://example.com/status", nil)
@@ -38,6 +38,8 @@ Use `ddlambda.AddTraceHeaders(ctx, req)` to inject the Datadog tracing headers t
   client.Do(req)
 }
 ```
+
+<!-- TODO: Add more information about tracing -->
 
 
 ## Environment Variables
@@ -61,6 +63,14 @@ Set to `debug` enable debug logs from the Datadog Lambda Library. Defaults to `i
 ### DD_ENHANCED_METRICS
 
 Generate enhanced Datadog Lambda integration metrics, such as, `aws.lambda.enhanced.invocations` and `aws.lambda.enhanced.errors`. Defaults to `true`.
+
+### DD_TRACE_ENABLED
+
+Initialize the Datadog tracer when set to `true`. Defaults to `false`.
+
+### DD_MERGE_XRAY_TRACES
+
+Set to `true` to merge the X-Ray trace and the Datadog trace, when using both X-Ray and Datadog tracing. Defaults to `false`.
 
 ## Opening Issues
 

@@ -143,6 +143,7 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (map[string]string, bool)
 	traceContext[samplingPriorityHeader] = samplingPriority
 	traceContext[traceIDHeader] = traceID
 	traceContext[parentIDHeader] = parentID
+	traceContext[sourceType] = fromEvent
 	return traceContext, true
 }
 
@@ -167,6 +168,7 @@ func convertTraceContextFromXRay(ctx context.Context) (map[string]string, error)
 	traceContext[traceIDHeader] = traceID
 	traceContext[parentIDHeader] = parentID
 	traceContext[samplingPriorityHeader] = samplingPriority
+	traceContext[sourceType] = fromXray
 	return traceContext, nil
 }
 

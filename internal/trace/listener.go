@@ -11,6 +11,11 @@ package trace
 import (
 	"context"
 	"encoding/json"
+    "strings"
+    "strconv"
+    "gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
+    "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+    "github.com/aws/aws-lambda-go/lambdacontext"
 )
 
 type (
@@ -26,6 +31,12 @@ type (
 	}
 )
 
+t := tracer
+
+// The function execution span is the top-level span representing the Lambda function execution
+// If Datadog tracing is enabled, we use this 
+var functionExecutionSpan ddtrace.Span
+
 // MakeListener initializes a new trace lambda Listener
 func MakeListener(config Config) Listener {
 
@@ -37,56 +48,64 @@ func MakeListener(config Config) Listener {
 
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
 	traceContext, _ = ExtractTraceContext(ctx, msg)
-	isColdStart := ctx.Value("cold_start")
 
+    if l.ddTraceEnabled:
+        t.Start(
+            // service name?
+            tracer.WithLambdaMode(true),
+            tracer.WithDebugMode(true),
+            tracer.WithGlobalTag("__dd.origin", "lambda")
+        )
 
-	// TODO: Get functionName
-	// TODO: Get ddContext
-	if l.ddTraceEnabled:
-		createFunctionExecutionSpan(ctx, functionName, isColdStart, ddContext, l.mergeXRayTraces)
+		startFunctionExecutionSpan(
+            ctx,
+            traceContext,
+            l.mergeXRayTraces
+        )
 
 	return traceContext
 }
 
-// HandlerFinished is implemented as part of the HandlerListener interface, but doesn't do anything
 func (l *Listener) HandlerFinished(ctx context.Context) {
+    if functionExecutionSpan:
+        functionExecutionSpan.finish()
+
+    t.Stop()
 }
 
+func startFunctionExecutionSpan(context ctx.Context, traceContext ctx.Context, mergeXrayTraces bool) {
+    lc, _ := lambdacontext.FromContext(ctx)
 
-// TODO: Convert createFunctionExecutionSpan to Go
-func createFunctionExecutionSpan(context ctx.Context, functionName string, isColdStart bool, ddContext ctx.Context, mergeXrayTraces bool) {
-    
-	// Python Code
-    tags = {}
-    if context:
-        function_arn = (context.invoked_function_arn or "").lower()
-        tk = function_arn.split(":")
-        function_arn = ":".join(tk[0:7]) if len(tk) > 7 else function_arn
-        function_version = tk[7] if len(tk) > 7 else "$LATEST"
+    functionArn := lc.InvokedFunctionArn
+    if functionArn === nil:
+        functionArn = ""
+    functionArn = strings.ToLower(functionArn)
 
-        tags = {
-            "cold_start": str(is_cold_start).lower(),
-            "function_arn": function_arn,
-            "function_version": function_version,
-            "request_id": context.aws_request_id,
-            "resource_names": context.function_name,
-        }
-    source = trace_context["source"]
+    // Separate version from rest of function ARN
+    parts = strings.Split(functionArn, ":")
+    functionVersion = "$LATEST"
+    if len(parts) > 7:
+        functionArn = strings.Join(parts[0:7], ":")
+        functionVersion = parts[7]
 
-    if source == TraceContextSource.XRAY and merge_xray_traces:
-        tags["_dd.parent_source"] = source
+    isColdStart := ctx.Value("cold_start")
 
-    args = {
-        "service": "aws.lambda",
-        "resource": function_name,
-        "span_type": "serverless",
-    }
+    span := tracer.StartSpan(
+        "aws.lambda",
+        tracer.WithService("aws.lambda"),
+        tracer.SpanType("serverless"),
+        tracer.ResourceName(functionName),
+        tracer.Tag("cold_start", strconv.FormatBool(isColdStart)),
+        tracer.Tag("function_arn", functionArn),
+        tracer.Tag("function_version", functionVersion),
+        tracer.Tag("request_id", lc.AwsRequestId,
+        tracer.Tag("resource_names", lc.FunctionName,
+    )
 
-    tracer.set_tags({"_dd.origin": "lambda"})
+    traceSource := traceContext[sourceType]
 
-    span = tracer.trace("aws.lambda", **args)
+    if traceSource == fromXray && mergeXrayTraces:
+        span.SetTag("_dd.parent_source", traceSource)
 
-    if span:
-        span.set_tags(tags)
-    return span
+    functionExecutionSpan = span
 }
