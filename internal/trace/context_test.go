@@ -57,6 +57,7 @@ func TestUnmarshalEventForTraceMetadataNonProxyEvent(t *testing.T) {
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
+		sourceType:             "event",
 	}
 	assert.Equal(t, expected, headers)
 }
@@ -71,6 +72,7 @@ func TestUnmarshalEventForTraceMetadataWithMixedCaseHeaders(t *testing.T) {
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
+		sourceType:             "event",
 	}
 	assert.Equal(t, expected, headers)
 }
