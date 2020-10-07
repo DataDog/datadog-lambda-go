@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"strconv"
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
@@ -42,11 +43,14 @@ type (
 		// Site is the host to send metrics to. If empty, this value is read from the 'DD_SITE' environment variable, or if that is empty
 		// will default to 'datadoghq.com'.
 		Site string
-
 		// DebugLogging will turn on extended debug logging.
 		DebugLogging bool
 		// EnhancedMetrics enables the reporting of enhanced metrics under `aws.lambda.enhanced*` and adds enhanced metric tags
 		EnhancedMetrics bool
+		// DDTraceEnabled enables the Datadog tracer.
+		DDTraceEnabled bool
+		// MergeXrayTraces will cause Datadog traces to be merged with traces from AWS X-Ray.
+		MergeXrayTraces bool
 	}
 )
 
@@ -65,8 +69,8 @@ const (
 	DatadogShouldUseLogForwarderEnvVar = "DD_FLUSH_TO_LOG"
 	// ...be used to check if DD tracing is enabled.
 	DatadogTraceEnabledEnvVar = "DD_TRACE_ENABLED"
-	// ...be used to check if XRay traces should be merged
-	DatadogMergeXRayTracesEnvVar = "DD_MERGE_XRAY_TRACES"
+	// ...be used to check if X-Ray traces should be merged
+	DatadogMergeXrayTracesEnvVar = "DD_MERGE_XRAY_TRACES"
 
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
@@ -151,22 +155,22 @@ func InvokeDryRun(callback func(ctx context.Context), cfg *Config) (interface{},
 
 func (cfg *Config) toTraceConfig() trace.Config {
 	
-	traceConfig := trace.Config {
-		ddTraceEnabled: cfg.ddTraceEnabled,
-		mergeXRayTraces: cfg.mergeXRayTraces,
+	traceConfig := trace.Config{
+		DDTraceEnabled: false,
+		MergeXrayTraces: false,
 	}
 
 	if cfg != nil {
-		traceConfig.ddTraceEnabled = cfg.ddTraceEnabled
-		traceConfig.mergeXRayTraces = cfg.mergeXRayTraces
+		traceConfig.DDTraceEnabled = cfg.DDTraceEnabled
+		traceConfig.MergeXrayTraces = cfg.MergeXrayTraces
 	}
 
-	if traceConfig.ddTraceEnabled == "" {
-		traceConfig.ddTraceEnabled = os.Getenv(DatadogTraceEnabledEnvVar)
+	if !traceConfig.DDTraceEnabled {
+		traceConfig.DDTraceEnabled, _ = strconv.ParseBool(os.Getenv(DatadogTraceEnabledEnvVar))
 	}
 
-	if traceConfig.mergeXRayTraces == "" {
-		traceConfig.mergeXRayTraces = os.Getenv(DatadogMergeXRayTracesEnvVar)
+	if !traceConfig.MergeXrayTraces {
+		traceConfig.MergeXrayTraces, _ = strconv.ParseBool(os.Getenv(DatadogMergeXrayTracesEnvVar))
 	}
 
 	return traceConfig

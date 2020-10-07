@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Usage - run commands from repo root:
-# To check if new changes to the layer cause changes to any snapshots:
+# Usage - run commands from the /integration_tests directory:
+# To check if new changes to the library cause changes to any snapshots:
 #   DD_API_KEY=XXXX aws-vault exec sandbox-account-admin -- ./run_integration_tests.sh
 # To regenerate snapshots:
 #   UPDATE_SNAPSHOTS=true DD_API_KEY=XXXX aws-vault exec sandbox-account-admin -- ./run_integration_tests.sh
@@ -30,7 +30,7 @@ if [ -n "$UPDATE_SNAPSHOTS" ]; then
     echo "Overwriting snapshots in this execution"
 fi
 
-echo "Bulding Go binary"
+echo "Building Go binary"
 GOOS=linux go build -ldflags="-s -w" -o bin/hello
 
 echo "Deploying function"

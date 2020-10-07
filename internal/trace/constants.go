@@ -28,9 +28,7 @@ const (
 	xraySubsegmentNamespace = "datadog"
 )
 
-type TraceContextSourceType string
-
 const (
-	fromXray TraceContextSourceType  = "xray"
-	fromEvent TraceContextSourceType = "event"
+	fromXray = "xray"
+	fromEvent = "event"
 )
