@@ -54,8 +54,10 @@ type (
 )
 
 const (
-	// While in Agent mode, how long we're waiting for a reply while sending a message
-	AgentCallTimeout = 100 * time.Millisecond
+	// We don't want call to the Serverless Agent to block indefinitely for any reasons,
+	// so here's a configuration of the timeout when calling the Serverless Agent. We also
+	// want to let it having some time for its cold start so we should not set this too low.
+	AgentCallTimeout = 3000 * time.Millisecond
 )
 
 // MakeListener initializes a new metrics lambda listener
@@ -249,8 +251,10 @@ func isServerlessAgentRunning() bool {
 	client := &http.Client{Timeout: AgentCallTimeout}
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8124/lambda/hello", nil)
 	if response, err := client.Do(req); err == nil && response.StatusCode == 200 {
+		logger.Debug("Will use the Serverless Agent")
 		return true
 	}
+	logger.Debug("Will use the API")
 	return false
 }
 
