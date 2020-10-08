@@ -24,6 +24,8 @@ import (
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
 
+const datadogLambdaVersion = "v0.7.0"
+
 type (
 	// Listener implements wrapper.HandlerListener, injecting metrics into the context
 	Listener struct {
@@ -212,8 +214,9 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 		memorySize := fmt.Sprintf("memorysize:%d", lambdacontext.MemoryLimitInMB)
 		coldStart := fmt.Sprintf("cold_start:%t", isColdStart.(bool))
 		resource := fmt.Sprintf("resource:%s", lambdacontext.FunctionName)
+		datadogLambda := fmt.Sprintf("datadog_lambda:%s", datadogLambdaVersion)
 
-		tags := []string{functionName, region, accountId, memorySize, coldStart}
+		tags := []string{functionName, region, accountId, memorySize, coldStart, datadogLambda}
 
 		// Check if our slice contains an alias or version
 		if len(splitArn) > 7 {
