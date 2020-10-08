@@ -108,7 +108,7 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             # Normalize minor package version tag so that these snapshots aren't broken on version bumps
             sed -E "s/(dd_lambda_layer:datadog-go[0-9]+\.)[0-9]+\.[0-9]+/\1XX\.X/g" |
             # Normalize data in logged traces
-            sed -E 's/"(span_id|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn)":("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
+            sed -E 's/"(span_id|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn|runtime-id)":("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
             # Normalize data in logged traces
             sed -E 's/"(points\\\":\[\[)([0-9]+)/\1XXXX/g'
 
