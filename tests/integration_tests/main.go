@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 
 	ddlambda "github.com/DataDog/datadog-lambda-go"
 	"github.com/aws/aws-lambda-go/events"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 var (
@@ -32,6 +34,13 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 		fmt.Printf("Request header: %s: %s\n", key, value)
 	}
 	fmt.Println("End Logging Headers")
+
+	// Test tracing
+	for i := 0; i < 10; i++ {
+		s := tracer.StartSpan("child.span")
+		time.Sleep(100 * time.Millisecond)
+		s.Finish()
+	}
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
