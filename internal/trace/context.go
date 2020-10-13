@@ -31,18 +31,19 @@ type contextKeytype int
 
 var traceContextKey = new(contextKeytype)
 
-// ExtractTraceContext returns a list of headers with the current trace context
-func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Context, error) {
+// ContextWithTraceContext uses the incoming event and/or context object payloads to determine
+// the current trace context and then adds that trace context to the context object
+func ContextWithTraceContext(ctx context.Context, ev json.RawMessage) (context.Context, error) {
 
-	// First priority is always any trace context from incoming headers
+	// First priority is Datadog trace context from incoming headers
 	traceContext, ok := unmarshalEventForTraceContext(ev)
 	if ok {
-		// If we detect the trace headers, we should save metadata to xray so it can be read by the converter.
+		// If we detect the trace headers, we save metadata to X-Ray so it can be read by the converter.
 		err := addTraceContextToXRay(ctx, traceContext)
 		if err != nil {
 			return ctx, err
 		}
-		// The parentID from the incoming datadog headers needs to be saved as metadata so the xray converter can
+		// The parentID from the incoming Datadog headers needs to be saved as metadata so the xray converter can
 		// link segments across functions. However, that parentID does not match the ID of the xray segment
 		// lambda has created. So we read in the xray id of the current lambda, and use that as our parentId to
 		// forward on to any outbound requests, (unless the user has created a subsegment, in which case we use that
@@ -55,7 +56,7 @@ func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Conte
 		return context.WithValue(ctx, traceContextKey, traceContext), nil
 	}
 
-	// Second priority is any trace
+	// Second priority is X-Ray trace context
 	traceContext, err := convertTraceContextFromXRay(ctx)
 	if err != nil {
 		return ctx, fmt.Errorf("couldn't convert trace context: %v", err)
@@ -67,7 +68,6 @@ func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Conte
 // GetTraceHeaders retrieves the current trace headers that should be added to outbound requests
 func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) map[string]string {
 	if traceContext, ok := ctx.Value(traceContextKey).(map[string]string); ok {
-		// Change the trace context to include the current segment/subsegment id as the parent ID.
 		parentID := traceContext[parentIDHeader]
 
 		if useCurrentSegmentAsParent {

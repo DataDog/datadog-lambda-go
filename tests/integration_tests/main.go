@@ -29,15 +29,15 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 	ddlambda.Distribution("hello-go.dog", float64(invokeCount))
 	invokeCount++
 
-	fmt.Println("Start Logging Headers")
-	for key, value := range headers {
-		fmt.Printf("Request header: %s: %s\n", key, value)
-	}
-	fmt.Println("End Logging Headers")
+	fmt.Println("Start Logging Trace Headers")
+	fmt.Println("x-datadog-parent-id:" + headers["x-datadog-parent-id"])
+	fmt.Println("x-datadog-trace-id:" + headers["x-datadog-trace-id"])
+	fmt.Println("x-datadog-sampling-priority:" + headers["x-datadog-sampling-priority"])
+	fmt.Println("End Logging Trace Headers")
 
 	// Test tracing
 	for i := 0; i < 10; i++ {
-		s := tracer.StartSpan("child.span")
+		s := tracer.StartSpanFromContext(ctx, "child.span")
 		time.Sleep(100 * time.Millisecond)
 		s.Finish()
 	}

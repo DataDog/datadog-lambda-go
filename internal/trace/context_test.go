@@ -149,11 +149,11 @@ func TestXrayTraceContextWithSegment(t *testing.T) {
 	assert.NotNil(t, headers[parentIDHeader])
 }
 
-func TestExtractTraceContextFromContext(t *testing.T) {
+func TestContextWithTraceContextFromContext(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-no-metadata.json")
 	ctx := mockLambdaTraceContext(context.Background(), "1-5ce31dc2-2c779014b90ce44db5e03875", "779014b90ce44db5e03875", true)
 
-	newCTX, err := ExtractTraceContext(ctx, *ev)
+	newCTX, err := ContextWithTraceContext(ctx, *ev)
 	headers := GetTraceHeaders(newCTX, false)
 
 	assert.NoError(t, err)
@@ -161,11 +161,11 @@ func TestExtractTraceContextFromContext(t *testing.T) {
 	assert.NotNil(t, headers[traceIDHeader])
 	assert.NotNil(t, headers[parentIDHeader])
 }
-func TestExtractTraceContextFromEvent(t *testing.T) {
+func TestContextWithTraceContextFromEvent(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-metadata.json")
 	ctx := mockLambdaTraceContext(context.Background(), "1-5ce31dc2-2c779014b90ce44db5e03875", "779014b90ce44db5e03875", true)
 
-	newCTX, err := ExtractTraceContext(ctx, *ev)
+	newCTX, err := ContextWithTraceContext(ctx, *ev)
 	headers := GetTraceHeaders(newCTX, false)
 	assert.NoError(t, err)
 
@@ -177,11 +177,11 @@ func TestExtractTraceContextFromEvent(t *testing.T) {
 	assert.Equal(t, expected, headers)
 }
 
-func TestExtractTraceContextFail(t *testing.T) {
+func TestContextWithTraceContextFail(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-no-metadata.json")
 	ctx := context.Background()
 
-	_, err := ExtractTraceContext(ctx, *ev)
+	_, err := ContextWithTraceContext(ctx, *ev)
 	assert.Error(t, err)
 }
 
@@ -189,7 +189,7 @@ func TestGetTraceHeadersWithUpdatedParent(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-metadata.json")
 	ctx := mockLambdaTraceContext(context.Background(), "1-5ce31dc2-2c779014b90ce44db5e03875", "779014b90ce44db5e03874", true)
 
-	ctx, _ = ExtractTraceContext(ctx, *ev)
+	ctx, _ = ContextWithTraceContext(ctx, *ev)
 
 	ctx, _ = xray.BeginSubsegment(ctx, "The Subsegment")
 
