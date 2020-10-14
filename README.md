@@ -26,7 +26,7 @@ Check out the instructions for [submitting custom metrics from AWS Lambda functi
 
 ## Tracing
 
-Set the `DD_TRACE_ENABLED` envioronment variable to `true` to enable Datadog tracing. When Datadog tracing is enabled, the library will inject a span into the Lambda's context object. You can then use the included `dd-trace-go` package to create additional spans from the context.
+Set the `DD_TRACE_ENABLED` environment variable to `true` to enable Datadog tracing. When Datadog tracing is enabled, the library will inject a span representing the Lambda's execution into the context object. You can then use the included `dd-trace-go` package to create additional spans from the context.
 
 ```
 import "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -38,7 +38,7 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 }
 ```
 
-If you are also using AWS X-Ray to trace your Lambda functions, you can set the `DD_MERGE_XRAY_TRACERS` environment variable to `true`, and Datadog will merge your Datadog and X-Ray traces into a single, unified trace.
+If you are also using AWS X-Ray to trace your Lambda functions, you can set the `DD_MERGE_XRAY_TRACES` environment variable to `true`, and Datadog will merge your Datadog and X-Ray traces into a single, unified trace.
 
 
 ## Environment Variables
