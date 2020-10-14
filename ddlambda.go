@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
@@ -78,7 +78,7 @@ const (
 	DefaultEnhancedMetrics = true
 )
 
-// WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
+// WrapHandler is used to instrument your lambda functions.
 // It returns a modified handler that can be passed directly to the lambda. Start function.
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
 
@@ -87,19 +87,21 @@ func WrapHandler(handler interface{}, cfg *Config) interface{} {
 		logger.SetLogLevel(logger.LevelDebug)
 	}
 
-	// Set up state that is shared between handler invocations
+	// Wrap the handler with listeners that add instrumentation for traces and metrics.
 	tl := trace.MakeListener(cfg.toTraceConfig())
 	ml := metrics.MakeListener(cfg.toMetricsConfig())
 	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
 }
 
-// GetTraceHeaders reads a map containing the DataDog trace headers from a context object.
+// GetTraceHeaders reads a map containing the Datadog trace headers from a context object.
+// Deprecated: Use dd-trace-go to extract the current span from the context instead
 func GetTraceHeaders(ctx context.Context) map[string]string {
 	result := trace.GetTraceHeaders(ctx, true)
 	return result
 }
 
-// AddTraceHeaders adds DataDog trace headers to a HTTP Request
+// AddTraceHeaders adds Datadog trace headers to a HTTP Request
+// Deprecated: Use dd-trace-go to extract the current span from the context instead
 func AddTraceHeaders(ctx context.Context, req *http.Request) {
 	headers := GetTraceHeaders(ctx)
 	for key, value := range headers {
@@ -113,7 +115,7 @@ func GetContext() context.Context {
 	return wrapper.CurrentContext
 }
 
-// Distribution sends a distribution metric to DataDog
+// Distribution sends a distribution metric to Datadog
 // Deprecated: Use Metric method instead
 func Distribution(metric string, value float64, tags ...string) {
 	Metric(metric, value, tags...)
@@ -154,9 +156,9 @@ func InvokeDryRun(callback func(ctx context.Context), cfg *Config) (interface{},
 }
 
 func (cfg *Config) toTraceConfig() trace.Config {
-	
+
 	traceConfig := trace.Config{
-		DDTraceEnabled: false,
+		DDTraceEnabled:  false,
 		MergeXrayTraces: false,
 	}
 

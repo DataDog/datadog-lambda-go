@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -33,7 +34,7 @@ type (
 	}
 )
 
-// The function execution span is the top-level span representing the Lambda function execution
+// The function execution span is the top-level span representing the current Lambda function execution
 var functionExecutionSpan ddtrace.Span
 
 // MakeListener initializes a new trace lambda Listener
@@ -45,8 +46,8 @@ func MakeListener(config Config) Listener {
 	}
 }
 
-// HandlerStarted creates a span representing the Lambda function execution if Datadog tracing is enabled
-// and adds that span to the context so that the user can create child spans
+// HandlerStarted creates the function execution span representing the Lambda function execution
+// and adds that span to the context so that the user can create child spans (if Datadog tracing is enabled)
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
 	ctx, _ = ContextWithTraceContext(ctx, msg)
 
@@ -84,8 +85,11 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) {
 	lc, _ := lambdacontext.FromContext(ctx)
 	isColdStart := ctx.Value("cold_start").(bool)
 	var traceSource string
-	if traceContext, ok := ctx.Value(traceContextKey).(map[string]string); ok {
+	traceContext, ok := ctx.Value(traceContextKey).(map[string]string)
+	if ok {
 		traceSource = traceContext[sourceType]
+	} else {
+		logger.Error("Error extracting Datadog trace context from context")
 	}
 
 	functionArn := lc.InvokedFunctionArn
@@ -99,10 +103,14 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) {
 		functionVersion = parts[7]
 	}
 
-	functionExecutionSpanContext := functionExecutionSpan.Context()
+	// The function execution span must be made a child of the current span if the trace context came from an event OR merge X-Ray traces is enabled
+	// In other words, if merge X-Ray traces is NOT enabled and the trace context came from X-Ray, we should NOT make the execution span a child of the X-Ray span
 	var parentSpanContext ddtrace.SpanContext
 	if (traceSource == fromEvent) || mergeXrayTraces {
-		parentSpanContext = functionExecutionSpanContext
+		convertedSpanContext, err := convertTraceContextToSpanContext(traceContext)
+		if err == nil {
+			parentSpanContext = convertedSpanContext
+		}
 	}
 
 	span := tracer.StartSpan(
@@ -123,3 +131,23 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) {
 
 	functionExecutionSpan = span
 }
+
+// Convert trace context headers to a SpanContext object
+func convertTraceContextToSpanContext(traceContext map[string]string) (ddtrace.SpanContext, error) {
+	spanContext, err := traceContextPropagator.Extract(tracer.TextMapCarrier(traceContext))
+
+	if err == nil {
+		return spanContext, nil
+	}
+
+	logger.Error("Error converting trace context to span context")
+	return nil, err
+}
+
+// A Propagator that is able to extract a SpanContext object from trace context headers
+var traceContextPropagatorConfig = tracer.PropagatorConfig{
+	TraceHeader:    traceIDHeader,
+	ParentHeader:   parentIDHeader,
+	PriorityHeader: samplingPriorityHeader,
+}
+var traceContextPropagator = tracer.NewPropagator(&traceContextPropagatorConfig)

@@ -10,7 +10,7 @@ Datadog Lambda Library for Go enables enhanced Lambda metrics, distributed traci
 
 ## Installation
 
-Follow the [installation instructions](https://docs.datadoghq.com/serverless/installation/go/) and view your function's enhanced metrics, traces and logs in Datadog.
+Follow the installation instructions [here](https://docs.datadoghq.com/serverless/installation/go/).
 
 ## Enhanced Metrics
 
@@ -70,7 +70,7 @@ Initialize the Datadog tracer when set to `true`. Defaults to `false`.
 
 ### DD_MERGE_XRAY_TRACES
 
-Set to `true` to merge the X-Ray trace and the Datadog trace, when using both X-Ray and Datadog tracing. Defaults to `false`.
+If you are using both X-Ray and Datadog tracing, set this to `true` to merge the X-Ray and Datadog traces. Defaults to `false`.
 
 ## Opening Issues
 

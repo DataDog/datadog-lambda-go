@@ -37,7 +37,7 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 
 	// Test tracing
 	for i := 0; i < 10; i++ {
-		s := tracer.StartSpanFromContext(ctx, "child.span")
+		s, _ := tracer.StartSpanFromContext(ctx, "child.span")
 		time.Sleep(100 * time.Millisecond)
 		s.Finish()
 	}
