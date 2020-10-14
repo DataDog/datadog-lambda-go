@@ -26,20 +26,19 @@ Check out the instructions for [submitting custom metrics from AWS Lambda functi
 
 ## Tracing
 
-Use `ddlambda.AddTraceHeaders(ctx, req)` to inject the Datadog tracing headers into outbound requests.
+Set the `DD_TRACE_ENABLED` envioronment variable to `true` to enable Datadog tracing. When Datadog tracing is enabled, the library will inject a span into the Lambda's context object. You can then use the included `dd-trace-go` package to create additional spans from the context.
 
-```go
-  req, err := http.NewRequest("GET", "http://example.com/status", nil)
-  // Use the same Context object given to your lambda handler.
-  // If you don't want to pass the context through your call hierarchy, you can use ddlambda.GetContext()
-  ddlambda.AddTraceHeaders(ctx, req)
+```
+import "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-  client := http.Client{}
-  client.Do(req)
+func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+  s, _ := tracer.StartSpanFromContext(ctx, "child.span")
+  time.Sleep(100 * time.Millisecond)
+  s.Finish()
 }
 ```
 
-<!-- TODO: Add more information about tracing -->
+If you are also using AWS X-Ray to trace your Lambda functions, you can set the `DD_MERGE_XRAY_TRACERS` environment variable to `true`, and Datadog will merge your Datadog and X-Ray traces into a single, unified trace.
 
 
 ## Environment Variables
