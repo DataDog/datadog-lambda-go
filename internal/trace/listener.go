@@ -11,6 +11,7 @@ package trace
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -89,7 +90,7 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) {
 	if ok {
 		traceSource = traceContext[sourceType]
 	} else {
-		logger.Error("Error extracting Datadog trace context from context")
+		logger.Error(fmt.Errorf("Error extracting Datadog trace context from context"))
 	}
 
 	functionArn := lc.InvokedFunctionArn
@@ -140,7 +141,7 @@ func convertTraceContextToSpanContext(traceContext map[string]string) (ddtrace.S
 		return spanContext, nil
 	}
 
-	logger.Error("Error converting trace context to span context")
+	logger.Error(fmt.Errorf("Error extracting Datadog trace context from context: %v", err))
 	return nil, err
 }
 
