@@ -31,7 +31,7 @@ func mockLambdaTraceContext(ctx context.Context, traceID, parentID string, sampl
 		TraceID:          traceID,
 		ParentID:         parentID,
 		SamplingDecision: decision,
-		AdditionalData:   make(map[string]string),
+		AdditionalData:   make(TraceContext),
 	}
 	headerString := traceHeader.String()
 	return context.WithValue(ctx, xray.LambdaTraceHeaderKey, headerString)
@@ -53,7 +53,7 @@ func TestUnmarshalEventForTraceMetadataNonProxyEvent(t *testing.T) {
 	headers, ok := unmarshalEventForTraceContext(*ev)
 	assert.True(t, ok)
 
-	expected := map[string]string{
+	expected := TraceContext{
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
@@ -68,7 +68,7 @@ func TestUnmarshalEventForTraceMetadataWithMixedCaseHeaders(t *testing.T) {
 	headers, ok := unmarshalEventForTraceContext(*ev)
 	assert.True(t, ok)
 
-	expected := map[string]string{
+	expected := TraceContext{
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
@@ -169,7 +169,7 @@ func TestContextWithTraceContextFromEvent(t *testing.T) {
 	headers := GetTraceHeaders(newCTX, false)
 	assert.NoError(t, err)
 
-	expected := map[string]string{
+	expected := TraceContext{
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "13334283619152181365", // Use the parentID from the context, not the event
 		samplingPriorityHeader: "2",

@@ -55,22 +55,20 @@ type (
 )
 
 const (
-	// The following constants specify the environment variables that will...
-	// ...set the API key
+	// DatadogAPIKeyEnvVar is the envionment variable that will be used to set the API key.
 	DatadogAPIKeyEnvVar = "DD_API_KEY"
-	// ...be sent to KMS for decryption, then used as an API key.
+	// DatadogKMSAPIKeyEnvVar is the environment variable that will be sent to KMS for decryption, then used as an API key.
 	DatadogKMSAPIKeyEnvVar = "DD_KMS_API_KEY"
-	// ...be used as the API host.
+	// DatadogSiteEnvVar is the environment variable that will be used as the API host.
 	DatadogSiteEnvVar = "DD_SITE"
-	// ...be used to check the log level.
-	// if it equals "debug" everything will be logged.
-	DatadogLogLevelEnvVar = "DD_LOG_LEVEL"
-	// ...be used to enable log forwarding of metrics.
-	DatadogShouldUseLogForwarderEnvVar = "DD_FLUSH_TO_LOG"
-	// ...be used to check if DD tracing is enabled.
+	// LogLevelEnvVar is the environment variable that will be used to set the log level.
+	LogLevelEnvVar = "DD_LOG_LEVEL"
+	// ShouldUseLogForwarderEnvVar is the environment variable that enables log forwarding of metrics.
+	ShouldUseLogForwarderEnvVar = "DD_FLUSH_TO_LOG"
+	// DatadogTraceEnabledEnvVar is the environment variable that enables Datadog tracing.
 	DatadogTraceEnabledEnvVar = "DD_TRACE_ENABLED"
-	// ...be used to check if X-Ray traces should be merged
-	DatadogMergeXrayTracesEnvVar = "DD_MERGE_XRAY_TRACES"
+	// MergeXrayTracesEnvVar is the environment variable that enables the merging of X-Ray and Datadog traces.
+	MergeXrayTracesEnvVar = "DD_MERGE_XRAY_TRACES"
 
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
@@ -82,7 +80,7 @@ const (
 // It returns a modified handler that can be passed directly to the lambda. Start function.
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
 
-	logLevel := os.Getenv(DatadogLogLevelEnvVar)
+	logLevel := os.Getenv(LogLevelEnvVar)
 	if strings.EqualFold(logLevel, "debug") || (cfg != nil && cfg.DebugLogging) {
 		logger.SetLogLevel(logger.LevelDebug)
 	}
@@ -172,7 +170,7 @@ func (cfg *Config) toTraceConfig() trace.Config {
 	}
 
 	if !traceConfig.MergeXrayTraces {
-		traceConfig.MergeXrayTraces, _ = strconv.ParseBool(os.Getenv(DatadogMergeXrayTracesEnvVar))
+		traceConfig.MergeXrayTraces, _ = strconv.ParseBool(os.Getenv(MergeXrayTracesEnvVar))
 	}
 
 	return traceConfig
@@ -206,7 +204,7 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 	}
 
 	if !mc.ShouldUseLogForwarder {
-		shouldUseLogForwarder := os.Getenv(DatadogShouldUseLogForwarderEnvVar)
+		shouldUseLogForwarder := os.Getenv(ShouldUseLogForwarderEnvVar)
 		mc.ShouldUseLogForwarder = strings.EqualFold(shouldUseLogForwarder, "true")
 	}
 

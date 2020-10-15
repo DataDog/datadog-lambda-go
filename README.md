@@ -38,6 +38,15 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 }
 ```
 
+You can also use the injected span to [connect your logs and traces](https://docs.datadoghq.com/tracing/connect_logs_and_traces/go/).
+
+```
+func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+  currentSpan, _ := tracer.SpanFromContext(ctx)
+  log.Printf("my log message %v", currentSpan)
+}
+```
+
 If you are also using AWS X-Ray to trace your Lambda functions, you can set the `DD_MERGE_XRAY_TRACES` environment variable to `true`, and Datadog will merge your Datadog and X-Ray traces into a single, unified trace.
 
 
