@@ -10,7 +10,6 @@ package trace
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
@@ -41,31 +40,28 @@ func TestSeparateVersionFromFunctionArnWithoutVersion(t *testing.T) {
 }
 
 var traceContextFromXray = TraceContext{
-	traceIDHeader:          "1231452342",
-	parentIDHeader:         "45678910",
-	samplingPriorityHeader: "2",
-	sourceType:             fromXray,
+	traceIDHeader:  "1231452342",
+	parentIDHeader: "45678910",
+	sourceType:     fromXray,
+}
+
+var traceContextFromEvent = TraceContext{
+	traceIDHeader:  "1231452342",
+	parentIDHeader: "45678910",
+	sourceType:     fromEvent,
+}
+
+var mockLambdaContext = lambdacontext.LambdaContext{
+	AwsRequestID:       "abcdefgh-1234-5678-1234-abcdefghijkl",
+	InvokedFunctionArn: "arn:aws:lambda:us-east-1:123456789012:function:MyFunction:11",
 }
 
 func TestStartFunctionExecutionSpanFromXrayWithMergeEnabled(t *testing.T) {
 	ctx := context.Background()
 
-	// Inject mock Lambda context into mock context
 	lambdacontext.FunctionName = "MockFunctionName"
-	lambdaCtx := lambdacontext.LambdaContext{
-		AwsRequestID:       "abcdefgh-1234-5678-1234-abcdefghijkl",
-		InvokedFunctionArn: "arn:aws:lambda:us-east-1:123456789012:function:MyFunction:11",
-	}
-	ctx = lambdacontext.NewContext(ctx, &lambdaCtx)
-
-	// Inject mock TraceContext into context
-	traceCtx := TraceContext{}
-	traceCtx[traceIDHeader] = "1231452342"
-	traceCtx[parentIDHeader] = "45678910"
-	traceCtx[samplingPriorityHeader] = "2"
-	traceCtx[sourceType] = fromXray
-	ctx = context.WithValue(ctx, traceContextKey, traceCtx)
-
+	ctx = lambdacontext.NewContext(ctx, &mockLambdaContext)
+	ctx = context.WithValue(ctx, traceContextKey, traceContextFromXray)
 	ctx = context.WithValue(ctx, "cold_start", true)
 
 	mt := mocktracer.Start()
@@ -74,8 +70,6 @@ func TestStartFunctionExecutionSpanFromXrayWithMergeEnabled(t *testing.T) {
 	span := startFunctionExecutionSpan(ctx, true)
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
-
-	fmt.Print(span)
 
 	assert.Equal(t, "aws.lambda", finishedSpan.OperationName())
 
@@ -93,22 +87,9 @@ func TestStartFunctionExecutionSpanFromXrayWithMergeEnabled(t *testing.T) {
 func TestStartFunctionExecutionSpanFromXrayWithMergeDisabled(t *testing.T) {
 	ctx := context.Background()
 
-	// Inject mock Lambda context into mock context
 	lambdacontext.FunctionName = "MockFunctionName"
-	lambdaCtx := lambdacontext.LambdaContext{
-		AwsRequestID:       "abcdefgh-1234-5678-1234-abcdefghijkl",
-		InvokedFunctionArn: "arn:aws:lambda:us-east-1:123456789012:function:MyFunction:11",
-	}
-	ctx = lambdacontext.NewContext(ctx, &lambdaCtx)
-
-	// Inject mock TraceContext into context
-	traceCtx := TraceContext{}
-	traceCtx[traceIDHeader] = "1231452342"
-	traceCtx[parentIDHeader] = "45678910"
-	traceCtx[samplingPriorityHeader] = "2"
-	traceCtx[sourceType] = fromXray
-	ctx = context.WithValue(ctx, traceContextKey, traceCtx)
-
+	ctx = lambdacontext.NewContext(ctx, &mockLambdaContext)
+	ctx = context.WithValue(ctx, traceContextKey, traceContextFromXray)
 	ctx = context.WithValue(ctx, "cold_start", true)
 
 	mt := mocktracer.Start()
@@ -118,40 +99,15 @@ func TestStartFunctionExecutionSpanFromXrayWithMergeDisabled(t *testing.T) {
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
 
-	fmt.Print(span)
-
-	assert.Equal(t, "aws.lambda", finishedSpan.OperationName())
-
-	assert.Equal(t, true, finishedSpan.Tag("cold_start"))
-	// We expect the function ARN to be lowercased, and the version removed
-	assert.Equal(t, "arn:aws:lambda:us-east-1:123456789012:function:myfunction", finishedSpan.Tag("function_arn"))
-	assert.Equal(t, "11", finishedSpan.Tag("function_version"))
-	assert.Equal(t, "abcdefgh-1234-5678-1234-abcdefghijkl", finishedSpan.Tag("request_id"))
-	assert.Equal(t, "MockFunctionName", finishedSpan.Tag("resource.name"))
-	assert.Equal(t, "MockFunctionName", finishedSpan.Tag("resource_names"))
-	assert.Equal(t, "serverless", finishedSpan.Tag("span.type"))
 	assert.Equal(t, nil, finishedSpan.Tag("_dd.parent_source"))
 }
 
 func TestStartFunctionExecutionSpanFromEventWithMergeEnabled(t *testing.T) {
 	ctx := context.Background()
 
-	// Inject mock Lambda context into mock context
 	lambdacontext.FunctionName = "MockFunctionName"
-	lambdaCtx := lambdacontext.LambdaContext{
-		AwsRequestID:       "abcdefgh-1234-5678-1234-abcdefghijkl",
-		InvokedFunctionArn: "arn:aws:lambda:us-east-1:123456789012:function:MyFunction:11",
-	}
-	ctx = lambdacontext.NewContext(ctx, &lambdaCtx)
-
-	// Inject mock TraceContext into context
-	traceCtx := TraceContext{}
-	traceCtx[traceIDHeader] = "1231452342"
-	traceCtx[parentIDHeader] = "45678910"
-	traceCtx[samplingPriorityHeader] = "2"
-	traceCtx[sourceType] = fromEvent
-	ctx = context.WithValue(ctx, traceContextKey, traceCtx)
-
+	ctx = lambdacontext.NewContext(ctx, &mockLambdaContext)
+	ctx = context.WithValue(ctx, traceContextKey, traceContextFromEvent)
 	ctx = context.WithValue(ctx, "cold_start", true)
 
 	mt := mocktracer.Start()
@@ -161,40 +117,15 @@ func TestStartFunctionExecutionSpanFromEventWithMergeEnabled(t *testing.T) {
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
 
-	fmt.Print(span)
-
-	assert.Equal(t, "aws.lambda", finishedSpan.OperationName())
-
-	assert.Equal(t, true, finishedSpan.Tag("cold_start"))
-	// We expect the function ARN to be lowercased, and the version removed
-	assert.Equal(t, "arn:aws:lambda:us-east-1:123456789012:function:myfunction", finishedSpan.Tag("function_arn"))
-	assert.Equal(t, "11", finishedSpan.Tag("function_version"))
-	assert.Equal(t, "abcdefgh-1234-5678-1234-abcdefghijkl", finishedSpan.Tag("request_id"))
-	assert.Equal(t, "MockFunctionName", finishedSpan.Tag("resource.name"))
-	assert.Equal(t, "MockFunctionName", finishedSpan.Tag("resource_names"))
-	assert.Equal(t, "serverless", finishedSpan.Tag("span.type"))
 	assert.Equal(t, nil, finishedSpan.Tag("_dd.parent_source"))
 }
 
 func TestStartFunctionExecutionSpanFromEventWithMergeDisabled(t *testing.T) {
 	ctx := context.Background()
 
-	// Inject mock Lambda context into mock context
 	lambdacontext.FunctionName = "MockFunctionName"
-	lambdaCtx := lambdacontext.LambdaContext{
-		AwsRequestID:       "abcdefgh-1234-5678-1234-abcdefghijkl",
-		InvokedFunctionArn: "arn:aws:lambda:us-east-1:123456789012:function:MyFunction:11",
-	}
-	ctx = lambdacontext.NewContext(ctx, &lambdaCtx)
-
-	// Inject mock TraceContext into context
-	traceCtx := TraceContext{}
-	traceCtx[traceIDHeader] = "1231452342"
-	traceCtx[parentIDHeader] = "45678910"
-	traceCtx[samplingPriorityHeader] = "2"
-	traceCtx[sourceType] = fromEvent
-	ctx = context.WithValue(ctx, traceContextKey, traceCtx)
-
+	ctx = lambdacontext.NewContext(ctx, &mockLambdaContext)
+	ctx = context.WithValue(ctx, traceContextKey, traceContextFromEvent)
 	ctx = context.WithValue(ctx, "cold_start", true)
 
 	mt := mocktracer.Start()
@@ -204,17 +135,5 @@ func TestStartFunctionExecutionSpanFromEventWithMergeDisabled(t *testing.T) {
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
 
-	fmt.Print(span)
-
-	assert.Equal(t, "aws.lambda", finishedSpan.OperationName())
-
-	assert.Equal(t, true, finishedSpan.Tag("cold_start"))
-	// We expect the function ARN to be lowercased, and the version removed
-	assert.Equal(t, "arn:aws:lambda:us-east-1:123456789012:function:myfunction", finishedSpan.Tag("function_arn"))
-	assert.Equal(t, "11", finishedSpan.Tag("function_version"))
-	assert.Equal(t, "abcdefgh-1234-5678-1234-abcdefghijkl", finishedSpan.Tag("request_id"))
-	assert.Equal(t, "MockFunctionName", finishedSpan.Tag("resource.name"))
-	assert.Equal(t, "MockFunctionName", finishedSpan.Tag("resource_names"))
-	assert.Equal(t, "serverless", finishedSpan.Tag("span.type"))
 	assert.Equal(t, nil, finishedSpan.Tag("_dd.parent_source"))
 }
