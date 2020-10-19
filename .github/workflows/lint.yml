@@ -25,7 +25,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Get Golint
-        skip: steps.cache-go-modules.outputs.cache-hit != 'true'
+        if: steps.cache-go-modules.outputs.cache-hit != 'true'
         run: go get -u golang.org/x/lint/golint
 
       - name: Lint
