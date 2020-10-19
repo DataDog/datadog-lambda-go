@@ -15,7 +15,17 @@ jobs:
         with:
           go-version: 1.12.7
 
+      - name: Cache Go modules
+        id: cache-go-modules
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Run tests
+        if: steps.cache-go-modules.outputs.cache-hit != 'true'
         run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload code coverage report

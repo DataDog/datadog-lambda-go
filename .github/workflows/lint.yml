@@ -16,7 +16,6 @@ jobs:
           go-version: 1.12.7
 
       - name: Get Golint
-        if: steps.cache-go-modules.outputs.cache-hit != 'true'
         run: go get golang.org/x/lint/golint
 
       - name: Lint
