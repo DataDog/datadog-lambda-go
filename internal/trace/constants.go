@@ -12,6 +12,7 @@ const (
 	traceIDHeader          = "x-datadog-trace-id"
 	parentIDHeader         = "x-datadog-parent-id"
 	samplingPriorityHeader = "x-datadog-sampling-priority"
+	sourceType             = "source-type"
 )
 
 const (
@@ -25,4 +26,9 @@ const (
 	xraySubsegmentName      = "datadog-metadata"
 	xraySubsegmentKey       = "trace"
 	xraySubsegmentNamespace = "datadog"
+)
+
+const (
+	fromXray = "xray"
+	fromEvent = "event"
 )

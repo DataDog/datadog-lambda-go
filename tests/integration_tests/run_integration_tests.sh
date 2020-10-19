@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Usage - run commands from repo root:
-# To check if new changes to the layer cause changes to any snapshots:
+# Usage - run commands from the /integration_tests directory:
+# To check if new changes to the library cause changes to any snapshots:
 #   DD_API_KEY=XXXX aws-vault exec sandbox-account-admin -- ./run_integration_tests.sh
 # To regenerate snapshots:
 #   UPDATE_SNAPSHOTS=true DD_API_KEY=XXXX aws-vault exec sandbox-account-admin -- ./run_integration_tests.sh
@@ -30,7 +30,7 @@ if [ -n "$UPDATE_SNAPSHOTS" ]; then
     echo "Overwriting snapshots in this execution"
 fi
 
-echo "Bulding Go binary"
+echo "Building Go binary"
 GOOS=linux go build -ldflags="-s -w" -o bin/hello
 
 echo "Deploying function"
@@ -94,7 +94,7 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             # Normalize Lambda runtime report logs
             sed -E 's/(RequestId|TraceId|SegmentId|Duration|Memory Used|"e"):( )?[a-z0-9\.\-]+/\1:\2XXXX/g' |
             # Normalize DD APM headers and AWS account ID
-            sed -E "s/(x-datadog-parent-id:|x-datadog-trace-id:|account_id:) ?[0-9]+/\1XXXX/g" |
+            sed -E "s/(Current span ID:|Current trace ID:|account_id:) ?[0-9]+/\1XXXX/g" |
             # Strip API key from logged requests
             sed -E "s/(api_key=|'api_key': ')[a-z0-9\.\-]+/\1XXXX/g" |
             # Normalize ISO combined date-time
@@ -108,8 +108,10 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             # Normalize minor package version tag so that these snapshots aren't broken on version bumps
             sed -E "s/(dd_lambda_layer:datadog-go[0-9]+\.)[0-9]+\.[0-9]+/\1XX\.X/g" |
             # Normalize data in logged traces
-            sed -E 's/"(span_id|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn)":("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
-            # Normalize data in logged traces
+            sed -E 's/"(span_id|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn|runtime-id)":("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
+            # Remove metrics and metas in logged traces (their order is inconsistent)
+            sed -E 's/"(meta|metrics)":{[^}]*},/"\1":{"XXXX": "XXXX"},/g' |
+            # Normalize data in logged metrics
             sed -E 's/"(points\\\":\[\[)([0-9]+)/\1XXXX/g'
 
     )

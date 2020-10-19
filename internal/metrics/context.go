@@ -12,11 +12,11 @@ import "context"
 
 type contextKeytype int
 
-var traceContextKey = new(contextKeytype)
+var metricsListenerKey = new(contextKeytype)
 
 // GetListener retrieves the metrics listener from a context object.
 func GetListener(ctx context.Context) *Listener {
-	result := ctx.Value(traceContextKey)
+	result := ctx.Value(metricsListenerKey)
 	if result == nil {
 		return nil
 	}
@@ -25,5 +25,5 @@ func GetListener(ctx context.Context) *Listener {
 
 // AddListener adds a metrics listener to a context object
 func AddListener(ctx context.Context, listener *Listener) context.Context {
-	return context.WithValue(ctx, traceContextKey, listener)
+	return context.WithValue(ctx, metricsListenerKey, listener)
 }

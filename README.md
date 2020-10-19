@@ -10,7 +10,7 @@ Datadog Lambda Library for Go enables enhanced Lambda metrics, distributed traci
 
 ## Installation
 
-Follow the [installation instructions](https://docs.datadoghq.com/serverless/installation/go/), and view your function's enhanced metrics, traces and logs in Datadog.
+Follow the installation instructions [here](https://docs.datadoghq.com/serverless/installation/go/).
 
 ## Enhanced Metrics
 
@@ -26,18 +26,38 @@ Check out the instructions for [submitting custom metrics from AWS Lambda functi
 
 ## Tracing
 
-Use `ddlambda.AddTraceHeaders(ctx, req)` to inject the Datadog tracing headers to the outbound requests.
+Set the `DD_TRACE_ENABLED` environment variable to `true` to enable Datadog tracing. When Datadog tracing is enabled, the library will inject a span representing the Lambda's execution into the context object. You can then use the included `dd-trace-go` package to create additional spans from the context or pass the context to other services. For more information, see the [dd-trace-go documentation](https://godoc.org/gopkg.in/DataDog/dd-trace-go.v1/ddtrace).
 
-```go
-  req, err := http.NewRequest("GET", "http://example.com/status", nil)
-  // Use the same Context object given to your lambda handler.
-  // If you don't want to pass the context through your call hierarchy, you can use ddlambda.GetContext()
-  ddlambda.AddTraceHeaders(ctx, req)
+```
+import (
+  "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+  httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
+)
 
-  client := http.Client{}
-  client.Do(req)
+func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+  // Trace an HTTP request
+  req, _ := http.NewRequestWithContext(ctx, "GET", "https://www.datadoghq.com", nil)
+	client := http.Client{}
+	client = *httptrace.WrapClient(&client)
+	client.Do(req)
+
+  // Create a custom span
+  s, _ := tracer.StartSpanFromContext(ctx, "child.span")
+  time.Sleep(100 * time.Millisecond)
+  s.Finish()
 }
 ```
+
+You can also use the injected span to [connect your logs and traces](https://docs.datadoghq.com/tracing/connect_logs_and_traces/go/).
+
+```
+func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+  currentSpan, _ := tracer.SpanFromContext(ctx)
+  log.Printf("my log message %v", currentSpan)
+}
+```
+
+If you are also using AWS X-Ray to trace your Lambda functions, you can set the `DD_MERGE_XRAY_TRACES` environment variable to `true`, and Datadog will merge your Datadog and X-Ray traces into a single, unified trace.
 
 
 ## Environment Variables
@@ -61,6 +81,14 @@ Set to `debug` enable debug logs from the Datadog Lambda Library. Defaults to `i
 ### DD_ENHANCED_METRICS
 
 Generate enhanced Datadog Lambda integration metrics, such as, `aws.lambda.enhanced.invocations` and `aws.lambda.enhanced.errors`. Defaults to `true`.
+
+### DD_TRACE_ENABLED
+
+Initialize the Datadog tracer when set to `true`. Defaults to `false`.
+
+### DD_MERGE_XRAY_TRACES
+
+If you are using both X-Ray and Datadog tracing, set this to `true` to merge the X-Ray and Datadog traces. Defaults to `false`.
 
 ## Opening Issues
 

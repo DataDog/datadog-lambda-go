@@ -25,50 +25,54 @@ type (
 	eventWithHeaders struct {
 		Headers map[string]string `json:"headers"`
 	}
+
+	// TraceContext is map of headers containing a Datadog trace context
+	TraceContext map[string]string
 )
 
 type contextKeytype int
 
+// traceContextKey is the key used to store a TraceContext in a Context object
 var traceContextKey = new(contextKeytype)
 
-// ExtractTraceContext returns a list of headers with the current trace context
-func ExtractTraceContext(ctx context.Context, ev json.RawMessage) (context.Context, error) {
+// ContextWithTraceContext uses the incoming event and/or context object payloads to determine
+// the current TraceContext and then adds that TraceContext to the context object
+func ContextWithTraceContext(ctx context.Context, ev json.RawMessage) (context.Context, error) {
 
-	// First priority is always any trace context from incoming headers
-	traceContext, ok := unmarshalEventForTraceContext(ev)
+	// First priority is Datadog trace context from incoming headers
+	traceCtx, ok := unmarshalEventForTraceContext(ev)
 	if ok {
-		// If we detect the trace headers, we should save metadata to xray so it can be read by the converter.
-		err := addTraceContextToXRay(ctx, traceContext)
+		// If we detect the trace headers, we save metadata to X-Ray so it can be read by the converter.
+		err := addTraceContextToXRay(ctx, traceCtx)
 		if err != nil {
 			return ctx, err
 		}
-		// The parentID from the incoming datadog headers needs to be saved as metadata so the xray converter can
+		// The parentID from the incoming Datadog headers needs to be saved as metadata so the xray converter can
 		// link segments across functions. However, that parentID does not match the ID of the xray segment
 		// lambda has created. So we read in the xray id of the current lambda, and use that as our parentId to
 		// forward on to any outbound requests, (unless the user has created a subsegment, in which case we use that
 		// id as the parentID).
-		xrayTraceContext, err := convertTraceContextFromXRay(ctx)
+		xrayTraceCtx, err := convertTraceContextFromXRay(ctx)
 		if err == nil {
-			traceContext[parentIDHeader] = xrayTraceContext[parentIDHeader]
+			traceCtx[parentIDHeader] = xrayTraceCtx[parentIDHeader]
 		}
 
-		return context.WithValue(ctx, traceContextKey, traceContext), nil
+		return context.WithValue(ctx, traceContextKey, traceCtx), nil
 	}
 
-	// Second priority is any trace
-	traceContext, err := convertTraceContextFromXRay(ctx)
+	// Second priority is X-Ray trace context
+	traceCtx, err := convertTraceContextFromXRay(ctx)
 	if err != nil {
 		return ctx, fmt.Errorf("couldn't convert trace context: %v", err)
 	}
 
-	return context.WithValue(ctx, traceContextKey, traceContext), nil
+	return context.WithValue(ctx, traceContextKey, traceCtx), nil
 }
 
 // GetTraceHeaders retrieves the current trace headers that should be added to outbound requests
-func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) map[string]string {
-	if traceContext, ok := ctx.Value(traceContextKey).(map[string]string); ok {
-		// Change the trace context to include the current segment/subsegment id as the parent ID.
-		parentID := traceContext[parentIDHeader]
+func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) TraceContext {
+	if traceCtx, ok := ctx.Value(traceContextKey).(TraceContext); ok {
+		parentID := traceCtx[parentIDHeader]
 
 		if useCurrentSegmentAsParent {
 			segment := xray.GetSegment(ctx)
@@ -81,8 +85,8 @@ func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) map[st
 		}
 
 		newTraceContext := map[string]string{}
-		newTraceContext[traceIDHeader] = traceContext[traceIDHeader]
-		newTraceContext[samplingPriorityHeader] = traceContext[samplingPriorityHeader]
+		newTraceContext[traceIDHeader] = traceCtx[traceIDHeader]
+		newTraceContext[samplingPriorityHeader] = traceCtx[samplingPriorityHeader]
 		newTraceContext[parentIDHeader] = parentID
 
 		return newTraceContext
@@ -90,12 +94,12 @@ func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) map[st
 	return map[string]string{}
 }
 
-func addTraceContextToXRay(ctx context.Context, traceContext map[string]string) error {
+func addTraceContextToXRay(ctx context.Context, traceCtx TraceContext) error {
 	_, segment := xray.BeginSubsegment(ctx, xraySubsegmentName)
 
-	traceID := traceContext[traceIDHeader]
-	parentID := traceContext[parentIDHeader]
-	sampled := traceContext[samplingPriorityHeader]
+	traceID := traceCtx[traceIDHeader]
+	parentID := traceCtx[parentIDHeader]
+	sampled := traceCtx[samplingPriorityHeader]
 	metadata := map[string]string{
 		"trace-id":          traceID,
 		"parent-id":         parentID,
@@ -110,14 +114,14 @@ func addTraceContextToXRay(ctx context.Context, traceContext map[string]string) 
 	return nil
 }
 
-func unmarshalEventForTraceContext(ev json.RawMessage) (map[string]string, bool) {
+func unmarshalEventForTraceContext(ev json.RawMessage) (TraceContext, bool) {
 	eh := eventWithHeaders{}
 
-	traceContext := map[string]string{}
+	traceCtx := map[string]string{}
 
 	err := json.Unmarshal(ev, &eh)
 	if err != nil {
-		return traceContext, false
+		return traceCtx, false
 	}
 
 	lowercaseHeaders := map[string]string{}
@@ -127,47 +131,49 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (map[string]string, bool)
 
 	traceID, ok := lowercaseHeaders[traceIDHeader]
 	if !ok {
-		return traceContext, false
+		return traceCtx, false
 	}
 
 	parentID, ok := lowercaseHeaders[parentIDHeader]
 	if !ok {
-		return traceContext, false
+		return traceCtx, false
 	}
 
 	samplingPriority, ok := lowercaseHeaders[samplingPriorityHeader]
 	if !ok {
-		return traceContext, false
+		return traceCtx, false
 	}
 
-	traceContext[samplingPriorityHeader] = samplingPriority
-	traceContext[traceIDHeader] = traceID
-	traceContext[parentIDHeader] = parentID
-	return traceContext, true
+	traceCtx[samplingPriorityHeader] = samplingPriority
+	traceCtx[traceIDHeader] = traceID
+	traceCtx[parentIDHeader] = parentID
+	traceCtx[sourceType] = fromEvent
+	return traceCtx, true
 }
 
-func convertTraceContextFromXRay(ctx context.Context) (map[string]string, error) {
-	traceContext := map[string]string{}
+func convertTraceContextFromXRay(ctx context.Context) (TraceContext, error) {
+	traceCtx := map[string]string{}
 
 	header := getXrayTraceHeaderFromContext(ctx)
 	if header == nil {
-		return traceContext, fmt.Errorf("xray segment doesn't exist, couldn't read trace context")
+		return traceCtx, fmt.Errorf("xray segment doesn't exist, couldn't read trace context")
 	}
 
 	traceID, err := convertXRayTraceIDToAPMTraceID(header.TraceID)
 	if err != nil {
-		return traceContext, fmt.Errorf("couldn't read trace id from xray: %v", err)
+		return traceCtx, fmt.Errorf("couldn't read trace id from xray: %v", err)
 	}
 	parentID, err := convertXRayEntityIDToAPMParentID(header.ParentID)
 	if err != nil {
-		return traceContext, fmt.Errorf("couldn't read parent id from xray: %v", err)
+		return traceCtx, fmt.Errorf("couldn't read parent id from xray: %v", err)
 	}
 	samplingPriority := convertXRaySamplingDecision(header.SamplingDecision)
 
-	traceContext[traceIDHeader] = traceID
-	traceContext[parentIDHeader] = parentID
-	traceContext[samplingPriorityHeader] = samplingPriority
-	return traceContext, nil
+	traceCtx[traceIDHeader] = traceID
+	traceCtx[parentIDHeader] = parentID
+	traceCtx[samplingPriorityHeader] = samplingPriority
+	traceCtx[sourceType] = fromXray
+	return traceCtx, nil
 }
 
 // getXrayTraceHeaderFromContext is used to extract xray segment metadata from the lambda context object.

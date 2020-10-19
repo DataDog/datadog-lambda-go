@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,54 +43,63 @@ type (
 		// Site is the host to send metrics to. If empty, this value is read from the 'DD_SITE' environment variable, or if that is empty
 		// will default to 'datadoghq.com'.
 		Site string
-
 		// DebugLogging will turn on extended debug logging.
 		DebugLogging bool
 		// EnhancedMetrics enables the reporting of enhanced metrics under `aws.lambda.enhanced*` and adds enhanced metric tags
 		EnhancedMetrics bool
+		// DDTraceEnabled enables the Datadog tracer.
+		DDTraceEnabled bool
+		// MergeXrayTraces will cause Datadog traces to be merged with traces from AWS X-Ray.
+		MergeXrayTraces bool
 	}
 )
 
 const (
-	// DatadogAPIKeyEnvVar is the environment variable that will be used as an API key by default
+	// DatadogAPIKeyEnvVar is the environment variable that will be used to set the API key.
 	DatadogAPIKeyEnvVar = "DD_API_KEY"
 	// DatadogKMSAPIKeyEnvVar is the environment variable that will be sent to KMS for decryption, then used as an API key.
 	DatadogKMSAPIKeyEnvVar = "DD_KMS_API_KEY"
 	// DatadogSiteEnvVar is the environment variable that will be used as the API host.
 	DatadogSiteEnvVar = "DD_SITE"
-	// DatadogLogLevelEnvVar is the environment variable that will be used to check the log level.
-	// if it equals "debug" everything will be logged.
-	DatadogLogLevelEnvVar = "DD_LOG_LEVEL"
-	// DatadogShouldUseLogForwarderEnvVar is the environment variable that is used to enable log forwarding of metrics.
-	DatadogShouldUseLogForwarderEnvVar = "DD_FLUSH_TO_LOG"
+	// LogLevelEnvVar is the environment variable that will be used to set the log level.
+	LogLevelEnvVar = "DD_LOG_LEVEL"
+	// ShouldUseLogForwarderEnvVar is the environment variable that enables log forwarding of metrics.
+	ShouldUseLogForwarderEnvVar = "DD_FLUSH_TO_LOG"
+	// DatadogTraceEnabledEnvVar is the environment variable that enables Datadog tracing.
+	DatadogTraceEnabledEnvVar = "DD_TRACE_ENABLED"
+	// MergeXrayTracesEnvVar is the environment variable that enables the merging of X-Ray and Datadog traces.
+	MergeXrayTracesEnvVar = "DD_MERGE_XRAY_TRACES"
+
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
 	// DefaultEnhancedMetrics enables enhanced metrics by default.
 	DefaultEnhancedMetrics = true
 )
 
-// WrapHandler is used to instrument your lambda functions, reading in context from API Gateway.
-// It returns a modified handler that can be passed directly to the lambda.Start function.
+// WrapHandler is used to instrument your lambda functions.
+// It returns a modified handler that can be passed directly to the lambda. Start function.
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
 
-	logLevel := os.Getenv(DatadogLogLevelEnvVar)
+	logLevel := os.Getenv(LogLevelEnvVar)
 	if strings.EqualFold(logLevel, "debug") || (cfg != nil && cfg.DebugLogging) {
 		logger.SetLogLevel(logger.LevelDebug)
 	}
 
-	// Set up state that is shared between handler invocations
-	tl := trace.Listener{}
+	// Wrap the handler with listeners that add instrumentation for traces and metrics.
+	tl := trace.MakeListener(cfg.toTraceConfig())
 	ml := metrics.MakeListener(cfg.toMetricsConfig())
 	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
 }
 
-// GetTraceHeaders reads a map containing the DataDog trace headers from a context object.
+// GetTraceHeaders reads a map containing the Datadog trace headers from a context object.
+// Deprecated: Use dd-trace-go to extract the current span from the context instead
 func GetTraceHeaders(ctx context.Context) map[string]string {
 	result := trace.GetTraceHeaders(ctx, true)
 	return result
 }
 
-// AddTraceHeaders adds DataDog trace headers to a HTTP Request
+// AddTraceHeaders adds Datadog trace headers to a HTTP Request
+// Deprecated: Use dd-trace-go to extract the current span from the context instead
 func AddTraceHeaders(ctx context.Context, req *http.Request) {
 	headers := GetTraceHeaders(ctx)
 	for key, value := range headers {
@@ -103,7 +113,7 @@ func GetContext() context.Context {
 	return wrapper.CurrentContext
 }
 
-// Distribution sends a distribution metric to DataDog
+// Distribution sends a distribution metric to Datadog
 // Deprecated: Use Metric method instead
 func Distribution(metric string, value float64, tags ...string) {
 	Metric(metric, value, tags...)
@@ -143,6 +153,29 @@ func InvokeDryRun(callback func(ctx context.Context), cfg *Config) (interface{},
 	return handler(context.Background(), json.RawMessage("{}"))
 }
 
+func (cfg *Config) toTraceConfig() trace.Config {
+
+	traceConfig := trace.Config{
+		DDTraceEnabled:  false,
+		MergeXrayTraces: false,
+	}
+
+	if cfg != nil {
+		traceConfig.DDTraceEnabled = cfg.DDTraceEnabled
+		traceConfig.MergeXrayTraces = cfg.MergeXrayTraces
+	}
+
+	if !traceConfig.DDTraceEnabled {
+		traceConfig.DDTraceEnabled, _ = strconv.ParseBool(os.Getenv(DatadogTraceEnabledEnvVar))
+	}
+
+	if !traceConfig.MergeXrayTraces {
+		traceConfig.MergeXrayTraces, _ = strconv.ParseBool(os.Getenv(MergeXrayTracesEnvVar))
+	}
+
+	return traceConfig
+}
+
 func (cfg *Config) toMetricsConfig() metrics.Config {
 
 	mc := metrics.Config{
@@ -171,7 +204,7 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 	}
 
 	if !mc.ShouldUseLogForwarder {
-		shouldUseLogForwarder := os.Getenv(DatadogShouldUseLogForwarderEnvVar)
+		shouldUseLogForwarder := os.Getenv(ShouldUseLogForwarderEnvVar)
 		mc.ShouldUseLogForwarder = strings.EqualFold(shouldUseLogForwarder, "true")
 	}
 
