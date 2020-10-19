@@ -37,9 +37,9 @@ import (
 func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
   // Trace an HTTP request
   req, _ := http.NewRequestWithContext(ctx, "GET", "https://www.datadoghq.com", nil)
-	client := http.Client{}
-	client = *httptrace.WrapClient(&client)
-	client.Do(req)
+  client := http.Client{}
+  client = *httptrace.WrapClient(&client)
+  client.Do(req)
 
   // Create a custom span
   s, _ := tracer.StartSpanFromContext(ctx, "child.span")
