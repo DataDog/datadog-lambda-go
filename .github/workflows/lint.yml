@@ -1,0 +1,22 @@
+name: Lint
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.12.7
+
+      - name: Get Golint
+        run: go get -u golang.org/x/lint/golint
+
+      - name: Lint
+        run: golint

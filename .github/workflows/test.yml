@@ -1,0 +1,22 @@
+name: Test
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.12.7
+
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: Upload code coverage report
+        run: bash <(curl -s https://codecov.io/bash)
