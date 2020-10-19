@@ -55,7 +55,7 @@ type (
 )
 
 const (
-	// DatadogAPIKeyEnvVar is the envionment variable that will be used to set the API key.
+	// DatadogAPIKeyEnvVar is the environment variable that will be used to set the API key.
 	DatadogAPIKeyEnvVar = "DD_API_KEY"
 	// DatadogKMSAPIKeyEnvVar is the environment variable that will be sent to KMS for decryption, then used as an API key.
 	DatadogKMSAPIKeyEnvVar = "DD_KMS_API_KEY"

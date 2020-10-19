@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 
 	ddlambda "github.com/DataDog/datadog-lambda-go"
 	"github.com/aws/aws-lambda-go/events"
+	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -18,24 +20,22 @@ var (
 )
 
 func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	currentSpan, _ := tracer.SpanFromContext(ctx)
+	currentSpanContext := currentSpan.Context()
+	fmt.Println("Current span ID: " + strconv.FormatUint(currentSpanContext.SpanID(), 10))
+	fmt.Println("Current trace ID: " + strconv.FormatUint(currentSpanContext.TraceID(), 10))
 
-	req, _ := http.NewRequest("GET", "https://www.datadoghq.com", nil)
-	ddlambda.AddTraceHeaders(ctx, req)
+	// HTTP request
+	req, _ := http.NewRequestWithContext(ctx, "GET", "https://www.datadoghq.com", nil)
 	client := http.Client{}
+	client = *httptrace.WrapClient(&client)
 	client.Do(req)
 
-	headers := ddlambda.GetTraceHeaders(ctx)
-
+	// Metric
 	ddlambda.Distribution("hello-go.dog", float64(invokeCount))
 	invokeCount++
 
-	fmt.Println("Start Logging Trace Headers")
-	fmt.Println("x-datadog-parent-id:" + headers["x-datadog-parent-id"])
-	fmt.Println("x-datadog-trace-id:" + headers["x-datadog-trace-id"])
-	fmt.Println("x-datadog-sampling-priority:" + headers["x-datadog-sampling-priority"])
-	fmt.Println("End Logging Trace Headers")
-
-	// Test tracing
+	// User-defined span
 	for i := 0; i < 10; i++ {
 		s, _ := tracer.StartSpanFromContext(ctx, "child.span")
 		time.Sleep(100 * time.Millisecond)
