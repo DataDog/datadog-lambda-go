@@ -15,18 +15,9 @@ jobs:
         with:
           go-version: 1.12.7
 
-      - name: Cache Go modules
-        id: cache-go-modules
-        uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: Get Golint
         if: steps.cache-go-modules.outputs.cache-hit != 'true'
-        run: go get -u golang.org/x/lint/golint
+        run: go get golang.org/x/lint/golint
 
       - name: Lint
         run: golint
