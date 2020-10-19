@@ -25,7 +25,6 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Run tests
-        if: steps.cache-go-modules.outputs.cache-hit != 'true'
         run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload code coverage report
