@@ -1,6 +1,6 @@
 # datadog-lambda-go
 
-[![CircleCI](https://img.shields.io/circleci/build/github/DataDog/datadog-lambda-go)](https://circleci.com/gh/DataDog/datadog-lambda-go)
+![build](https://github.com/DataDog/datadog-lambda-go/workflows/build/badge.svg)
 [![Code Coverage](https://img.shields.io/codecov/c/github/DataDog/datadog-lambda-go)](https://codecov.io/gh/DataDog/datadog-lambda-go)
 [![Slack](https://img.shields.io/badge/slack-%23serverless-blueviolet?logo=slack)](https://datadoghq.slack.com/channels/serverless/)
 [![Godoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/DataDog/datadog-lambda-go)
