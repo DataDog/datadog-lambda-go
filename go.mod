@@ -1,4 +1,4 @@
-module github.com/stroem/datadog-lambda-go
+module github.com/DataDog/datadog-lambda-go
 
 go 1.12
 
