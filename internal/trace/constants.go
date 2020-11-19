@@ -16,12 +16,6 @@ const (
 )
 
 const (
-	b3TraceIDHeader = "x-b3-traceid"
-	b3SpanIDHeader  = "x-b3-spanid"
-	b3SampledHeader = "x-b3-sampled"
-)
-
-const (
 	userReject = "-1"
 	autoReject = "0"
 	autoKeep   = "1"

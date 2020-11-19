@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/aws/aws-xray-sdk-go/header"
@@ -51,13 +52,16 @@ func loadRawJSON(t *testing.T, filename string) *json.RawMessage {
 func TestUnmarshalEventForTraceB3MetadataNonProxyEvent(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/non-proxy-b3-metadata.json")
 
+	os.Setenv("DD_PROPAGATION_STYLE_EXTRACT", "b3")
+	defer os.Unsetenv("DD_PROPAGATION_STYLE_EXTRACT")
+
 	headers, ok := unmarshalEventForTraceContext(*ev)
-	assert.False(t, ok)
+	assert.True(t, ok)
 
 	expected := TraceContext{
-		b3TraceIDHeader: "6cba686e7e4c7cf9e41ecbdac0365bbc",
-		b3SpanIDHeader:  "a57c470c47a12859",
-		b3SampledHeader: "1",
+		traceIDHeader:  "16437799830336986044",
+		parentIDHeader: "11924484031437154393",
+		sourceType:     "event",
 	}
 	assert.Equal(t, expected, headers)
 }

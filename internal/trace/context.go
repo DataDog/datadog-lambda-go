@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/aws-xray-sdk-go/header"
 	"github.com/aws/aws-xray-sdk-go/xray"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type (
@@ -38,7 +39,6 @@ var traceContextKey = new(contextKeytype)
 // ContextWithTraceContext uses the incoming event and/or context object payloads to determine
 // the current TraceContext and then adds that TraceContext to the context object
 func ContextWithTraceContext(ctx context.Context, ev json.RawMessage) (context.Context, error) {
-
 	// First priority is Datadog trace context from incoming headers
 	traceCtx, ok := unmarshalEventForTraceContext(ev)
 	if ok {
@@ -124,42 +124,14 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (TraceContext, bool) {
 		return traceCtx, false
 	}
 
-	lowercaseHeaders := map[string]string{}
-	for k, v := range eh.Headers {
-		lowercaseHeaders[strings.ToLower(k)] = v
+	spanCtx, err := propagator.Extract(tracer.TextMapCarrier(eh.Headers))
+	if err != nil {
+		return traceCtx, false
 	}
 
-	b3TraceID, traceIDok := lowercaseHeaders[b3TraceIDHeader]
-	b3SpanID, spanIDok := lowercaseHeaders[b3SpanIDHeader]
-	if traceIDok && spanIDok {
-		traceCtx[b3TraceIDHeader] = b3TraceID
-		traceCtx[b3SpanIDHeader] = b3SpanID
-	}
-
-	b3Sampled, ok := lowercaseHeaders[b3SampledHeader]
-	if ok {
-		traceCtx[b3SampledHeader] = b3Sampled
-	}
-
-	// traceID, ok := lowercaseHeaders[traceIDHeader]
-	// if !ok {
-	// 	return traceCtx, false
-	// }
-
-	// parentID, ok := lowercaseHeaders[parentIDHeader]
-	// if !ok {
-	// 	return traceCtx, false
-	// }
-
-	// samplingPriority, ok := lowercaseHeaders[samplingPriorityHeader]
-	// if !ok {
-	// 	return traceCtx, false
-	// }
-
-	// traceCtx[samplingPriorityHeader] = samplingPriority
-	// traceCtx[traceIDHeader] = traceID
-	// traceCtx[parentIDHeader] = parentID
-	// traceCtx[sourceType] = fromEvent
+	traceCtx[traceIDHeader] = strconv.FormatUint(spanCtx.TraceID(), 10)
+	traceCtx[parentIDHeader] = strconv.FormatUint(spanCtx.SpanID(), 10)
+	traceCtx[sourceType] = fromEvent
 	return traceCtx, true
 }
 
