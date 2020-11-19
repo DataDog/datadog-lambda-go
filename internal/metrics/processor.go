@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/cenkalti/backoff"
+	"github.com/stroem/datadog-lambda-go/internal/logger"
 )
 
 type (

@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/aws/aws-lambda-go/lambdacontext"
+	"github.com/stroem/datadog-lambda-go/internal/logger"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )

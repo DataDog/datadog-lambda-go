@@ -21,7 +21,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambdacontext"
 
 	"github.com/DataDog/datadog-go/statsd"
-	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/stroem/datadog-lambda-go/internal/logger"
 )
 
 const datadogLambdaVersion = "v0.9.0"

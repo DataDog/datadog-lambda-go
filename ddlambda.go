@@ -18,10 +18,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DataDog/datadog-lambda-go/internal/logger"
-	"github.com/DataDog/datadog-lambda-go/internal/metrics"
-	"github.com/DataDog/datadog-lambda-go/internal/trace"
-	"github.com/DataDog/datadog-lambda-go/internal/wrapper"
+	"github.com/stroem/datadog-lambda-go/internal/logger"
+	"github.com/stroem/datadog-lambda-go/internal/metrics"
+	"github.com/stroem/datadog-lambda-go/internal/trace"
+	"github.com/stroem/datadog-lambda-go/internal/wrapper"
 )
 
 type (

@@ -1,10 +1,10 @@
 # datadog-lambda-go
 
-![build](https://github.com/DataDog/datadog-lambda-go/workflows/build/badge.svg)
+![build](https://github.com/stroem/datadog-lambda-go/workflows/build/badge.svg)
 [![Code Coverage](https://img.shields.io/codecov/c/github/DataDog/datadog-lambda-go)](https://codecov.io/gh/DataDog/datadog-lambda-go)
 [![Slack](https://img.shields.io/badge/slack-%23serverless-blueviolet?logo=slack)](https://datadoghq.slack.com/channels/serverless/)
-[![Godoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/DataDog/datadog-lambda-go)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/DataDog/datadog-lambda-go/blob/master/LICENSE)
+[![Godoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/stroem/datadog-lambda-go)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/stroem/datadog-lambda-go/blob/master/LICENSE)
 
 Datadog Lambda Library for Go enables enhanced Lambda metrics, distributed tracing, and custom metric submission from AWS Lambda functions.  
 

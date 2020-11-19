@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/aws/aws-lambda-go/lambdacontext"
+	"github.com/stroem/datadog-lambda-go/internal/logger"
 
 	"github.com/stretchr/testify/assert"
 )

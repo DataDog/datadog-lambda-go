@@ -2,8 +2,8 @@ github.com/DataDog/datadog-go v4.0.0+incompatible h1:Dq8Dr+4sV1gBO1sHDWdW+4G+Pds
 github.com/DataDog/datadog-go v4.0.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/DataDog/datadog-go v4.0.1+incompatible h1:6BF/mPNV2f+PJzpw5vxDK91Z3IfOM7fEmz5ptuL+0vo=
 github.com/DataDog/datadog-go v4.0.1+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
-github.com/DataDog/datadog-lambda-go v0.7.0 h1:RsALFf7mhtB4k5WVduvvsDl2VUsui+eJ7oXOWB+LdnY=
-github.com/DataDog/datadog-lambda-go v0.7.0/go.mod h1:8IH+3AngDt+on4Fc7qeFAxj2h6oPuIgsXs5lEPFImto=
+github.com/stroem/datadog-lambda-go v0.7.0 h1:RsALFf7mhtB4k5WVduvvsDl2VUsui+eJ7oXOWB+LdnY=
+github.com/stroem/datadog-lambda-go v0.7.0/go.mod h1:8IH+3AngDt+on4Fc7qeFAxj2h6oPuIgsXs5lEPFImto=
 github.com/aws/aws-lambda-go v1.11.1 h1:wuOnhS5aqzPOWns71FO35PtbtBKHr4MYsPVt5qXLSfI=
 github.com/aws/aws-lambda-go v1.11.1/go.mod h1:Rr2SMTLeSMKgD45uep9V/NP8tnbCcySgu04cx0k/6cw=
 github.com/aws/aws-sdk-go v1.20.2 h1:/BBeW8F4PPmvJ5jpFvgkCK4RJQXErNndVRnNhO2qEkQ=

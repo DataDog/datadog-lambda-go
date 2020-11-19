@@ -129,25 +129,37 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (TraceContext, bool) {
 		lowercaseHeaders[strings.ToLower(k)] = v
 	}
 
-	traceID, ok := lowercaseHeaders[traceIDHeader]
-	if !ok {
-		return traceCtx, false
+	b3TraceID, traceIDok := lowercaseHeaders[b3TraceIDHeader]
+	b3SpanID, spanIDok := lowercaseHeaders[b3SpanIDHeader]
+	if traceIDok && spanIDok {
+		traceCtx[b3TraceIDHeader] = b3TraceID
+		traceCtx[b3SpanIDHeader] = b3SpanID
 	}
 
-	parentID, ok := lowercaseHeaders[parentIDHeader]
-	if !ok {
-		return traceCtx, false
+	b3Sampled, ok := lowercaseHeaders[b3SampledHeader]
+	if ok {
+		traceCtx[b3SampledHeader] = b3Sampled
 	}
 
-	samplingPriority, ok := lowercaseHeaders[samplingPriorityHeader]
-	if !ok {
-		return traceCtx, false
-	}
+	// traceID, ok := lowercaseHeaders[traceIDHeader]
+	// if !ok {
+	// 	return traceCtx, false
+	// }
 
-	traceCtx[samplingPriorityHeader] = samplingPriority
-	traceCtx[traceIDHeader] = traceID
-	traceCtx[parentIDHeader] = parentID
-	traceCtx[sourceType] = fromEvent
+	// parentID, ok := lowercaseHeaders[parentIDHeader]
+	// if !ok {
+	// 	return traceCtx, false
+	// }
+
+	// samplingPriority, ok := lowercaseHeaders[samplingPriorityHeader]
+	// if !ok {
+	// 	return traceCtx, false
+	// }
+
+	// traceCtx[samplingPriorityHeader] = samplingPriority
+	// traceCtx[traceIDHeader] = traceID
+	// traceCtx[parentIDHeader] = parentID
+	// traceCtx[sourceType] = fromEvent
 	return traceCtx, true
 }
 

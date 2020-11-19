@@ -17,7 +17,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/stroem/datadog-lambda-go/internal/logger"
 )
 
 type (

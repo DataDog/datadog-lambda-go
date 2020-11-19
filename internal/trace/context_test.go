@@ -47,6 +47,21 @@ func loadRawJSON(t *testing.T, filename string) *json.RawMessage {
 	msg.UnmarshalJSON(bytes)
 	return &msg
 }
+
+func TestUnmarshalEventForTraceB3MetadataNonProxyEvent(t *testing.T) {
+	ev := loadRawJSON(t, "../testdata/non-proxy-b3-metadata.json")
+
+	headers, ok := unmarshalEventForTraceContext(*ev)
+	assert.False(t, ok)
+
+	expected := TraceContext{
+		b3TraceIDHeader: "6cba686e7e4c7cf9e41ecbdac0365bbc",
+		b3SpanIDHeader:  "a57c470c47a12859",
+		b3SampledHeader: "1",
+	}
+	assert.Equal(t, expected, headers)
+}
+
 func TestUnmarshalEventForTraceMetadataNonProxyEvent(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-metadata.json")
 

@@ -1,0 +1,11 @@
+{
+    "my-custom-event": {
+        "hello": 100
+    },
+    "fake-id": "12345678910",
+    "headers": {
+        "x-b3-traceid": "6cba686e7e4c7cf9e41ecbdac0365bbc",
+        "x-b3-spanid": "a57c470c47a12859",
+        "x-b3-sampled": "1"
+    }
+}

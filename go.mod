@@ -1,9 +1,10 @@
-module github.com/DataDog/datadog-lambda-go
+module github.com/stroem/datadog-lambda-go
 
 go 1.12
 
 require (
 	github.com/DataDog/datadog-go v4.0.1+incompatible
+	github.com/DataDog/datadog-lambda-go v0.9.0 // indirect
 	github.com/aws/aws-lambda-go v1.11.1
 	github.com/aws/aws-sdk-go v1.20.2
 	github.com/aws/aws-xray-sdk-go v1.0.0-rc.9
