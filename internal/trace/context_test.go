@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-xray-sdk-go/header"
@@ -50,10 +51,13 @@ func loadRawJSON(t *testing.T, filename string) *json.RawMessage {
 }
 
 func TestUnmarshalEventForTraceB3MetadataNonProxyEvent(t *testing.T) {
-	ev := loadRawJSON(t, "../testdata/non-proxy-b3-metadata.json")
+	extractEnvLowercase := strings.ToLower(os.Getenv("DD_PROPAGATION_STYLE_EXTRACT"))
+	if !strings.Contains(extractEnvLowercase, "b3") {
+		t.Skip("Skipping test, DD_PROPAGATION_STYLE_EXTRACT needs to contain B3 to be able to run the test")
+		return
+	}
 
-	os.Setenv("DD_PROPAGATION_STYLE_EXTRACT", "b3")
-	defer os.Unsetenv("DD_PROPAGATION_STYLE_EXTRACT")
+	ev := loadRawJSON(t, "../testdata/non-proxy-b3-metadata.json")
 
 	headers, ok := unmarshalEventForTraceContext(*ev)
 	assert.True(t, ok)

@@ -124,6 +124,11 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (TraceContext, bool) {
 		return traceCtx, false
 	}
 
+	lowercaseHeaders := map[string]string{}
+	for k, v := range eh.Headers {
+		lowercaseHeaders[strings.ToLower(k)] = v
+	}
+
 	spanCtx, err := propagator.Extract(tracer.TextMapCarrier(eh.Headers))
 	if err != nil {
 		return traceCtx, false
@@ -132,6 +137,11 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (TraceContext, bool) {
 	traceCtx[traceIDHeader] = strconv.FormatUint(spanCtx.TraceID(), 10)
 	traceCtx[parentIDHeader] = strconv.FormatUint(spanCtx.SpanID(), 10)
 	traceCtx[sourceType] = fromEvent
+
+	if samplingPriority, ok := lowercaseHeaders[samplingPriorityHeader]; ok {
+		traceCtx[samplingPriorityHeader] = samplingPriority
+	}
+
 	return traceCtx, true
 }
 
