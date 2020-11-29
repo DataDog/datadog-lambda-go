@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/aws/aws-lambda-go/lambda"
+
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
 
@@ -62,9 +64,14 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 }
 
 func validateHandler(handler interface{}) error {
+	if _, ok := handler.(lambda.Handler); ok {
+		return nil
+	}
+
 	// Detect the handler follows the right format, based on the GO AWS SDK.
 	// https://docs.aws.amazon.com/lambda/latest/dg/go-programming-model-handler-types.html
 	handlerType := reflect.TypeOf(handler)
+
 	if handlerType.Kind() != reflect.Func {
 		return errors.New("handler is not a function")
 	}
@@ -95,6 +102,10 @@ func validateHandler(handler interface{}) error {
 }
 
 func callHandler(ctx context.Context, msg json.RawMessage, handler interface{}) (interface{}, error) {
+	if h, ok := handler.(lambda.Handler); ok {
+		return h.Invoke(ctx, msg)
+	}
+
 	ev, err := unmarshalEventForHandler(msg, handler)
 	if err != nil {
 		return nil, err

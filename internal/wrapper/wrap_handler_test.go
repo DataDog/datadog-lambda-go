@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -72,6 +73,7 @@ func TestValidateHandlerNotFunction(t *testing.T) {
 	err := validateHandler(nonFunction)
 	assert.EqualError(t, err, "handler is not a function")
 }
+
 func TestValidateHandlerToManyArguments(t *testing.T) {
 	tooManyArgs := func(a, b, c int) {
 	}
@@ -112,6 +114,7 @@ func TestValidateHandlerTooManyReturnValues(t *testing.T) {
 	err := validateHandler(tooManyReturns)
 	assert.EqualError(t, err, "handler returns more than two values")
 }
+
 func TestValidateHandlerLastReturnValueNotError(t *testing.T) {
 	lastNotError := func() (int, int) {
 		return 0, 0
@@ -120,6 +123,7 @@ func TestValidateHandlerLastReturnValueNotError(t *testing.T) {
 	err := validateHandler(lastNotError)
 	assert.EqualError(t, err, "handler doesn't return error as it's last value")
 }
+
 func TestValidateHandlerCorrectFormat(t *testing.T) {
 	correct := func(context context.Context) (int, error) {
 		return 0, nil
@@ -204,6 +208,26 @@ func TestWrapHandlerNoArguments(t *testing.T) {
 	assert.True(t, called)
 	assert.NoError(t, err)
 	assert.Equal(t, 5, response)
+}
+
+type structHandler struct {
+	called bool
+}
+
+func (h *structHandler) Invoke(ctx context.Context, payload []byte) ([]byte, error) {
+	h.called = true
+
+	return []byte("5"), nil
+}
+
+func TestWrapHandlerStructHander(t *testing.T) {
+	var handler lambda.Handler = &structHandler{}
+
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
+
+	assert.True(t, handler.(*structHandler).called)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("5"), response)
 }
 
 func TestWrapHandlerInvalidData(t *testing.T) {
