@@ -170,6 +170,7 @@ func TestContextWithTraceContextNoDatadogContext(t *testing.T) {
 		samplingPriorityHeader: "2",
 		sourceType:             fromXray,
 	}
+	assert.Equal(t, expected, traceContext)
 }
 
 func TestContextWithTraceContextDDTraceDisabled(t *testing.T) {
