@@ -209,7 +209,7 @@ func convertXRayEntityIDToDatadogParentID(entityID string) (string, error) {
 	return strconv.FormatUint(val, 10), nil
 }
 
-// Converts an X-Ray sampled flag into it's Datadog counterpart.
+// Converts an X-Ray sampled flag into its Datadog counterpart.
 func convertXRaySamplingDecision(decision header.SamplingDecision) string {
 	if decision == header.Sampled {
 		return userKeep

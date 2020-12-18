@@ -28,7 +28,7 @@ const (
 	convertedXRayTraceID  = "4110911582297405557"
 )
 
-func mockLambdaXRayTraceContext(ctx context.Context, traceID, entityID string, sampled bool) context.Context {
+func mockLambdaXRayTraceContext(ctx context.Context, traceID, parentID string, sampled bool) context.Context {
 	decision := header.NotSampled
 	if sampled {
 		decision = header.Sampled
