@@ -49,14 +49,14 @@ func MakeListener(config Config) Listener {
 // HandlerStarted creates the function execution span representing the Lambda function execution
 // and adds that span to the context so that the user can create child spans (if Datadog tracing is enabled)
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	ctx, _ = ContextWithTraceContext(ctx, msg)
+	ctx, _ = ContextWithTraceContext(ctx, msg, l.ddTraceEnabled)
 
 	if l.ddTraceEnabled {
 		tracer.Start(
 			tracer.WithService("aws.lambda"),
 			tracer.WithLambdaMode(true),
 			tracer.WithDebugMode(true),
-			tracer.WithGlobalTag("__dd.origin", "lambda"),
+			tracer.WithGlobalTag("_dd.origin", "lambda"),
 		)
 
 		functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
@@ -107,7 +107,7 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 	}
 
 	span := tracer.StartSpan(
-		"aws.lambda",
+		"aws.lambda", // This operation name will be replaced with the value of the service tag by the Forwarder
 		tracer.SpanType("serverless"),
 		tracer.ChildOf(parentSpanContext),
 		tracer.ResourceName(lambdacontext.FunctionName),
@@ -119,6 +119,7 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 	)
 
 	if traceSource == fromXray && mergeXrayTraces {
+		// This tag will cause the Forwarder to drop the span (to avoid redundancy with X-Ray)
 		span.SetTag("_dd.parent_source", traceSource)
 	}
 

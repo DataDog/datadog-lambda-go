@@ -91,22 +91,6 @@ func WrapHandler(handler interface{}, cfg *Config) interface{} {
 	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
 }
 
-// GetTraceHeaders reads a map containing the Datadog trace headers from a context object.
-// Deprecated: Use dd-trace-go to extract the current span from the context instead
-func GetTraceHeaders(ctx context.Context) map[string]string {
-	result := trace.GetTraceHeaders(ctx, true)
-	return result
-}
-
-// AddTraceHeaders adds Datadog trace headers to a HTTP Request
-// Deprecated: Use dd-trace-go to extract the current span from the context instead
-func AddTraceHeaders(ctx context.Context, req *http.Request) {
-	headers := GetTraceHeaders(ctx)
-	for key, value := range headers {
-		req.Header.Add(key, value)
-	}
-}
-
 // GetContext retrieves the last created lambda context.
 // Only use this if you aren't manually passing context through your call hierarchy.
 func GetContext() context.Context {

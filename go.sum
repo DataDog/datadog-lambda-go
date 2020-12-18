@@ -3,6 +3,7 @@ github.com/DataDog/datadog-go v4.0.1+incompatible/go.mod h1:LButxg5PwREeZtORoXG3
 github.com/aws/aws-lambda-go v1.11.1 h1:wuOnhS5aqzPOWns71FO35PtbtBKHr4MYsPVt5qXLSfI=
 github.com/aws/aws-lambda-go v1.11.1/go.mod h1:Rr2SMTLeSMKgD45uep9V/NP8tnbCcySgu04cx0k/6cw=
 github.com/aws/aws-lambda-go v1.19.1 h1:5iUHbIZ2sG6Yq/J1IN3sWm3+vAB1CWwhI21NffLNuNI=
+github.com/aws/aws-lambda-go v1.20.0 h1:ZSweJx/Hy9BoIDXKBEh16vbHH0t0dehnF8MKpMiOWc0=
 github.com/aws/aws-sdk-go v1.19.40 h1:omRrS4bCM/IbzU6UEb8Ojg1PvlElZzYZkOh8vWWgFMc=
 github.com/aws/aws-sdk-go v1.19.40/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/aws/aws-sdk-go v1.20.2 h1:/BBeW8F4PPmvJ5jpFvgkCK4RJQXErNndVRnNhO2qEkQ=

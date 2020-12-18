@@ -138,7 +138,7 @@ func TestWrapHandlerAPIGEvent(t *testing.T) {
 		return 5, nil
 	}
 
-	_, response, err := runHandlerWithJSON(t, "../testdata/apig-event-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/apig-event-no-headers.json", handler)
 
 	assert.True(t, called)
 	assert.NoError(t, err)
@@ -154,7 +154,7 @@ func TestWrapHandlerNonProxyEvent(t *testing.T) {
 		return 5, nil
 	}
 
-	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-headers.json", handler)
 
 	assert.True(t, called)
 	assert.NoError(t, err)
@@ -170,7 +170,7 @@ func TestWrapHandlerEventArgumentOnly(t *testing.T) {
 		return 5, nil
 	}
 
-	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-headers.json", handler)
 
 	assert.True(t, called)
 	assert.NoError(t, err)
@@ -199,7 +199,7 @@ func TestWrapHandlerNoArguments(t *testing.T) {
 		return 5, nil
 	}
 
-	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-headers.json", handler)
 
 	assert.True(t, called)
 	assert.NoError(t, err)
@@ -230,7 +230,7 @@ func TestWrapHandlerReturnsError(t *testing.T) {
 		return 5, defaultErr
 	}
 
-	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-headers.json", handler)
 
 	assert.True(t, called)
 	assert.Equal(t, defaultErr, err)
@@ -246,7 +246,7 @@ func TestWrapHandlerReturnsErrorOnly(t *testing.T) {
 		return defaultErr
 	}
 
-	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-metadata.json", handler)
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-headers.json", handler)
 
 	assert.True(t, called)
 	assert.Equal(t, defaultErr, err)

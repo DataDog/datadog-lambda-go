@@ -36,65 +36,40 @@ type contextKeytype int
 var traceContextKey = new(contextKeytype)
 
 // ContextWithTraceContext uses the incoming event and/or context object payloads to determine
-// the current TraceContext and then adds that TraceContext to the context object
-func ContextWithTraceContext(ctx context.Context, ev json.RawMessage) (context.Context, error) {
+// the current TraceContext and then adds that TraceContext to the context object.
+func ContextWithTraceContext(ctx context.Context, ev json.RawMessage, isDDTraceEnabled bool) (context.Context, error) {
 
-	// First priority is Datadog trace context from incoming headers
-	traceCtx, ok := unmarshalEventForTraceContext(ev)
-	if ok {
-		// If we detect the trace headers, we save metadata to X-Ray so it can be read by the converter.
-		err := addTraceContextToXRay(ctx, traceCtx)
+	traceCtx, ok := getDatadogTraceContextFromEvent(ev)
+
+	// If there is no Datadog trace context, use the converted X-Ray trace context
+	if !ok {
+		traceCtx, err := getAndConvertXRayTraceContext(ctx)
 		if err != nil {
-			return ctx, err
+			return ctx, fmt.Errorf("couldn't convert X-Ray trace context: %v", err)
 		}
-		// The parentID from the incoming Datadog headers needs to be saved as metadata so the xray converter can
-		// link segments across functions. However, that parentID does not match the ID of the xray segment
-		// lambda has created. So we read in the xray id of the current lambda, and use that as our parentId to
-		// forward on to any outbound requests, (unless the user has created a subsegment, in which case we use that
-		// id as the parentID).
-		xrayTraceCtx, err := convertTraceContextFromXRay(ctx)
-		if err == nil {
-			traceCtx[parentIDHeader] = xrayTraceCtx[parentIDHeader]
-		}
-
 		return context.WithValue(ctx, traceContextKey, traceCtx), nil
 	}
 
-	// Second priority is X-Ray trace context
-	traceCtx, err := convertTraceContextFromXRay(ctx)
+	// Create a dummy X-Ray subsegment that contains the Datadog trace context as metadata
+	// The X-Ray Converter uses this to enable hybrid Datadog/X-Ray tracing
+	err := createDummySubsegmentForXrayConverter(ctx, traceCtx)
 	if err != nil {
-		return ctx, fmt.Errorf("couldn't convert trace context: %v", err)
+		return ctx, err
+	}
+
+	// If Datadog tracing is disabled, use the converted X-Ray trace context instead
+	if !isDDTraceEnabled {
+		traceCtx, err := getAndConvertXRayTraceContext(ctx)
+		if err != nil {
+			return ctx, fmt.Errorf("couldn't convert X-Ray trace context: %v", err)
+		}
+		return context.WithValue(ctx, traceContextKey, traceCtx), nil
 	}
 
 	return context.WithValue(ctx, traceContextKey, traceCtx), nil
 }
 
-// GetTraceHeaders retrieves the current trace headers that should be added to outbound requests
-func GetTraceHeaders(ctx context.Context, useCurrentSegmentAsParent bool) TraceContext {
-	if traceCtx, ok := ctx.Value(traceContextKey).(TraceContext); ok {
-		parentID := traceCtx[parentIDHeader]
-
-		if useCurrentSegmentAsParent {
-			segment := xray.GetSegment(ctx)
-			if segment != nil {
-				newParentID, err := convertXRayEntityIDToAPMParentID(segment.ID)
-				if err == nil {
-					parentID = newParentID
-				}
-			}
-		}
-
-		newTraceContext := map[string]string{}
-		newTraceContext[traceIDHeader] = traceCtx[traceIDHeader]
-		newTraceContext[samplingPriorityHeader] = traceCtx[samplingPriorityHeader]
-		newTraceContext[parentIDHeader] = parentID
-
-		return newTraceContext
-	}
-	return map[string]string{}
-}
-
-func addTraceContextToXRay(ctx context.Context, traceCtx TraceContext) error {
+func createDummySubsegmentForXrayConverter(ctx context.Context, traceCtx TraceContext) error {
 	_, segment := xray.BeginSubsegment(ctx, xraySubsegmentName)
 
 	traceID := traceCtx[traceIDHeader]
@@ -114,7 +89,7 @@ func addTraceContextToXRay(ctx context.Context, traceCtx TraceContext) error {
 	return nil
 }
 
-func unmarshalEventForTraceContext(ev json.RawMessage) (TraceContext, bool) {
+func getDatadogTraceContextFromEvent(ev json.RawMessage) (TraceContext, bool) {
 	eh := eventWithHeaders{}
 
 	traceCtx := map[string]string{}
@@ -151,7 +126,7 @@ func unmarshalEventForTraceContext(ev json.RawMessage) (TraceContext, bool) {
 	return traceCtx, true
 }
 
-func convertTraceContextFromXRay(ctx context.Context) (TraceContext, error) {
+func getAndConvertXRayTraceContext(ctx context.Context) (TraceContext, error) {
 	traceCtx := map[string]string{}
 
 	header := getXrayTraceHeaderFromContext(ctx)
@@ -159,11 +134,11 @@ func convertTraceContextFromXRay(ctx context.Context) (TraceContext, error) {
 		return traceCtx, fmt.Errorf("xray segment doesn't exist, couldn't read trace context")
 	}
 
-	traceID, err := convertXRayTraceIDToAPMTraceID(header.TraceID)
+	traceID, err := convertXRayTraceIDToDatadogTraceID(header.TraceID)
 	if err != nil {
 		return traceCtx, fmt.Errorf("couldn't read trace id from xray: %v", err)
 	}
-	parentID, err := convertXRayEntityIDToAPMParentID(header.ParentID)
+	parentID, err := convertXRayEntityIDToDatadogParentID(header.ParentID)
 	if err != nil {
 		return traceCtx, fmt.Errorf("couldn't read parent id from xray: %v", err)
 	}
@@ -190,7 +165,7 @@ func getXrayTraceHeaderFromContext(ctx context.Context) *header.Header {
 }
 
 // Converts the last 63 bits of an X-Ray trace ID (hex) to a Datadog trace id (uint64).
-func convertXRayTraceIDToAPMTraceID(traceID string) (string, error) {
+func convertXRayTraceIDToDatadogTraceID(traceID string) (string, error) {
 	parts := strings.Split(traceID, "-")
 
 	if len(parts) != 3 {
@@ -223,7 +198,7 @@ func convertHexIDToUint64(hexNumber string) (uint64, error) {
 }
 
 // Converts an X-Ray entity ID (hex) to a Datadog parent id (uint64).
-func convertXRayEntityIDToAPMParentID(entityID string) (string, error) {
+func convertXRayEntityIDToDatadogParentID(entityID string) (string, error) {
 	if len(entityID) < 16 {
 		return "0", fmt.Errorf("couldn't convert to trace id, too short")
 	}
