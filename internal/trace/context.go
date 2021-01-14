@@ -55,9 +55,21 @@ func AddRootTraceContextToContext(ctx context.Context, ev json.RawMessage, isDDT
 }
 
 // GetCurrentTraceContext extracts the current Datadog trace context from the ctx object,
-// taking into account both the current Datadog span and X-Ray subsegment
+// taking into account the current TraceContext, Datadog span and X-Ray subsegment
 func GetCurrentTraceContext(ctx context.Context) TraceContext {
+	// Get the current traceContext
+
+	// Get the current Datadog span
+
 	// Get the current X-Ray trace context (including subsegment)
+	segment := xray.GetSegment(ctx)
+	if segment != nil {
+		newParentID, err := convertXRayEntityIDToDatadogParentID(segment.ID)
+		if err == nil {
+			parentID = newParentID
+		}
+	}
+
 	// If there is X-Ray trace context but no Datadog trace context
 	//// use X-Ray trace context
 	// If there is both X-Ray trace context and Datadog trace context
