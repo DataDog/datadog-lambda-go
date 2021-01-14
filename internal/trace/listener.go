@@ -46,10 +46,11 @@ func MakeListener(config Config) Listener {
 	}
 }
 
-// HandlerStarted creates the function execution span representing the Lambda function execution
-// and adds that span to the context so that the user can create child spans (if Datadog tracing is enabled)
+// HandlerStarted adds the root trace context to the context object. If Datadog tracing is enabled, it also creates
+// the function execution span representing the Lambda function execution and adds that span to the context so
+// that the user can create child spans.
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	ctx, _ = ContextWithTraceContext(ctx, msg, l.ddTraceEnabled)
+	ctx, _ = AddRootTraceContextToContext(ctx, msg, l.ddTraceEnabled)
 
 	if l.ddTraceEnabled {
 		tracer.Start(

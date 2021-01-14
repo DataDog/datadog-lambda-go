@@ -35,40 +35,63 @@ type contextKeytype int
 // traceContextKey is the key used to store a TraceContext in a Context object
 var traceContextKey = new(contextKeytype)
 
-// ContextWithTraceContext uses the incoming event and/or context object payloads to determine
-// the current TraceContext and then adds that TraceContext to the context object.
-func ContextWithTraceContext(ctx context.Context, ev json.RawMessage, isDDTraceEnabled bool) (context.Context, error) {
+// AddRootTraceContextToContext uses the incoming event and/or context object payloads to determine
+// the root TraceContext and then adds that TraceContext to the context object.
+func AddRootTraceContextToContext(ctx context.Context, ev json.RawMessage, isDDTraceEnabled bool) (context.Context, error) {
 
-	traceCtx, ok := getDatadogTraceContextFromEvent(ev)
+	traceCtx, ok := getDatadogTraceContextFromEvent(ctx, ev)
 
-	// If there is no Datadog trace context, use the converted X-Ray trace context
-	if !ok {
-		traceCtx, err := getAndConvertXRayTraceContext(ctx)
-		if err != nil {
-			return ctx, fmt.Errorf("couldn't convert X-Ray trace context: %v", err)
-		}
+	if ok && isDDTraceEnabled {
 		return context.WithValue(ctx, traceContextKey, traceCtx), nil
 	}
 
-	// Create a dummy X-Ray subsegment that contains the Datadog trace context as metadata
-	// The X-Ray Converter uses this to enable hybrid Datadog/X-Ray tracing
-	err := createDummySubsegmentForXrayConverter(ctx, traceCtx)
+	// If there is no Datadog trace context, or Datadog tracing is disabled, use the converted X-Ray trace context instead
+	traceCtx, err := getAndConvertXRayTraceContext(ctx)
 	if err != nil {
-		return ctx, err
+		return ctx, fmt.Errorf("couldn't convert X-Ray trace context: %v", err)
 	}
-
-	// If Datadog tracing is disabled, use the converted X-Ray trace context instead
-	if !isDDTraceEnabled {
-		traceCtx, err := getAndConvertXRayTraceContext(ctx)
-		if err != nil {
-			return ctx, fmt.Errorf("couldn't convert X-Ray trace context: %v", err)
-		}
-		return context.WithValue(ctx, traceContextKey, traceCtx), nil
-	}
-
 	return context.WithValue(ctx, traceContextKey, traceCtx), nil
+
 }
 
+// GetCurrentTraceContext extracts the current Datadog trace context from the ctx object,
+// taking into account both the current Datadog span and X-Ray subsegment
+func GetCurrentTraceContext(ctx context.Context) TraceContext {
+	// Get the current X-Ray trace context (including subsegment)
+	// If there is X-Ray trace context but no Datadog trace context
+	//// use X-Ray trace context
+	// If there is both X-Ray trace context and Datadog trace context
+	//// Use the Datadog context, but set the parent ID to that of the X-Ray context
+	// Return the context as a traceContext
+}
+
+// GetTraceHeaders retrieves the current trace headers that should be added to outbound requests
+// TODO: Needs to be replaced!
+func GetTraceHeaders(ctx context.Context) TraceContext {
+	if traceCtx, ok := ctx.Value(traceContextKey).(TraceContext); ok {
+		parentID := traceCtx[parentIDHeader]
+
+		segment := xray.GetSegment(ctx)
+		if segment != nil {
+			newParentID, err := convertXRayEntityIDToDatadogParentID(segment.ID)
+			if err == nil {
+				parentID = newParentID
+			}
+		}
+
+		newTraceContext := map[string]string{}
+		newTraceContext[traceIDHeader] = traceCtx[traceIDHeader]
+		newTraceContext[samplingPriorityHeader] = traceCtx[samplingPriorityHeader]
+		newTraceContext[parentIDHeader] = parentID
+
+		return newTraceContext
+	}
+	return map[string]string{}
+}
+
+// createDummySubsegmentForXrayConverter creates a dummy X-Ray subsegment containing Datadog trace context metadata.
+// This metadata is used by the Datadog X-Ray converter to parent the X-Ray trace under the Datadog trace.
+// This subsegment will be dropped by the X-Ray converter and will not appear in Datadog.
 func createDummySubsegmentForXrayConverter(ctx context.Context, traceCtx TraceContext) error {
 	_, segment := xray.BeginSubsegment(ctx, xraySubsegmentName)
 
@@ -89,7 +112,9 @@ func createDummySubsegmentForXrayConverter(ctx context.Context, traceCtx TraceCo
 	return nil
 }
 
-func getDatadogTraceContextFromEvent(ev json.RawMessage) (TraceContext, bool) {
+// getDatadogTraceContextFromEvent extracts the Datadog trace context from an incoming Lambda event payload
+// and creates a dummy X-Ray subsegment containing this information
+func getDatadogTraceContextFromEvent(ctx context.Context, ev json.RawMessage) (TraceContext, bool) {
 	eh := eventWithHeaders{}
 
 	traceCtx := map[string]string{}
@@ -123,6 +148,9 @@ func getDatadogTraceContextFromEvent(ev json.RawMessage) (TraceContext, bool) {
 	traceCtx[traceIDHeader] = traceID
 	traceCtx[parentIDHeader] = parentID
 	traceCtx[sourceType] = fromEvent
+
+	createDummySubsegmentForXrayConverter(ctx, traceCtx)
+
 	return traceCtx, true
 }
 

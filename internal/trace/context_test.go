@@ -156,12 +156,12 @@ func TestXrayTraceContextWithSegment(t *testing.T) {
 	assert.NotNil(t, headers[parentIDHeader])
 }
 
-func TestContextWithTraceContextNoDatadogContext(t *testing.T) {
+func TestAddRootTraceContextToContextNoDatadogContext(t *testing.T) {
 	// If there is no Datadog trace context, use the converted X-Ray trace context
 	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 
-	newCTX, _ := ContextWithTraceContext(ctx, *ev, true)
+	newCTX, _ := AddRootTraceContextToContext(ctx, *ev, true)
 	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
 
 	expected := TraceContext{
@@ -173,12 +173,12 @@ func TestContextWithTraceContextNoDatadogContext(t *testing.T) {
 	assert.Equal(t, expected, traceContext)
 }
 
-func TestContextWithTraceContextDDTraceDisabled(t *testing.T) {
+func TestAddRootTraceContextToContextDDTraceDisabled(t *testing.T) {
 	// If Datadog tracing is disabled, use the converted X-Ray trace context
 	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 
-	newCTX, _ := ContextWithTraceContext(ctx, *ev, false)
+	newCTX, _ := AddRootTraceContextToContext(ctx, *ev, false)
 	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
 
 	expected := TraceContext{
@@ -189,12 +189,12 @@ func TestContextWithTraceContextDDTraceDisabled(t *testing.T) {
 	}
 	assert.Equal(t, expected, traceContext)
 }
-func TestContextWithTraceContextDDTraceEnabled(t *testing.T) {
+func TestAddRootTraceContextToContextDDTraceEnabled(t *testing.T) {
 	// If Datadog tracing is enabled and there is Datadog trace context, use it over the X-Ray trace context
 	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 
-	newCTX, _ := ContextWithTraceContext(ctx, *ev, true)
+	newCTX, _ := AddRootTraceContextToContext(ctx, *ev, true)
 	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
 
 	expected := TraceContext{
@@ -206,10 +206,10 @@ func TestContextWithTraceContextDDTraceEnabled(t *testing.T) {
 	assert.Equal(t, expected, traceContext)
 }
 
-func TestContextWithTraceContextFail(t *testing.T) {
+func TestAddRootTraceContextToContextFail(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
 	ctx := context.Background()
 
-	_, err := ContextWithTraceContext(ctx, *ev, true)
+	_, err := AddRootTraceContextToContext(ctx, *ev, true)
 	assert.Error(t, err)
 }

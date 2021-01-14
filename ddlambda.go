@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -88,6 +89,23 @@ func WrapHandler(handler interface{}, cfg *Config) interface{} {
 	tl := trace.MakeListener(cfg.toTraceConfig())
 	ml := metrics.MakeListener(cfg.toMetricsConfig())
 	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
+}
+
+// GetTraceHeaders reads a map containing the Datadog trace headers from a context object.
+// TODO: Fix the underlying logic here
+// DEPRECATED: Use dd-trace-go to extract the current span from the context instead
+func GetTraceHeaders(ctx context.Context) map[string]string {
+	result := trace.GetTraceHeaders(ctx)
+	return result
+}
+
+// AddTraceHeaders adds Datadog trace headers to a HTTP Request
+// DEPRECATED: Use dd-trace-go to extract the current span from the context instead
+func AddTraceHeaders(ctx context.Context, req *http.Request) {
+	headers := GetTraceHeaders(ctx)
+	for key, value := range headers {
+		req.Header.Add(key, value)
+	}
 }
 
 // GetContext retrieves the last created lambda context.
