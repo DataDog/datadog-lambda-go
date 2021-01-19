@@ -46,30 +46,30 @@ func MakeListener(config Config) Listener {
 	}
 }
 
-// HandlerStarted adds the root trace context to the context object. If Datadog tracing is enabled, it also creates
-// the function execution span representing the Lambda function execution and adds that span to the context so
-// that the user can create child spans.
+// HandlerStarted sets up tracing and starts the function execution span if Datadog tracing is enabled
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	ctx, _ = AddRootTraceContextToContext(ctx, msg, l.ddTraceEnabled)
+	ctx, _ = addRootTraceContextToContext(ctx, msg)
 
-	if l.ddTraceEnabled {
-		tracer.Start(
-			tracer.WithService("aws.lambda"),
-			tracer.WithLambdaMode(true),
-			tracer.WithDebugMode(true),
-			tracer.WithGlobalTag("_dd.origin", "lambda"),
-		)
-
-		functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
-
-		// Add the span to the context so the user can create child spans
-		ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
+	if !l.ddTraceEnabled {
+		return ctx
 	}
+
+	tracer.Start(
+		tracer.WithService("aws.lambda"),
+		tracer.WithLambdaMode(true),
+		tracer.WithDebugMode(true),
+		tracer.WithGlobalTag("_dd.origin", "lambda"),
+	)
+
+	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
+
+	// Add the span to the context so the user can create child spans
+	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
 
 	return ctx
 }
 
-// HandlerFinished finishes the function execution span (if it was started) and stops the tracer
+// HandlerFinished ends the function execution span and stops the tracer
 func (l *Listener) HandlerFinished(ctx context.Context) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish()
@@ -86,9 +86,9 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 	// Extract information from context
 	lambdaCtx, _ := lambdacontext.FromContext(ctx)
 	var traceSource string
-	traceContext, ok := ctx.Value(traceContextKey).(TraceContext)
+	rootTraceContext, ok := ctx.Value(traceContextKey).(TraceContext)
 	if ok {
-		traceSource = traceContext[sourceType]
+		traceSource = rootTraceContext[sourceType]
 	} else {
 		logger.Error(fmt.Errorf("Error extracting Datadog trace context from context"))
 	}
@@ -97,11 +97,11 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 	functionArn = strings.ToLower(functionArn)
 	functionArn, functionVersion := separateVersionFromFunctionArn(functionArn)
 
-	// The function execution span must be made a child of the current span if the trace context came from an event OR merge X-Ray traces is enabled
+	// The function execution span must be made a child of the root trace context if the trace context came from an event OR merge X-Ray traces is enabled
 	// In other words, if merge X-Ray traces is NOT enabled and the trace context came from X-Ray, we should NOT make the execution span a child of the X-Ray span
 	var parentSpanContext ddtrace.SpanContext
 	if (traceSource == fromEvent) || mergeXrayTraces {
-		convertedSpanContext, err := convertTraceContextToSpanContext(traceContext)
+		convertedSpanContext, err := ConvertTraceContextToSpanContext(rootTraceContext)
 		if err == nil {
 			parentSpanContext = convertedSpanContext
 		}
@@ -136,21 +136,3 @@ func separateVersionFromFunctionArn(functionArn string) (arnWithoutVersion strin
 	}
 	return arnWithoutVersion, functionVersion
 }
-
-func convertTraceContextToSpanContext(traceCtx TraceContext) (ddtrace.SpanContext, error) {
-	spanCtx, err := propagator.Extract(tracer.TextMapCarrier(traceCtx))
-
-	if err != nil {
-		logger.Error(fmt.Errorf("Error extracting Datadog trace context from context: %v", err))
-		return nil, err
-	}
-
-	return spanCtx, nil
-}
-
-// propagator is able to extract a SpanContext object from a TraceContext object
-var propagator = tracer.NewPropagator(&tracer.PropagatorConfig{
-	TraceHeader:    traceIDHeader,
-	ParentHeader:   parentIDHeader,
-	PriorityHeader: samplingPriorityHeader,
-})

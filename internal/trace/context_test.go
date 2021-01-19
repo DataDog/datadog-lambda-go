@@ -57,7 +57,7 @@ func loadRawJSON(t *testing.T, filename string) *json.RawMessage {
 func TestGetDatadogTraceContextForTraceMetadataNonProxyEvent(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 
-	headers, ok := getDatadogTraceContextFromEvent(*ev)
+	headers, ok := getDatadogTraceContextFromEvent(context.Background(), *ev)
 	assert.True(t, ok)
 
 	expected := TraceContext{
@@ -72,7 +72,7 @@ func TestGetDatadogTraceContextForTraceMetadataNonProxyEvent(t *testing.T) {
 func TestGetDatadogTraceContextForTraceMetadataWithMixedCaseHeaders(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/non-proxy-with-mixed-case-headers.json")
 
-	headers, ok := getDatadogTraceContextFromEvent(*ev)
+	headers, ok := getDatadogTraceContextFromEvent(context.Background(), *ev)
 	assert.True(t, ok)
 
 	expected := TraceContext{
@@ -85,16 +85,18 @@ func TestGetDatadogTraceContextForTraceMetadataWithMixedCaseHeaders(t *testing.T
 }
 
 func TestGetDatadogTraceContextForInvalidData(t *testing.T) {
+	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/invalid.json")
 
-	_, ok := getDatadogTraceContextFromEvent(*ev)
+	_, ok := getDatadogTraceContextFromEvent(ctx, *ev)
 	assert.False(t, ok)
 }
 
 func TestGetDatadogTraceContextForMissingData(t *testing.T) {
+	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/non-proxy-no-headers.json")
 
-	_, ok := getDatadogTraceContextFromEvent(*ev)
+	_, ok := getDatadogTraceContextFromEvent(ctx, *ev)
 	assert.False(t, ok)
 }
 
@@ -142,59 +144,25 @@ func TestConvertXRayEntityIDTooShort(t *testing.T) {
 func TestXrayTraceContextNoSegment(t *testing.T) {
 	ctx := context.Background()
 
-	_, err := getAndConvertXRayTraceContext(ctx)
+	_, err := convertXrayTraceContextFromLambdaContext(ctx)
 	assert.Error(t, err)
 }
 func TestXrayTraceContextWithSegment(t *testing.T) {
 
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 
-	headers, err := getAndConvertXRayTraceContext(ctx)
+	headers, err := convertXrayTraceContextFromLambdaContext(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, "2", headers[samplingPriorityHeader])
 	assert.NotNil(t, headers[traceIDHeader])
 	assert.NotNil(t, headers[parentIDHeader])
 }
 
-func TestAddRootTraceContextToContextNoDatadogContext(t *testing.T) {
-	// If there is no Datadog trace context, use the converted X-Ray trace context
-	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
-	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
-
-	newCTX, _ := AddRootTraceContextToContext(ctx, *ev, true)
-	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
-
-	expected := TraceContext{
-		traceIDHeader:          convertedXRayTraceID,
-		parentIDHeader:         convertedXRayEntityID,
-		samplingPriorityHeader: "2",
-		sourceType:             fromXray,
-	}
-	assert.Equal(t, expected, traceContext)
-}
-
-func TestAddRootTraceContextToContextDDTraceDisabled(t *testing.T) {
-	// If Datadog tracing is disabled, use the converted X-Ray trace context
+func TestAddRootTraceContextToContextWithDatadogContext(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 
-	newCTX, _ := AddRootTraceContextToContext(ctx, *ev, false)
-	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
-
-	expected := TraceContext{
-		traceIDHeader:          convertedXRayTraceID,
-		parentIDHeader:         convertedXRayEntityID,
-		samplingPriorityHeader: "2",
-		sourceType:             fromXray,
-	}
-	assert.Equal(t, expected, traceContext)
-}
-func TestAddRootTraceContextToContextDDTraceEnabled(t *testing.T) {
-	// If Datadog tracing is enabled and there is Datadog trace context, use it over the X-Ray trace context
-	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
-	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
-
-	newCTX, _ := AddRootTraceContextToContext(ctx, *ev, true)
+	newCTX, _ := addRootTraceContextToContext(ctx, *ev)
 	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
 
 	expected := TraceContext{
@@ -206,10 +174,27 @@ func TestAddRootTraceContextToContextDDTraceEnabled(t *testing.T) {
 	assert.Equal(t, expected, traceContext)
 }
 
+func TestAddRootTraceContextToContextNoDatadogContext(t *testing.T) {
+	// If there is no Datadog trace context, use the converted X-Ray trace context
+	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
+	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
+
+	newCTX, _ := addRootTraceContextToContext(ctx, *ev)
+	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
+
+	expected := TraceContext{
+		traceIDHeader:          convertedXRayTraceID,
+		parentIDHeader:         convertedXRayEntityID,
+		samplingPriorityHeader: "2",
+		sourceType:             fromXray,
+	}
+	assert.Equal(t, expected, traceContext)
+}
+
 func TestAddRootTraceContextToContextFail(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
 	ctx := context.Background()
 
-	_, err := AddRootTraceContextToContext(ctx, *ev, true)
+	_, err := addRootTraceContextToContext(ctx, *ev)
 	assert.Error(t, err)
 }

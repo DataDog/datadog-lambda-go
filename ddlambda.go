@@ -91,18 +91,18 @@ func WrapHandler(handler interface{}, cfg *Config) interface{} {
 	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
 }
 
-// GetTraceHeaders reads a map containing the Datadog trace headers from a context object.
-// TODO: Fix the underlying logic here
-// DEPRECATED: Use dd-trace-go to extract the current span from the context instead
+// GetTraceHeaders returns a map containing Datadog trace headers that reflect the
+// current X-Ray subsegment. Only use this if your function is instrumented with the X-Ray SDK
+// instead of dd-trace.
 func GetTraceHeaders(ctx context.Context) map[string]string {
-	result := trace.GetTraceHeaders(ctx)
+	result := trace.ConvertCurrentXrayTraceContext(ctx)
 	return result
 }
 
-// AddTraceHeaders adds Datadog trace headers to a HTTP Request
-// DEPRECATED: Use dd-trace-go to extract the current span from the context instead
+// AddTraceHeaders adds Datadog trace headers to a HTTP Request reflecting the current X-Ray
+// subsegment. Only use this if your function is instrumented with the X-Ray SDK instead of dd-trace.
 func AddTraceHeaders(ctx context.Context, req *http.Request) {
-	headers := GetTraceHeaders(ctx)
+	headers := trace.ConvertCurrentXrayTraceContext(ctx)
 	for key, value := range headers {
 		req.Header.Add(key, value)
 	}
