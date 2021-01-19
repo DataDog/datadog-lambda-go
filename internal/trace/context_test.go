@@ -55,9 +55,10 @@ func loadRawJSON(t *testing.T, filename string) *json.RawMessage {
 	return &msg
 }
 func TestGetDatadogTraceContextForTraceMetadataNonProxyEvent(t *testing.T) {
+	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 
-	headers, ok := getDatadogTraceContextFromEvent(context.Background(), *ev)
+	headers, ok := getDatadogTraceContextFromEvent(ctx, *ev)
 	assert.True(t, ok)
 
 	expected := TraceContext{
@@ -70,9 +71,10 @@ func TestGetDatadogTraceContextForTraceMetadataNonProxyEvent(t *testing.T) {
 }
 
 func TestGetDatadogTraceContextForTraceMetadataWithMixedCaseHeaders(t *testing.T) {
+	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/non-proxy-with-mixed-case-headers.json")
 
-	headers, ok := getDatadogTraceContextFromEvent(context.Background(), *ev)
+	headers, ok := getDatadogTraceContextFromEvent(ctx, *ev)
 	assert.True(t, ok)
 
 	expected := TraceContext{
@@ -159,8 +161,8 @@ func TestXrayTraceContextWithSegment(t *testing.T) {
 }
 
 func TestAddRootTraceContextToContextWithDatadogContext(t *testing.T) {
-	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
+	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 
 	newCTX, _ := addRootTraceContextToContext(ctx, *ev)
 	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
@@ -176,8 +178,8 @@ func TestAddRootTraceContextToContextWithDatadogContext(t *testing.T) {
 
 func TestAddRootTraceContextToContextNoDatadogContext(t *testing.T) {
 	// If there is no Datadog trace context, use the converted X-Ray trace context
-	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
+	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
 
 	newCTX, _ := addRootTraceContextToContext(ctx, *ev)
 	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
