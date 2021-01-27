@@ -58,11 +58,12 @@ func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeX
 		return context.WithValue(ctx, traceContextKey, xrayTraceContext), nil
 	}
 
-	mergedTraceContext := map[string]string{}
+	mergedTraceContext := TraceContext{}
 	mergedTraceContext[traceIDHeader] = datadogTraceContext[traceIDHeader]
 	mergedTraceContext[samplingPriorityHeader] = datadogTraceContext[samplingPriorityHeader]
 	mergedTraceContext[parentIDHeader] = xrayTraceContext[parentIDHeader]
 	mergedTraceContext[sourceType] = fromEvent
+	fmt.Println(mergedTraceContext)
 	return context.WithValue(ctx, traceContextKey, mergedTraceContext), nil
 }
 
