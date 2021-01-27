@@ -48,11 +48,11 @@ func MakeListener(config Config) Listener {
 
 // HandlerStarted sets up tracing and starts the function execution span if Datadog tracing is enabled
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	ctx, _ = addRootTraceContextToContext(ctx, msg)
-
 	if !l.ddTraceEnabled {
 		return ctx
 	}
+
+	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces)
 
 	tracer.Start(
 		tracer.WithService("aws.lambda"),

@@ -92,15 +92,14 @@ func WrapHandler(handler interface{}, cfg *Config) interface{} {
 }
 
 // GetTraceHeaders returns a map containing Datadog trace headers that reflect the
-// current X-Ray subsegment. Only use this if your function is instrumented with the X-Ray SDK
-// instead of dd-trace.
+// current X-Ray subsegment. This function is Deprecated; use native Datadog tracing instead.
 func GetTraceHeaders(ctx context.Context) map[string]string {
 	result := trace.ConvertCurrentXrayTraceContext(ctx)
 	return result
 }
 
 // AddTraceHeaders adds Datadog trace headers to a HTTP Request reflecting the current X-Ray
-// subsegment. Only use this if your function is instrumented with the X-Ray SDK instead of dd-trace.
+// subsegment. This function is Deprecated; use native Datadog tracing instead.
 func AddTraceHeaders(ctx context.Context, req *http.Request) {
 	headers := trace.ConvertCurrentXrayTraceContext(ctx)
 	for key, value := range headers {

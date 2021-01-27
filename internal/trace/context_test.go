@@ -160,11 +160,22 @@ func TestXrayTraceContextWithSegment(t *testing.T) {
 	assert.NotNil(t, headers[parentIDHeader])
 }
 
-func TestAddRootTraceContextToContextWithDatadogContext(t *testing.T) {
+func TestContextWithRootTraceContextNoDatadogContext(t *testing.T) {
+	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
+	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
+
+	newCTX, _ := contextWithRootTraceContext(ctx, *ev, false)
+	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
+
+	expected := TraceContext{}
+	assert.Equal(t, expected, traceContext)
+}
+
+func TestContextWithRootTraceContextWithDatadogContext(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 
-	newCTX, _ := addRootTraceContextToContext(ctx, *ev)
+	newCTX, _ := contextWithRootTraceContext(ctx, *ev, false)
 	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
 
 	expected := TraceContext{
@@ -176,12 +187,11 @@ func TestAddRootTraceContextToContextWithDatadogContext(t *testing.T) {
 	assert.Equal(t, expected, traceContext)
 }
 
-func TestAddRootTraceContextToContextNoDatadogContext(t *testing.T) {
-	// If there is no Datadog trace context, use the converted X-Ray trace context
+func TestContextWithRootTraceContextMergeXrayTracesNoDatadogContext(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
 
-	newCTX, _ := addRootTraceContextToContext(ctx, *ev)
+	newCTX, _ := contextWithRootTraceContext(ctx, *ev, true)
 	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
 
 	expected := TraceContext{
@@ -193,10 +203,18 @@ func TestAddRootTraceContextToContextNoDatadogContext(t *testing.T) {
 	assert.Equal(t, expected, traceContext)
 }
 
-func TestAddRootTraceContextToContextFail(t *testing.T) {
-	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
-	ctx := context.Background()
+func TestContextWithRootTraceContextMergeXrayTracesWithDatadogContext(t *testing.T) {
+	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
+	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 
-	_, err := addRootTraceContextToContext(ctx, *ev)
-	assert.Error(t, err)
+	newCTX, _ := contextWithRootTraceContext(ctx, *ev, true)
+	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
+
+	expected := TraceContext{
+		traceIDHeader:          "1231452342",
+		parentIDHeader:         convertedXRayEntityID,
+		samplingPriorityHeader: "2",
+		sourceType:             fromEvent,
+	}
+	assert.Equal(t, expected, traceContext)
 }
