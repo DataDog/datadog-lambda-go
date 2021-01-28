@@ -113,7 +113,7 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 		tracer.Tag("resource_names", lambdacontext.FunctionName),
 	)
 
-	if mergeXrayTraces {
+	if parentSpanContext != nil && mergeXrayTraces {
 		// This tag will cause the Forwarder to drop the span (to avoid redundancy with X-Ray)
 		span.SetTag("_dd.parent_source", "xray")
 	}
