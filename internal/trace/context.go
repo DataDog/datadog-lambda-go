@@ -253,7 +253,7 @@ func ConvertTraceContextToSpanContext(traceCtx TraceContext) (ddtrace.SpanContex
 	spanCtx, err := propagator.Extract(tracer.TextMapCarrier(traceCtx))
 
 	if err != nil {
-		logger.Error(fmt.Errorf("Error extracting Datadog trace context from context: %v", err))
+		logger.Debug("Could not convert TraceContext to a SpanContext (most likely TraceContext was empty)")
 		return nil, err
 	}
 
