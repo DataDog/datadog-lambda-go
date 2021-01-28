@@ -115,7 +115,7 @@ func TestStartFunctionExecutionSpanFromEventWithMergeEnabled(t *testing.T) {
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
 
-	assert.Equal(t, nil, finishedSpan.Tag("_dd.parent_source"))
+	assert.Equal(t, "xray", finishedSpan.Tag("_dd.parent_source"))
 }
 
 func TestStartFunctionExecutionSpanFromEventWithMergeDisabled(t *testing.T) {
