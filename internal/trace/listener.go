@@ -72,9 +72,8 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 // HandlerFinished ends the function execution span and stops the tracer
 func (l *Listener) HandlerFinished(ctx context.Context) {
 	if functionExecutionSpan != nil {
-		functionExecutionSpan.Finish()
+		functionExecutionSpan.Finish(tracer.WithError(ctx.Value("error").(error)))
 	}
-
 	// Stop the tracer, forcing it to flush any traces it's holding
 	// Without this, we might drop traces
 	tracer.Stop()
