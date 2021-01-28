@@ -45,18 +45,18 @@ var datadogTraceContextFromEvent TraceContext
 func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeXrayTraces bool) (context.Context, error) {
 	datadogTraceContext, gotDatadogTraceContext := getDatadogTraceContextFromEvent(ctx, ev)
 
-	if gotDatadogTraceContext {
+	xrayTraceContext, errGettingXrayContext := convertXrayTraceContextFromLambdaContext(ctx)
+	if errGettingXrayContext != nil {
+		logger.Error(fmt.Errorf("Couldn't convert X-Ray trace context: %v", errGettingXrayContext))
+	}
+
+	if gotDatadogTraceContext && errGettingXrayContext == nil {
 		createDummySubsegmentForXrayConverter(ctx, datadogTraceContext)
 	}
 
 	if !mergeXrayTraces {
 		logger.Debug("Merge X-Ray Traces is off, using trace context from Datadog only")
 		return context.WithValue(ctx, traceContextKey, datadogTraceContext), nil
-	}
-
-	xrayTraceContext, err := convertXrayTraceContextFromLambdaContext(ctx)
-	if err != nil {
-		fmt.Errorf("Couldn't convert X-Ray trace context: %v", err)
 	}
 
 	if !gotDatadogTraceContext {
