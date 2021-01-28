@@ -85,26 +85,20 @@ func (l *Listener) HandlerFinished(ctx context.Context) {
 func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) tracer.Span {
 	// Extract information from context
 	lambdaCtx, _ := lambdacontext.FromContext(ctx)
-	var traceSource string
 	rootTraceContext, ok := ctx.Value(traceContextKey).(TraceContext)
-	if ok {
-		traceSource = rootTraceContext[sourceType]
-	} else {
-		logger.Error(fmt.Errorf("Error extracting Datadog trace context from context"))
+	if !ok {
+		logger.Error(fmt.Errorf("Error extracting trace context from context object"))
 	}
 
 	functionArn := lambdaCtx.InvokedFunctionArn
 	functionArn = strings.ToLower(functionArn)
 	functionArn, functionVersion := separateVersionFromFunctionArn(functionArn)
 
-	// The function execution span must be made a child of the root trace context if the trace context came from an event OR merge X-Ray traces is enabled
-	// In other words, if merge X-Ray traces is NOT enabled and the trace context came from X-Ray, we should NOT make the execution span a child of the X-Ray span
+	// Set the root trace context as the parent of the function execution span
 	var parentSpanContext ddtrace.SpanContext
-	if (traceSource == fromEvent) || mergeXrayTraces {
-		convertedSpanContext, err := ConvertTraceContextToSpanContext(rootTraceContext)
-		if err == nil {
-			parentSpanContext = convertedSpanContext
-		}
+	convertedSpanContext, err := ConvertTraceContextToSpanContext(rootTraceContext)
+	if err == nil {
+		parentSpanContext = convertedSpanContext
 	}
 
 	span := tracer.StartSpan(
@@ -119,9 +113,9 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 		tracer.Tag("resource_names", lambdacontext.FunctionName),
 	)
 
-	if traceSource == fromXray && mergeXrayTraces {
+	if mergeXrayTraces {
 		// This tag will cause the Forwarder to drop the span (to avoid redundancy with X-Ray)
-		span.SetTag("_dd.parent_source", traceSource)
+		span.SetTag("_dd.parent_source", "xray")
 	}
 
 	return span

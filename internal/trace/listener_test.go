@@ -42,13 +42,11 @@ func TestSeparateVersionFromFunctionArnWithoutVersion(t *testing.T) {
 var traceContextFromXray = TraceContext{
 	traceIDHeader:  "1231452342",
 	parentIDHeader: "45678910",
-	sourceType:     fromXray,
 }
 
 var traceContextFromEvent = TraceContext{
 	traceIDHeader:  "1231452342",
 	parentIDHeader: "45678910",
-	sourceType:     fromEvent,
 }
 
 var mockLambdaContext = lambdacontext.LambdaContext{

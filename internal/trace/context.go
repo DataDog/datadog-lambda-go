@@ -45,25 +45,30 @@ var datadogTraceContextFromEvent TraceContext
 func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeXrayTraces bool) (context.Context, error) {
 	datadogTraceContext, gotDatadogTraceContext := getDatadogTraceContextFromEvent(ctx, ev)
 
+	if gotDatadogTraceContext {
+		createDummySubsegmentForXrayConverter(ctx, datadogTraceContext)
+	}
+
 	if !mergeXrayTraces {
+		logger.Debug("Merge X-Ray Traces is off, using trace context from Datadog only")
 		return context.WithValue(ctx, traceContextKey, datadogTraceContext), nil
 	}
 
 	xrayTraceContext, err := convertXrayTraceContextFromLambdaContext(ctx)
 	if err != nil {
-		fmt.Errorf("couldn't convert X-Ray trace context: %v", err)
+		fmt.Errorf("Couldn't convert X-Ray trace context: %v", err)
 	}
 
 	if !gotDatadogTraceContext {
+		logger.Debug("Merge X-Ray Traces is on, but did not get incoming Datadog trace context; using X-Ray trace context instead")
 		return context.WithValue(ctx, traceContextKey, xrayTraceContext), nil
 	}
 
+	logger.Debug("Using merged Datadog/X-Ray trace context")
 	mergedTraceContext := TraceContext{}
 	mergedTraceContext[traceIDHeader] = datadogTraceContext[traceIDHeader]
 	mergedTraceContext[samplingPriorityHeader] = datadogTraceContext[samplingPriorityHeader]
 	mergedTraceContext[parentIDHeader] = xrayTraceContext[parentIDHeader]
-	mergedTraceContext[sourceType] = fromEvent
-	fmt.Println(mergedTraceContext)
 	return context.WithValue(ctx, traceContextKey, mergedTraceContext), nil
 }
 
@@ -149,9 +154,6 @@ func getDatadogTraceContextFromEvent(ctx context.Context, ev json.RawMessage) (T
 	traceCtx[samplingPriorityHeader] = samplingPriority
 	traceCtx[traceIDHeader] = traceID
 	traceCtx[parentIDHeader] = parentID
-	traceCtx[sourceType] = fromEvent
-
-	createDummySubsegmentForXrayConverter(ctx, traceCtx)
 
 	return traceCtx, true
 }
@@ -177,7 +179,6 @@ func convertXrayTraceContextFromLambdaContext(ctx context.Context) (TraceContext
 	traceCtx[traceIDHeader] = traceID
 	traceCtx[parentIDHeader] = parentID
 	traceCtx[samplingPriorityHeader] = samplingPriority
-	traceCtx[sourceType] = fromXray
 	return traceCtx, nil
 }
 

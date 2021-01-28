@@ -65,7 +65,6 @@ func TestGetDatadogTraceContextForTraceMetadataNonProxyEvent(t *testing.T) {
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
-		sourceType:             "event",
 	}
 	assert.Equal(t, expected, headers)
 }
@@ -81,7 +80,6 @@ func TestGetDatadogTraceContextForTraceMetadataWithMixedCaseHeaders(t *testing.T
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
-		sourceType:             "event",
 	}
 	assert.Equal(t, expected, headers)
 }
@@ -182,7 +180,6 @@ func TestContextWithRootTraceContextWithDatadogContext(t *testing.T) {
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
-		sourceType:             fromEvent,
 	}
 	assert.Equal(t, expected, traceContext)
 }
@@ -198,7 +195,6 @@ func TestContextWithRootTraceContextMergeXrayTracesNoDatadogContext(t *testing.T
 		traceIDHeader:          convertedXRayTraceID,
 		parentIDHeader:         convertedXRayEntityID,
 		samplingPriorityHeader: "2",
-		sourceType:             fromXray,
 	}
 	assert.Equal(t, expected, traceContext)
 }
@@ -214,7 +210,6 @@ func TestContextWithRootTraceContextMergeXrayTracesWithDatadogContext(t *testing
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         convertedXRayEntityID,
 		samplingPriorityHeader: "2",
-		sourceType:             fromEvent,
 	}
 	assert.Equal(t, expected, traceContext)
 }
