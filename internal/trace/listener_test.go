@@ -42,13 +42,11 @@ func TestSeparateVersionFromFunctionArnWithoutVersion(t *testing.T) {
 var traceContextFromXray = TraceContext{
 	traceIDHeader:  "1231452342",
 	parentIDHeader: "45678910",
-	sourceType:     fromXray,
 }
 
 var traceContextFromEvent = TraceContext{
 	traceIDHeader:  "1231452342",
 	parentIDHeader: "45678910",
-	sourceType:     fromEvent,
 }
 
 var mockLambdaContext = lambdacontext.LambdaContext{
@@ -117,7 +115,7 @@ func TestStartFunctionExecutionSpanFromEventWithMergeEnabled(t *testing.T) {
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
 
-	assert.Equal(t, nil, finishedSpan.Tag("_dd.parent_source"))
+	assert.Equal(t, "xray", finishedSpan.Tag("_dd.parent_source"))
 }
 
 func TestStartFunctionExecutionSpanFromEventWithMergeDisabled(t *testing.T) {

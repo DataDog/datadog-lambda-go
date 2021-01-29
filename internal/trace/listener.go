@@ -46,34 +46,34 @@ func MakeListener(config Config) Listener {
 	}
 }
 
-// HandlerStarted creates the function execution span representing the Lambda function execution
-// and adds that span to the context so that the user can create child spans (if Datadog tracing is enabled)
+// HandlerStarted sets up tracing and starts the function execution span if Datadog tracing is enabled
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	ctx, _ = ContextWithTraceContext(ctx, msg)
-
-	if l.ddTraceEnabled {
-		tracer.Start(
-			tracer.WithService("aws.lambda"),
-			tracer.WithLambdaMode(true),
-			tracer.WithDebugMode(true),
-			tracer.WithGlobalTag("__dd.origin", "lambda"),
-		)
-
-		functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
-
-		// Add the span to the context so the user can create child spans
-		ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
+	if !l.ddTraceEnabled {
+		return ctx
 	}
+
+	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces)
+
+	tracer.Start(
+		tracer.WithService("aws.lambda"),
+		tracer.WithLambdaMode(true),
+		tracer.WithDebugMode(true),
+		tracer.WithGlobalTag("_dd.origin", "lambda"),
+	)
+
+	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
+
+	// Add the span to the context so the user can create child spans
+	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
 
 	return ctx
 }
 
-// HandlerFinished finishes the function execution span (if it was started) and stops the tracer
+// HandlerFinished ends the function execution span and stops the tracer
 func (l *Listener) HandlerFinished(ctx context.Context) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish()
 	}
-
 	// Stop the tracer, forcing it to flush any traces it's holding
 	// Without this, we might drop traces
 	tracer.Stop()
@@ -84,30 +84,24 @@ func (l *Listener) HandlerFinished(ctx context.Context) {
 func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) tracer.Span {
 	// Extract information from context
 	lambdaCtx, _ := lambdacontext.FromContext(ctx)
-	var traceSource string
-	traceContext, ok := ctx.Value(traceContextKey).(TraceContext)
-	if ok {
-		traceSource = traceContext[sourceType]
-	} else {
-		logger.Error(fmt.Errorf("Error extracting Datadog trace context from context"))
+	rootTraceContext, ok := ctx.Value(traceContextKey).(TraceContext)
+	if !ok {
+		logger.Error(fmt.Errorf("Error extracting trace context from context object"))
 	}
 
 	functionArn := lambdaCtx.InvokedFunctionArn
 	functionArn = strings.ToLower(functionArn)
 	functionArn, functionVersion := separateVersionFromFunctionArn(functionArn)
 
-	// The function execution span must be made a child of the current span if the trace context came from an event OR merge X-Ray traces is enabled
-	// In other words, if merge X-Ray traces is NOT enabled and the trace context came from X-Ray, we should NOT make the execution span a child of the X-Ray span
+	// Set the root trace context as the parent of the function execution span
 	var parentSpanContext ddtrace.SpanContext
-	if (traceSource == fromEvent) || mergeXrayTraces {
-		convertedSpanContext, err := convertTraceContextToSpanContext(traceContext)
-		if err == nil {
-			parentSpanContext = convertedSpanContext
-		}
+	convertedSpanContext, err := ConvertTraceContextToSpanContext(rootTraceContext)
+	if err == nil {
+		parentSpanContext = convertedSpanContext
 	}
 
 	span := tracer.StartSpan(
-		"aws.lambda",
+		"aws.lambda", // This operation name will be replaced with the value of the service tag by the Forwarder
 		tracer.SpanType("serverless"),
 		tracer.ChildOf(parentSpanContext),
 		tracer.ResourceName(lambdacontext.FunctionName),
@@ -118,8 +112,9 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 		tracer.Tag("resource_names", lambdacontext.FunctionName),
 	)
 
-	if traceSource == fromXray && mergeXrayTraces {
-		span.SetTag("_dd.parent_source", traceSource)
+	if parentSpanContext != nil && mergeXrayTraces {
+		// This tag will cause the Forwarder to drop the span (to avoid redundancy with X-Ray)
+		span.SetTag("_dd.parent_source", "xray")
 	}
 
 	return span
@@ -134,21 +129,3 @@ func separateVersionFromFunctionArn(functionArn string) (arnWithoutVersion strin
 	}
 	return arnWithoutVersion, functionVersion
 }
-
-func convertTraceContextToSpanContext(traceCtx TraceContext) (ddtrace.SpanContext, error) {
-	spanCtx, err := propagator.Extract(tracer.TextMapCarrier(traceCtx))
-
-	if err != nil {
-		logger.Error(fmt.Errorf("Error extracting Datadog trace context from context: %v", err))
-		return nil, err
-	}
-
-	return spanCtx, nil
-}
-
-// propagator is able to extract a SpanContext object from a TraceContext object
-var propagator = tracer.NewPropagator(&tracer.PropagatorConfig{
-	TraceHeader:    traceIDHeader,
-	ParentHeader:   parentIDHeader,
-	PriorityHeader: samplingPriorityHeader,
-})

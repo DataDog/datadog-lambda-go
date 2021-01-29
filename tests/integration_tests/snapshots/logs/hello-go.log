@@ -2,9 +2,11 @@ START RequestId: XXXX Version: $LATEST
 XXXX-XX-XXTXX:XX:XX.XXXZ [Info] using daemon endpoints from environment variable AWS_XRAY_DAEMON_ADDRESS: 169.254.79.2:2000
 XXXX-XX-XXTXX:XX:XX.XXXZ [Info] Emitter using address: 169.254.79.2:2000
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Will use the API"}
-XXXX-XX-XX XX:XX:XX.XXX Datadog Tracer v1.27.0 INFO: DATADOG TRACER CONFIGURATION {"date":"XXXX-XX-XXTXX:XX:XX.XXXZ","os_name":"Linux (Unknown Distribution)","os_version":"2018.03","version":"v1.27.0","lang":"Go","lang_version":"go1.14.3","env":"","service":"aws.lambda","agent_url":"http://localhost:8126/v0.4/traces","agent_error":"","debug":true,"analytics_enabled":false,"sample_rate":"NaN","sampling_rules":null,"sampling_rules_error":"","tags":{"__dd.origin":"lambda","runtime-id":"XXXX"},"runtime_metrics_enabled":false,"health_metrics_enabled":false,"dd_version":"","architecture":"amd64","global_service":"aws.lambda","lambda_mode":"true"}
+XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Merge X-Ray Traces is off, using trace context from Datadog only"}
+XXXX-XX-XX XX:XX:XX.XXX Datadog Tracer v1.27.0 INFO: DATADOG TRACER CONFIGURATION {"date":"XXXX-XX-XXTXX:XX:XX.XXXZ","os_name":"Linux (Unknown Distribution)","os_version":"2018.03","version":"v1.27.0","lang":"Go","lang_version":"go1.14.3","env":"","service":"aws.lambda","agent_url":"http://localhost:8126/v0.4/traces","agent_error":"","debug":true,"analytics_enabled":false,"sample_rate":"NaN","sampling_rules":null,"sampling_rules_error":"","tags":{"_dd.origin":"lambda","runtime-id":"XXXX"},"runtime_metrics_enabled":false,"health_metrics_enabled":false,"dd_version":"","architecture":"amd64","global_service":"aws.lambda","lambda_mode":"true"}
+XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Could not convert TraceContext to a SpanContext (most likely TraceContext was empty)"}
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: sending metric via log forwarder"}
-{"m":"aws.lambda.enhanced.invocations","v":1,"e":XXXX,"t":["functionname:go-integration-test-dev-hello-go","region:us-east-1","account_id:XXXX","memorysize:128","cold_start:true","datadog_lambda:v0.7.0","resource:go-integration-test-dev-hello-go","dd_lambda_layer:datadog-go1.XX.X"]}
+{"m":"aws.lambda.enhanced.invocations","v":1,"e":XXXX,"t":["functionname:go-integration-test-dev-hello-go","region:sa-east-1","account_id:XXXX","memorysize:128","cold_start:true","datadog_lambda:v0.9.0","resource:go-integration-test-dev-hello-go","dd_lambda_layer:datadog-go1.XX.X"]}
 Current span ID:XXXX
 Current trace ID:XXXX
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: adding metric \"hello-go.dog\", with value 0.000000"}
@@ -13,4 +15,3 @@ XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: posting to url htt
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Sending payload with body {\"series\":[{\"metric\":\"hello-go.dog\",\"tags\":[\"dd_lambda_layer:datadog-go1.XX.X\"],\"type\":\"distribution\",\points\":[[XXXX,[0]]]}]}"}
 END RequestId: XXXX
 REPORT RequestId: XXXX	Duration: XXXX ms	Billed Duration: XXXX ms	Memory Size: 128 MB	Max Memory Used: XXXX MB	Init Duration: XXXX ms	
-XRAY TraceId: XXXX	SegmentId: XXXX	Sampled: true	

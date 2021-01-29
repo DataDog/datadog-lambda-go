@@ -8,6 +8,7 @@ package:
 
 provider:
   name: aws
+  region: sa-east-1
   tracing:
     lambda: true
     apiGateway: true
