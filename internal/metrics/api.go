@@ -18,7 +18,10 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/sony/gobreaker"
 )
+
+var breaker *gobreaker.CircuitBreaker
 
 type (
 	// Client sends metrics to Datadog
@@ -82,39 +85,51 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	}
 	body := bytes.NewBuffer(content)
 
-	// For the moment we only support distribution metrics.
-	// Other metric types use the "series" endpoint, which takes an identical payload.
-	req, err := http.NewRequest("POST", cl.makeRoute("distribution_points"), body)
-	if err != nil {
-		return fmt.Errorf("Couldn't create send metrics request:%v", err)
+	if breaker == nil {
+		var st gobreaker.Settings
+		st.Name = "POST distribution_points"
+		// 5 failing requests, 60 secs in open state
+		breaker = gobreaker.NewCircuitBreaker(st)
 	}
-	req = req.WithContext(cl.context)
 
-	defer req.Body.Close()
+	_, err = breaker.Execute(func() (interface{}, error) {
 
-	logger.Debug(fmt.Sprintf("Sending payload with body %s", content))
-
-	cl.addAPICredentials(req)
-
-	resp, err := cl.httpClient.Do(req)
-
-	if err != nil {
-		return fmt.Errorf("Failed to send metrics to API")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		if resp.StatusCode == 403 {
-			logger.Debug(fmt.Sprintf("authorization failed with api key of length %d characters", len(cl.apiKey)))
+		// For the moment we only support distribution metrics.
+		// Other metric types use the "series" endpoint, which takes an identical payload.
+		req, err := http.NewRequest("POST", cl.makeRoute("distribution_points"), body)
+		if err != nil {
+			return nil, fmt.Errorf("Couldn't create send metrics request:%v", err)
 		}
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		body := ""
-		if err == nil {
-			body = string(bodyBytes)
+		req = req.WithContext(cl.context)
+
+		defer req.Body.Close()
+
+		logger.Debug(fmt.Sprintf("Sending payload with body %s", content))
+
+		cl.addAPICredentials(req)
+
+		resp, err := cl.httpClient.Do(req)
+
+		if err != nil {
+			return nil, fmt.Errorf("Failed to send metrics to API")
 		}
-		return fmt.Errorf("Failed to send metrics to API. Status Code %d, Body %s", resp.StatusCode, body)
-	}
-	return nil
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
+			if resp.StatusCode == 403 {
+				logger.Debug(fmt.Sprintf("authorization failed with api key of length %d characters", len(cl.apiKey)))
+			}
+			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			body := ""
+			if err == nil {
+				body = string(bodyBytes)
+			}
+			return nil, fmt.Errorf("Failed to send metrics to API. Status Code %d, Body %s", resp.StatusCode, body)
+		}
+		return nil, nil
+	})
+
+	return err
 }
 
 func (cl *APIClient) decryptAPIKey(decrypter Decrypter, kmsAPIKey string) <-chan string {
