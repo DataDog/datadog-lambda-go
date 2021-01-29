@@ -50,7 +50,7 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 		CurrentContext = ctx
 		result, err := callHandler(ctx, msg, handler)
 		if err != nil {
-			ctx = context.WithValue(ctx, "error", err)
+			ctx = context.WithValue(ctx, "error", true)
 		}
 		for _, listener := range listeners {
 			listener.HandlerFinished(ctx)
