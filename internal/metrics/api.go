@@ -37,10 +37,11 @@ type (
 
 	// APIClientOptions contains instantiation options from creating an APIClient.
 	APIClientOptions struct {
-		baseAPIURL string
-		apiKey     string
-		kmsAPIKey  string
-		decrypter  Decrypter
+		baseAPIURL        string
+		apiKey            string
+		kmsAPIKey         string
+		decrypter         Decrypter
+		httpClientTimeout time.Duration
 	}
 
 	postMetricsModel struct {
@@ -51,7 +52,7 @@ type (
 // MakeAPIClient creates a new API client with the given api and app keys
 func MakeAPIClient(ctx context.Context, options APIClientOptions) *APIClient {
 	httpClient := &http.Client{
-		Timeout: time.Second * 5,
+		Timeout: options.httpClientTimeout,
 	}
 	client := &APIClient{
 		apiKey:     options.apiKey,

@@ -45,6 +45,7 @@ type (
 		ShouldUseLogForwarder bool
 		BatchInterval         time.Duration
 		EnhancedMetrics       bool
+		HttpClientTimeout     time.Duration
 	}
 
 	logMetric struct {
@@ -66,11 +67,15 @@ const (
 func MakeListener(config Config) Listener {
 
 	apiClient := MakeAPIClient(context.Background(), APIClientOptions{
-		baseAPIURL: config.Site,
-		apiKey:     config.APIKey,
-		decrypter:  MakeKMSDecrypter(),
-		kmsAPIKey:  config.KMSAPIKey,
+		baseAPIURL:        config.Site,
+		apiKey:            config.APIKey,
+		decrypter:         MakeKMSDecrypter(),
+		kmsAPIKey:         config.KMSAPIKey,
+		httpClientTimeout: config.HttpClientTimeout,
 	})
+	if config.HttpClientTimeout <= 0 {
+		config.HttpClientTimeout = time.Second * 5
+	}
 	if config.BatchInterval <= 0 {
 		config.BatchInterval = defaultBatchInterval
 	}
