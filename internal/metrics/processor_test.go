@@ -11,6 +11,7 @@ package metrics
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func TestProcessorBatches(t *testing.T) {
 	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	nowUnix := float64(mts.now.Unix())
 
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, math.MaxUint32)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -113,7 +114,7 @@ func TestProcessorBatchesPerTick(t *testing.T) {
 	secondTimeUnix := float64(secondTime.Unix())
 	mts.now = firstTime
 
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, math.MaxUint32)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -188,7 +189,7 @@ func TestProcessorPerformsRetry(t *testing.T) {
 	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 
 	shouldRetry := true
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, shouldRetry)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, shouldRetry, time.Hour*1000, time.Hour*1000, math.MaxUint32)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -213,7 +214,7 @@ func TestProcessorCancelsWithContext(t *testing.T) {
 
 	shouldRetry := true
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	processor := MakeProcessor(ctx, &mc, &mts, 1000, shouldRetry)
+	processor := MakeProcessor(ctx, &mc, &mts, 1000, shouldRetry, time.Hour*1000, time.Hour*1000, math.MaxUint32)
 
 	d1 := Distribution{
 		Name:   "metric-1",

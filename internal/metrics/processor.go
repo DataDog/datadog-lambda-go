@@ -16,6 +16,7 @@ import (
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/cenkalti/backoff"
+	"github.com/sony/gobreaker"
 )
 
 type (
@@ -41,12 +42,15 @@ type (
 		batcher           *Batcher
 		shouldRetryOnFail bool
 		isProcessing      bool
+		breaker           *gobreaker.CircuitBreaker
 	}
 )
 
 // MakeProcessor creates a new metrics context
-func MakeProcessor(ctx context.Context, client Client, timeService TimeService, batchInterval time.Duration, shouldRetryOnFail bool) Processor {
+func MakeProcessor(ctx context.Context, client Client, timeService TimeService, batchInterval time.Duration, shouldRetryOnFail bool, circuitBreakerInterval time.Duration, circuitBreakerTimeout time.Duration, circuitBreakerConsecutiveFailures uint32) Processor {
 	batcher := MakeBatcher(batchInterval)
+
+	breaker := MakeCircuitBreaker(circuitBreakerInterval, circuitBreakerTimeout, circuitBreakerConsecutiveFailures)
 
 	return &processor{
 		context:           ctx,
@@ -58,7 +62,22 @@ func MakeProcessor(ctx context.Context, client Client, timeService TimeService, 
 		shouldRetryOnFail: shouldRetryOnFail,
 		timeService:       timeService,
 		isProcessing:      false,
+		breaker:           breaker,
 	}
+}
+
+func MakeCircuitBreaker(circuitBreakerInterval time.Duration, circuitBreakerTimeout time.Duration, circuitBreakerConsecutiveFailures uint32) *gobreaker.CircuitBreaker {
+	readyToTrip := func(counts gobreaker.Counts) bool {
+		return counts.ConsecutiveFailures > circuitBreakerConsecutiveFailures
+	}
+
+	st := gobreaker.Settings{
+		Name:        "post distribution_points",
+		Interval:    circuitBreakerInterval,
+		Timeout:     circuitBreakerTimeout,
+		ReadyToTrip: readyToTrip,
+	}
+	return gobreaker.NewCircuitBreaker(st)
 }
 
 func (p *processor) AddMetric(metric Metric) {
@@ -125,18 +144,24 @@ func (p *processor) processMetrics() {
 		}
 
 		if shouldSendBatch {
-			if shouldExit && p.shouldRetryOnFail {
-				// If we are shutting down, and we just failed to send our last batch, do a retry
-				bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(defaultRetryInterval), 2)
-				err := backoff.Retry(p.sendMetricsBatch, bo)
-				if err != nil {
-					logger.Error(fmt.Errorf("failed to flush metrics to datadog API after retry: %v", err))
+			_, err := p.breaker.Execute(func() (interface{}, error) {
+				if shouldExit && p.shouldRetryOnFail {
+					// If we are shutting down, and we just failed to send our last batch, do a retry
+					bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(defaultRetryInterval), 2)
+					err := backoff.Retry(p.sendMetricsBatch, bo)
+					if err != nil {
+						return nil, fmt.Errorf("after retry: %v", err)
+					}
+				} else {
+					err := p.sendMetricsBatch()
+					if err != nil {
+						return nil, fmt.Errorf("with no retry: %v", err)
+					}
 				}
-			} else {
-				err := p.sendMetricsBatch()
-				if err != nil {
-					logger.Error(fmt.Errorf("failed to flush metrics to datadog API: %v", err))
-				}
+				return nil, nil
+			})
+			if err != nil {
+				logger.Error(fmt.Errorf("failed to flush metrics to datadog API: %v", err))
 			}
 		}
 	}

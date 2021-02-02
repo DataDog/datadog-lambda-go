@@ -70,14 +70,11 @@ const (
 func MakeListener(config Config) Listener {
 
 	apiClient := MakeAPIClient(context.Background(), APIClientOptions{
-		baseAPIURL:                        config.Site,
-		apiKey:                            config.APIKey,
-		decrypter:                         MakeKMSDecrypter(),
-		kmsAPIKey:                         config.KMSAPIKey,
-		httpClientTimeout:                 config.HttpClientTimeout,
-		circuitBreakerInterval:            config.CircuitBreakerInterval,
-		circuitBreakerTimeout:             config.CircuitBreakerTimeout,
-		circuitBreakerConsecutiveFailures: config.CircuitBreakerConsecutiveFailures,
+		baseAPIURL:        config.Site,
+		apiKey:            config.APIKey,
+		decrypter:         MakeKMSDecrypter(),
+		kmsAPIKey:         config.KMSAPIKey,
+		httpClientTimeout: config.HttpClientTimeout,
 	})
 	if config.HttpClientTimeout <= 0 {
 		config.HttpClientTimeout = defaultHttpClientTimeout
@@ -122,7 +119,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	}
 
 	ts := MakeTimeService()
-	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure)
+	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure, l.config.CircuitBreakerInterval, l.config.CircuitBreakerTimeout, l.config.CircuitBreakerConsecutiveFailures)
 	l.processor = pr
 
 	ctx = AddListener(ctx, l)

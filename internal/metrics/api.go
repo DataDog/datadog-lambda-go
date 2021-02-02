@@ -18,10 +18,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
-	"github.com/sony/gobreaker"
 )
-
-var breaker *gobreaker.CircuitBreaker
 
 type (
 	// Client sends metrics to Datadog
@@ -40,14 +37,11 @@ type (
 
 	// APIClientOptions contains instantiation options from creating an APIClient.
 	APIClientOptions struct {
-		baseAPIURL                        string
-		apiKey                            string
-		kmsAPIKey                         string
-		decrypter                         Decrypter
-		httpClientTimeout                 time.Duration
-		circuitBreakerInterval            time.Duration
-		circuitBreakerTimeout             time.Duration
-		circuitBreakerConsecutiveFailures uint32
+		baseAPIURL        string
+		apiKey            string
+		kmsAPIKey         string
+		decrypter         Decrypter
+		httpClientTimeout time.Duration
 	}
 
 	postMetricsModel struct {
@@ -70,19 +64,6 @@ func MakeAPIClient(ctx context.Context, options APIClientOptions) *APIClient {
 		client.apiKeyDecryptChan = client.decryptAPIKey(options.decrypter, options.kmsAPIKey)
 	}
 
-	if breaker == nil {
-		readyToTrip := func(counts gobreaker.Counts) bool {
-			return counts.ConsecutiveFailures > options.circuitBreakerConsecutiveFailures
-		}
-		st := gobreaker.Settings{
-			Name:        "post distribution_points",
-			Interval:    options.circuitBreakerInterval,
-			Timeout:     options.circuitBreakerTimeout,
-			ReadyToTrip: readyToTrip,
-		}
-		breaker = gobreaker.NewCircuitBreaker(st)
-	}
-
 	return client
 }
 
@@ -101,42 +82,38 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	}
 	body := bytes.NewBuffer(content)
 
-	_, err = breaker.Execute(func() (interface{}, error) {
+	// For the moment we only support distribution metrics.
+	// Other metric types use the "series" endpoint, which takes an identical payload.
+	req, err := http.NewRequest("POST", cl.makeRoute("distribution_points"), body)
+	if err != nil {
+		return fmt.Errorf("Couldn't create send metrics request:%v", err)
+	}
+	req = req.WithContext(cl.context)
 
-		// For the moment we only support distribution metrics.
-		// Other metric types use the "series" endpoint, which takes an identical payload.
-		req, err := http.NewRequest("POST", cl.makeRoute("distribution_points"), body)
-		if err != nil {
-			return nil, fmt.Errorf("Couldn't create send metrics request:%v", err)
+	defer req.Body.Close()
+
+	logger.Debug(fmt.Sprintf("Sending payload with body %s", content))
+
+	cl.addAPICredentials(req)
+
+	resp, err := cl.httpClient.Do(req)
+
+	if err != nil {
+		return fmt.Errorf("Failed to send metrics to API")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		if resp.StatusCode == 403 {
+			logger.Debug(fmt.Sprintf("authorization failed with api key of length %d characters", len(cl.apiKey)))
 		}
-		req = req.WithContext(cl.context)
-
-		defer req.Body.Close()
-
-		logger.Debug(fmt.Sprintf("Sending payload with body %s", content))
-
-		cl.addAPICredentials(req)
-
-		resp, err := cl.httpClient.Do(req)
-
-		if err != nil {
-			return nil, fmt.Errorf("Failed to send metrics to API")
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		body := ""
+		if err == nil {
+			body = string(bodyBytes)
 		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode < 200 || resp.StatusCode > 299 {
-			if resp.StatusCode == 403 {
-				logger.Debug(fmt.Sprintf("authorization failed with api key of length %d characters", len(cl.apiKey)))
-			}
-			bodyBytes, err := ioutil.ReadAll(resp.Body)
-			body := ""
-			if err == nil {
-				body = string(bodyBytes)
-			}
-			return nil, fmt.Errorf("Failed to send metrics to API. Status Code %d, Body %s", resp.StatusCode, body)
-		}
-		return nil, nil
-	})
+		return fmt.Errorf("Failed to send metrics to API. Status Code %d, Body %s", resp.StatusCode, body)
+	}
 
 	return err
 }
