@@ -40,11 +40,14 @@ type (
 
 	// APIClientOptions contains instantiation options from creating an APIClient.
 	APIClientOptions struct {
-		baseAPIURL        string
-		apiKey            string
-		kmsAPIKey         string
-		decrypter         Decrypter
-		httpClientTimeout time.Duration
+		baseAPIURL                        string
+		apiKey                            string
+		kmsAPIKey                         string
+		decrypter                         Decrypter
+		httpClientTimeout                 time.Duration
+		circuitBreakerInterval            time.Duration
+		circuitBreakerTimeout             time.Duration
+		circuitBreakerConsecutiveFailures uint32
 	}
 
 	postMetricsModel struct {
@@ -67,6 +70,19 @@ func MakeAPIClient(ctx context.Context, options APIClientOptions) *APIClient {
 		client.apiKeyDecryptChan = client.decryptAPIKey(options.decrypter, options.kmsAPIKey)
 	}
 
+	if breaker == nil {
+		readyToTrip := func(counts gobreaker.Counts) bool {
+			return counts.ConsecutiveFailures > options.circuitBreakerConsecutiveFailures
+		}
+		st := gobreaker.Settings{
+			Name:        "post distribution_points",
+			Interval:    options.circuitBreakerInterval,
+			Timeout:     options.circuitBreakerTimeout,
+			ReadyToTrip: readyToTrip,
+		}
+		breaker = gobreaker.NewCircuitBreaker(st)
+	}
+
 	return client
 }
 
@@ -84,13 +100,6 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 		return fmt.Errorf("Couldn't marshal metrics model: %v", err)
 	}
 	body := bytes.NewBuffer(content)
-
-	if breaker == nil {
-		var st gobreaker.Settings
-		st.Name = "POST distribution_points"
-		// 5 failing requests, 60 secs in open state
-		breaker = gobreaker.NewCircuitBreaker(st)
-	}
 
 	_, err = breaker.Execute(func() (interface{}, error) {
 

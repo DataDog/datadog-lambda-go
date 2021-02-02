@@ -38,14 +38,17 @@ type (
 
 	// Config gives options for how the listener should work
 	Config struct {
-		APIKey                string
-		KMSAPIKey             string
-		Site                  string
-		ShouldRetryOnFailure  bool
-		ShouldUseLogForwarder bool
-		BatchInterval         time.Duration
-		EnhancedMetrics       bool
-		HttpClientTimeout     time.Duration
+		APIKey                            string
+		KMSAPIKey                         string
+		Site                              string
+		ShouldRetryOnFailure              bool
+		ShouldUseLogForwarder             bool
+		BatchInterval                     time.Duration
+		EnhancedMetrics                   bool
+		HttpClientTimeout                 time.Duration
+		CircuitBreakerInterval            time.Duration
+		CircuitBreakerTimeout             time.Duration
+		CircuitBreakerConsecutiveFailures uint32
 	}
 
 	logMetric struct {
@@ -67,14 +70,26 @@ const (
 func MakeListener(config Config) Listener {
 
 	apiClient := MakeAPIClient(context.Background(), APIClientOptions{
-		baseAPIURL:        config.Site,
-		apiKey:            config.APIKey,
-		decrypter:         MakeKMSDecrypter(),
-		kmsAPIKey:         config.KMSAPIKey,
-		httpClientTimeout: config.HttpClientTimeout,
+		baseAPIURL:                        config.Site,
+		apiKey:                            config.APIKey,
+		decrypter:                         MakeKMSDecrypter(),
+		kmsAPIKey:                         config.KMSAPIKey,
+		httpClientTimeout:                 config.HttpClientTimeout,
+		circuitBreakerInterval:            config.CircuitBreakerInterval,
+		circuitBreakerTimeout:             config.CircuitBreakerTimeout,
+		circuitBreakerConsecutiveFailures: config.CircuitBreakerConsecutiveFailures,
 	})
 	if config.HttpClientTimeout <= 0 {
-		config.HttpClientTimeout = time.Second * 5
+		config.HttpClientTimeout = defaultHttpClientTimeout
+	}
+	if config.CircuitBreakerInterval <= 0 {
+		config.CircuitBreakerInterval = defaultCircuitBreakerInterval
+	}
+	if config.CircuitBreakerTimeout <= 0 {
+		config.CircuitBreakerTimeout = defaultCircuitBreakerTimeout
+	}
+	if config.CircuitBreakerConsecutiveFailures <= 0 {
+		config.CircuitBreakerConsecutiveFailures = defaultCircuitBreakerConsecutiveFailures
 	}
 	if config.BatchInterval <= 0 {
 		config.BatchInterval = defaultBatchInterval

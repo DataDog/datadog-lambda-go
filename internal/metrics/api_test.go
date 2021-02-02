@@ -11,6 +11,7 @@ package metrics
 import (
 	"context"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -36,7 +37,7 @@ func (md *mockDecrypter) Decrypt(cipherText string) (string, error) {
 }
 
 func TestAddAPICredentials(t *testing.T) {
-	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: "", apiKey: mockAPIKey})
+	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: "", apiKey: mockAPIKey, circuitBreakerConsecutiveFailures: math.MaxUint32})
 	req, _ := http.NewRequest("GET", "http://some-api.com/endpoint", nil)
 	cl.addAPICredentials(req)
 	assert.Equal(t, "http://some-api.com/endpoint?api_key=12345", req.URL.String())
@@ -70,7 +71,7 @@ func TestSendMetricsSuccess(t *testing.T) {
 		},
 	}
 
-	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: server.URL, apiKey: mockAPIKey})
+	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: server.URL, apiKey: mockAPIKey, circuitBreakerConsecutiveFailures: math.MaxUint32})
 	err := cl.SendMetrics(am)
 
 	assert.NoError(t, err)
@@ -105,7 +106,7 @@ func TestSendMetricsBadRequest(t *testing.T) {
 		},
 	}
 
-	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: server.URL, apiKey: mockAPIKey})
+	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: server.URL, apiKey: mockAPIKey, circuitBreakerConsecutiveFailures: math.MaxUint32})
 	err := cl.SendMetrics(am)
 
 	assert.Error(t, err)
@@ -133,7 +134,7 @@ func TestSendMetricsCantReachServer(t *testing.T) {
 		},
 	}
 
-	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: "httpa:///badly-formatted-url", apiKey: mockAPIKey})
+	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: "httpa:///badly-formatted-url", apiKey: mockAPIKey, circuitBreakerConsecutiveFailures: math.MaxUint32})
 	err := cl.SendMetrics(am)
 
 	assert.Error(t, err)
@@ -164,7 +165,7 @@ func TestDecryptsUsingKMSKey(t *testing.T) {
 	md := mockDecrypter{}
 	md.returnValue = mockDecryptedAPIKey
 
-	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: server.URL, apiKey: "", kmsAPIKey: mockEncryptedAPIKey, decrypter: &md})
+	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: server.URL, apiKey: "", kmsAPIKey: mockEncryptedAPIKey, decrypter: &md, circuitBreakerConsecutiveFailures: math.MaxUint32})
 	err := cl.SendMetrics(am)
 
 	assert.NoError(t, err)
