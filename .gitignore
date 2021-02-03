@@ -10,6 +10,7 @@ bin/
 *.cov
 *.lock
 *.swp
+.idea
 
 /contrib/google.golang.org/grpc.v12/vendor/
 .vscode
