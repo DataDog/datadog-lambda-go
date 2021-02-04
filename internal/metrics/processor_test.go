@@ -231,3 +231,29 @@ func TestProcessorCancelsWithContext(t *testing.T) {
 
 	assert.Equal(t, 0, mc.sendMetricsCalledCount)
 }
+
+func TestProcessorBatchesWithOpeningCircuitBreaker(t *testing.T) {
+	mc := makeMockClient()
+	mts := makeMockTimeService()
+
+	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+
+	// Will open the circuit breaker at number of consecutive failures > 1
+	circuitBreakerConsecutiveFailures := uint32(1)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, circuitBreakerConsecutiveFailures)
+
+	d1 := Distribution{
+		Name:   "metric-1",
+		Tags:   []string{"a", "b", "c"},
+		Values: []MetricValue{{Timestamp: mts.now, Value: 1}, {Timestamp: mts.now, Value: 2}, {Timestamp: mts.now, Value: 3}},
+	}
+
+	mc.err = errors.New("Some error")
+
+	processor.AddMetric(&d1)
+
+	processor.FinishProcessing()
+
+	// It should have retried 3 times, but circuit breaker opened at the second time
+	assert.Equal(t, 1, mc.sendMetricsCalledCount)
+}
