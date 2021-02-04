@@ -24,7 +24,7 @@ import (
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
 
-const datadogLambdaVersion = "v0.9.0"
+const datadogLambdaVersion = "v0.9.1"
 
 type (
 	// Listener implements wrapper.HandlerListener, injecting metrics into the context
