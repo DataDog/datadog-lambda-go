@@ -8,6 +8,9 @@
 
 set -e
 
+# Disable deprecation warnings.
+export SLS_DEPRECATION_DISABLE=*
+
 # These values need to be in sync with serverless.yml, where there needs to be a function
 # defined for every handler_runtime combination
 LAMBDA_HANDLERS=("hello-go")
@@ -105,8 +108,12 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             sed -E "s/(dd\.trace_id=)[0-9]+ (dd\.span_id=)[0-9]+/\1XXXX \2XXXX/" |
             # Normalize execution ID in logs prefix
             sed -E $'s/[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\t/XXXX-XXXX-XXXX-XXXX-XXXX\t/' |
-            # Normalize minor package version tag so that these snapshots aren't broken on version bumps
-            sed -E "s/(dd_lambda_layer:datadog-go[0-9]+\.)[0-9]+\.[0-9]+/\1XX\.X/g" |
+            # Normalize layer version tag
+            sed -E "s/(dd_lambda_layer:datadog-go)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
+            # Normalize package version tag
+            sed -E "s/(datadog_lambda:v)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
+            # Normalize golang version tag
+            sed -E "s/(go)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
             # Normalize data in logged traces
             sed -E 's/"(span_id|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn|runtime-id)":("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
             # Remove metrics and metas in logged traces (their order is inconsistent)
