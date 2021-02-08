@@ -38,17 +38,17 @@ type (
 
 	// Config gives options for how the listener should work
 	Config struct {
-		APIKey                            string
-		KMSAPIKey                         string
-		Site                              string
-		ShouldRetryOnFailure              bool
-		ShouldUseLogForwarder             bool
-		BatchInterval                     time.Duration
-		EnhancedMetrics                   bool
-		HttpClientTimeout                 time.Duration
-		CircuitBreakerInterval            time.Duration
-		CircuitBreakerTimeout             time.Duration
-		CircuitBreakerConsecutiveFailures uint32
+		APIKey                      string
+		KMSAPIKey                   string
+		Site                        string
+		ShouldRetryOnFailure        bool
+		ShouldUseLogForwarder       bool
+		BatchInterval               time.Duration
+		EnhancedMetrics             bool
+		HttpClientTimeout           time.Duration
+		CircuitBreakerInterval      time.Duration
+		CircuitBreakerTimeout       time.Duration
+		CircuitBreakerTotalFailures uint32
 	}
 
 	logMetric struct {
@@ -85,8 +85,8 @@ func MakeListener(config Config) Listener {
 	if config.CircuitBreakerTimeout <= 0 {
 		config.CircuitBreakerTimeout = defaultCircuitBreakerTimeout
 	}
-	if config.CircuitBreakerConsecutiveFailures <= 0 {
-		config.CircuitBreakerConsecutiveFailures = defaultCircuitBreakerConsecutiveFailures
+	if config.CircuitBreakerTotalFailures <= 0 {
+		config.CircuitBreakerTotalFailures = defaultCircuitBreakerTotalFailures
 	}
 	if config.BatchInterval <= 0 {
 		config.BatchInterval = defaultBatchInterval
@@ -119,7 +119,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	}
 
 	ts := MakeTimeService()
-	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure, l.config.CircuitBreakerInterval, l.config.CircuitBreakerTimeout, l.config.CircuitBreakerConsecutiveFailures)
+	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure, l.config.CircuitBreakerInterval, l.config.CircuitBreakerTimeout, l.config.CircuitBreakerTotalFailures)
 	l.processor = pr
 
 	ctx = AddListener(ctx, l)

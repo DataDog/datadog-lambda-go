@@ -61,10 +61,11 @@ type (
 		// after which the state of the CircuitBreaker becomes half-open.
 		// default: 60s
 		CircuitBreakerTimeout time.Duration
-		// CircuitBreakerConsecutiveFailures after this amount of times
+		// CircuitBreakerTotalFailures after this amount of times
 		// of a request failing in the closed state, the state will become open.
+		// the counter will get totally reset after CircuitBreakerInterval
 		// default: 4
-		CircuitBreakerConsecutiveFailures uint32
+		CircuitBreakerTotalFailures uint32
 	}
 )
 

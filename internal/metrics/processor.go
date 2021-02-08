@@ -47,10 +47,10 @@ type (
 )
 
 // MakeProcessor creates a new metrics context
-func MakeProcessor(ctx context.Context, client Client, timeService TimeService, batchInterval time.Duration, shouldRetryOnFail bool, circuitBreakerInterval time.Duration, circuitBreakerTimeout time.Duration, circuitBreakerConsecutiveFailures uint32) Processor {
+func MakeProcessor(ctx context.Context, client Client, timeService TimeService, batchInterval time.Duration, shouldRetryOnFail bool, circuitBreakerInterval time.Duration, circuitBreakerTimeout time.Duration, circuitBreakerTotalFailures uint32) Processor {
 	batcher := MakeBatcher(batchInterval)
 
-	breaker := MakeCircuitBreaker(circuitBreakerInterval, circuitBreakerTimeout, circuitBreakerConsecutiveFailures)
+	breaker := MakeCircuitBreaker(circuitBreakerInterval, circuitBreakerTimeout, circuitBreakerTotalFailures)
 
 	return &processor{
 		context:           ctx,
@@ -66,9 +66,9 @@ func MakeProcessor(ctx context.Context, client Client, timeService TimeService, 
 	}
 }
 
-func MakeCircuitBreaker(circuitBreakerInterval time.Duration, circuitBreakerTimeout time.Duration, circuitBreakerConsecutiveFailures uint32) *gobreaker.CircuitBreaker {
+func MakeCircuitBreaker(circuitBreakerInterval time.Duration, circuitBreakerTimeout time.Duration, circuitBreakerTotalFailures uint32) *gobreaker.CircuitBreaker {
 	readyToTrip := func(counts gobreaker.Counts) bool {
-		return counts.ConsecutiveFailures > circuitBreakerConsecutiveFailures
+		return counts.TotalFailures > circuitBreakerTotalFailures
 	}
 
 	st := gobreaker.Settings{

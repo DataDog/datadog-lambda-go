@@ -238,9 +238,9 @@ func TestProcessorBatchesWithOpeningCircuitBreaker(t *testing.T) {
 
 	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 
-	// Will open the circuit breaker at number of consecutive failures > 1
-	circuitBreakerConsecutiveFailures := uint32(1)
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, circuitBreakerConsecutiveFailures)
+	// Will open the circuit breaker at number of total failures > 1
+	circuitBreakerTotalFailures := uint32(1)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, circuitBreakerTotalFailures)
 
 	d1 := Distribution{
 		Name:   "metric-1",
