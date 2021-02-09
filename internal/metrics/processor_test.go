@@ -11,6 +11,7 @@ package metrics
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func TestProcessorBatches(t *testing.T) {
 	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	nowUnix := float64(mts.now.Unix())
 
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, math.MaxUint32)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -113,7 +114,7 @@ func TestProcessorBatchesPerTick(t *testing.T) {
 	secondTimeUnix := float64(secondTime.Unix())
 	mts.now = firstTime
 
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, math.MaxUint32)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -188,7 +189,7 @@ func TestProcessorPerformsRetry(t *testing.T) {
 	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 
 	shouldRetry := true
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, shouldRetry)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, shouldRetry, time.Hour*1000, time.Hour*1000, math.MaxUint32)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -213,7 +214,7 @@ func TestProcessorCancelsWithContext(t *testing.T) {
 
 	shouldRetry := true
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	processor := MakeProcessor(ctx, &mc, &mts, 1000, shouldRetry)
+	processor := MakeProcessor(ctx, &mc, &mts, 1000, shouldRetry, time.Hour*1000, time.Hour*1000, math.MaxUint32)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -229,4 +230,30 @@ func TestProcessorCancelsWithContext(t *testing.T) {
 	processor.FinishProcessing()
 
 	assert.Equal(t, 0, mc.sendMetricsCalledCount)
+}
+
+func TestProcessorBatchesWithOpeningCircuitBreaker(t *testing.T) {
+	mc := makeMockClient()
+	mts := makeMockTimeService()
+
+	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+
+	// Will open the circuit breaker at number of total failures > 1
+	circuitBreakerTotalFailures := uint32(1)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, circuitBreakerTotalFailures)
+
+	d1 := Distribution{
+		Name:   "metric-1",
+		Tags:   []string{"a", "b", "c"},
+		Values: []MetricValue{{Timestamp: mts.now, Value: 1}, {Timestamp: mts.now, Value: 2}, {Timestamp: mts.now, Value: 3}},
+	}
+
+	mc.err = errors.New("Some error")
+
+	processor.AddMetric(&d1)
+
+	processor.FinishProcessing()
+
+	// It should have retried 3 times, but circuit breaker opened at the second time
+	assert.Equal(t, 1, mc.sendMetricsCalledCount)
 }

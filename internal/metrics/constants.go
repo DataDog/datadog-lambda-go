@@ -11,10 +11,14 @@ package metrics
 import "time"
 
 const (
-	apiKeyParam          = "api_key"
-	appKeyParam          = "application_key"
-	defaultRetryInterval = time.Millisecond * 250
-	defaultBatchInterval = time.Second * 15
+	apiKeyParam                        = "api_key"
+	appKeyParam                        = "application_key"
+	defaultRetryInterval               = time.Millisecond * 250
+	defaultBatchInterval               = time.Second * 15
+	defaultHttpClientTimeout           = time.Second * 5
+	defaultCircuitBreakerInterval      = time.Second * 30
+	defaultCircuitBreakerTimeout       = time.Second * 60
+	defaultCircuitBreakerTotalFailures = 4
 )
 
 // MetricType enumerates all the available metric types
