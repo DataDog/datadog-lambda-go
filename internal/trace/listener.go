@@ -81,9 +81,7 @@ func (l *Listener) HandlerFinished(ctx context.Context) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish()
 	}
-	// Stop the tracer, forcing it to flush any traces it's holding
-	// Without this, we might drop traces
-	tracer.Stop()
+	tracer.Flush()
 }
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
