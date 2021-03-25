@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/aws/aws-lambda-go/lambdacontext"
@@ -54,12 +55,18 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces)
 
+	timeBeforeTracerStarts := time.Now().UnixNano() / 1000000
+	logger.Debug("time before tracer starts: " + fmt.Sprint(timeBeforeTracerStarts))
 	tracer.Start(
 		tracer.WithService("aws.lambda"),
 		tracer.WithLambdaMode(true),
 		tracer.WithDebugMode(true),
 		tracer.WithGlobalTag("_dd.origin", "lambda"),
 	)
+	timeAfterTracerStarts := time.Now().UnixNano() / 1000000
+	logger.Debug("time after tracer starts: " + fmt.Sprint(timeAfterTracerStarts))
+	elapsedTracerStartTime := timeAfterTracerStarts - timeBeforeTracerStarts
+	logger.Debug("elapsed tracer start time: " + fmt.Sprint(elapsedTracerStartTime))
 
 	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
 

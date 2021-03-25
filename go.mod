@@ -1,7 +1,6 @@
 module github.com/DataDog/datadog-lambda-go
 
 go 1.12
-
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0 // indirect
 	github.com/DataDog/datadog-go v4.0.1+incompatible
@@ -19,3 +18,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/DataDog/dd-trace-go.v1 v1.27.0
 )
+
+replace gopkg.in/DataDog/dd-trace-go.v1 => /Users/nicolas.hinsch/go/src/github.com/DataDog/dd-trace-go
+
