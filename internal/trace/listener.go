@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/DataDog/datadog-lambda-go/internal/version"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -110,6 +111,8 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 		tracer.Tag("function_version", functionVersion),
 		tracer.Tag("request_id", lambdaCtx.AwsRequestID),
 		tracer.Tag("resource_names", lambdacontext.FunctionName),
+		tracer.Tag("datadog_lambda", version.DDLambdaVersion),
+		tracer.Tag("dd_trace", version.DDTraceVersion),
 	)
 
 	if parentSpanContext != nil && mergeXrayTraces {

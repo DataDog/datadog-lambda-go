@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime/debug"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
@@ -48,15 +49,22 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 			ctx = listener.HandlerStarted(ctx, msg)
 		}
 		CurrentContext = ctx
+		defer func() {
+			r := recover()
+			if r != nil {
+				logger.Error(fmt.Errorf("handler function panic, recovered by datadog-lambda-go"))
+				debug.PrintStack()
+			}
+			if err != nil || r != nil {
+				ctx = context.WithValue(ctx, "error", true)
+			}
+			for _, listener := range listeners {
+				listener.HandlerFinished(ctx)
+			}
+			coldStart = false
+			CurrentContext = nil
+		}()
 		result, err := callHandler(ctx, msg, handler)
-		if err != nil {
-			ctx = context.WithValue(ctx, "error", true)
-		}
-		for _, listener := range listeners {
-			listener.HandlerFinished(ctx)
-		}
-		coldStart = false
-		CurrentContext = nil
 		return result, err
 	}
 }
