@@ -38,6 +38,8 @@ type (
 // The function execution span is the top-level span representing the current Lambda function execution
 var functionExecutionSpan ddtrace.Span
 
+var tracerInitialized = false
+
 // MakeListener initializes a new trace lambda Listener
 func MakeListener(config Config) Listener {
 
@@ -57,12 +59,15 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	timeBeforeTracerStarts := time.Now().UnixNano() / 1000000
 	logger.Debug("time before tracer starts: " + fmt.Sprint(timeBeforeTracerStarts))
-	tracer.Start(
-		tracer.WithService("aws.lambda"),
-		tracer.WithLambdaMode(true),
-		tracer.WithDebugMode(true),
-		tracer.WithGlobalTag("_dd.origin", "lambda"),
-	)
+	if !tracerInitialized {
+		tracer.Start(
+			tracer.WithService("aws.lambda"),
+			tracer.WithLambdaMode(true),
+			tracer.WithDebugMode(true),
+			tracer.WithGlobalTag("_dd.origin", "lambda"),
+		)
+		tracerInitialized = true
+	}
 	timeAfterTracerStarts := time.Now().UnixNano() / 1000000
 	logger.Debug("time after tracer starts: " + fmt.Sprint(timeAfterTracerStarts))
 	elapsedTracerStartTime := timeAfterTracerStarts - timeBeforeTracerStarts

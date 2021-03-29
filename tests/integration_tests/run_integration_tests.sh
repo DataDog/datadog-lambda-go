@@ -62,6 +62,12 @@ for input_event_file in "${input_event_files[@]}"; do
         # Invoke third time
         sls invoke -f $function_name --path "$integration_tests_dir/input_events/$input_event_file" --api-key=$DD_API_KEY
 
+        # Invoke fourth time
+        sls invoke -f $function_name --path "$integration_tests_dir/input_events/$input_event_file" --api-key=$DD_API_KEY
+
+        # Invoke fifth time
+        sls invoke -f $function_name --path "$integration_tests_dir/input_events/$input_event_file" --api-key=$DD_API_KEY
+
         if [ ! -f $snapshot_path ]; then
             # If the snapshot file doesn't exist yet, we create it
             echo "Writing return value to $snapshot_path because no snapshot exists yet"
