@@ -129,36 +129,35 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
     logs=$(
         echo "$raw_logs" |
             # Filter serverless cli errors
-            sed '/Serverless: Recoverable error occurred/d' |
+            perl -p -e '/Serverless: Recoverable error occurred/d' |
             # Normalize Lambda runtime report logs
-            sed -E 's/(RequestId|TraceId|SegmentId|Duration|Memory Used|"e"):( )?[a-z0-9\.\-]+/\1:\2XXXX/g' |
+            perl -p -e 's/(RequestId|TraceId|SegmentId|Duration|Memory Used|"e"):( )?[a-z0-9\.\-]+/\1:\2XXXX/g' |
             # Normalize DD APM headers and AWS account ID - probably not a problem
-            sed -E "s/(Current span ID:|Current trace ID:|account_id:) ?[0-9]+/\1XXXX/g" |
+            perl -p -e "s/(Current span ID:|Current trace ID:|account_id:) ?[0-9]+/\1XXXX/g" |
             # Strip API key from logged requests
-            sed -E "s/(api_key=|'api_key': ')[a-z0-9\.\-]+/\1XXXX/g" |
+            perl -p -e "s/(api_key=|'api_key': ')[a-z0-9\.\-]+/\1XXXX/g" |
             # Normalize ISO combined date-time
-            sed -E "s/[0-9]{4}\-[0-9]{2}\-[0-9]{2}(T?)[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+ \(\-?[0-9:]+\))?Z/XXXX-XX-XXTXX:XX:XX.XXXZ/" |
+            perl -p -e "s/[0-9]{4}\-[0-9]{2}\-[0-9]{2}(T?)[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+ \(\-?[0-9:]+\))?Z/XXXX-XX-XXTXX:XX:XX.XXXZ/" |
             # Normalize log timestamps
-            sed -E "s/[0-9]{4}(\-|\/)[0-9]{2}(\-|\/)[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+( \(\-?[0-9:]+\))?)?/XXXX-XX-XX XX:XX:XX.XXX/" |
+            perl -p -e "s/[0-9]{4}(\-|\/)[0-9]{2}(\-|\/)[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+( \(\-?[0-9:]+\))?)?/XXXX-XX-XX XX:XX:XX.XXX/" |
             # Normalize DD trace ID injection
-            sed -E "s/(dd\.trace_id=)[0-9]+ (dd\.span_id=)[0-9]+/\1XXXX \2XXXX/" |
+            perl -p -e "s/(dd\.trace_id=)[0-9]+ (dd\.span_id=)[0-9]+/\1XXXX \2XXXX/" |
             # Normalize execution ID in logs prefix
-            sed -E $'s/[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\t/XXXX-XXXX-XXXX-XXXX-XXXX\t/' |
+            perl -p -e $'s/[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\t/XXXX-XXXX-XXXX-XXXX-XXXX\t/' |
             # Normalize layer version tag
-            sed -E "s/(dd_lambda_layer:datadog-go)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
+            perl -p -e "s/(dd_lambda_layer:datadog-go)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
             # Normalize package version tag
-            sed -E "s/(datadog_lambda:v)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
+            perl -p -e "s/(datadog_lambda:v)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
             # Normalize golang version tag
-            sed -E "s/(go)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
+            perl -p -e "s/(go)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
             # Normalize data in logged traces
-            sed -E 's/"(span_id|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn|runtime-id)":("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
+            perl -p -e 's/"(span_id|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn|runtime-id)":("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
             # Remove metrics and metas in logged traces (their order is inconsistent)
-            # use perl because sed does not support .*?
-            perl -pi -e 's/"(meta|metrics)":{(.*?)}/"\1":{"XXXX": "XXXX"}/g' |
+            perl -p -e 's/"(meta|metrics)":{(.*?)}/"\1":{"XXXX": "XXXX"}/g' |
             # Strip out run ID (from function name, resource, etc.)
-            sed -E "s/$run_id/XXXX/g" |
+            perl -p -e "s/$run_id/XXXX/g" |
             # Normalize data in logged metrics
-            sed -E 's/"(points\\\":\[\[)([0-9]+)/\1XXXX/g'
+            perl -p -e 's/"(points\\\":\[\[)([0-9]+)/\1XXXX/g'
 
     )
 
