@@ -103,27 +103,29 @@ echo "Fetching logs for invocations and comparing to snapshots"
 for function_name in "${LAMBDA_HANDLERS[@]}"; do
     function_snapshot_path="./snapshots/logs/$function_name.log"
 
+    raw_logs=$(serverless logs -f $function_name --stage $run_id --startTime $script_utc_start_time)
+
     # Fetch logs with serverless cli, retrying to avoid AWS account-wide rate limit error
-    retry_counter=0
-    while [ $retry_counter -lt 10 ]; do
-        raw_logs=$(serverless logs -f $function_name --stage $run_id --startTime $script_utc_start_time)
-        fetch_logs_exit_code=$?
-        if [ $fetch_logs_exit_code -eq 1 ]; then
-            echo "Retrying fetch logs for $function_name..."
-            retry_counter=$(($retry_counter + 1))
-            sleep 10
-            continue
-        fi
-        break
-    done
+    # retry_counter=0
+    # while [ $retry_counter -lt 10 ]; do
+    #     raw_logs=$(serverless logs -f $function_name --stage $run_id --startTime $script_utc_start_time)
+    #     fetch_logs_exit_code=$?
+    #     if [ $fetch_logs_exit_code -eq 1 ]; then
+    #         echo "Retrying fetch logs for $function_name..."
+    #         retry_counter=$(($retry_counter + 1))
+    #         sleep 10
+    #         continue
+    #     fi
+    #     break
+    # done
 
-    if [ $retry_counter -eq 9 ]; then
-        echo "FAILURE: Could not retrieve logs for $function_name"
-        echo "Error from final attempt to retrieve logs:"
-        echo $raw_logs
+    # if [ $retry_counter -eq 9 ]; then
+    #     echo "FAILURE: Could not retrieve logs for $function_name"
+    #     echo "Error from final attempt to retrieve logs:"
+    #     echo $raw_logs
 
-        exit 1
-    fi
+    #     exit 1
+    # fi
 
     # Replace invocation-specific data like timestamps and IDs with XXXX to normalize logs across executions
     logs=$(
@@ -158,7 +160,6 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             perl -p -e "s/$run_id/XXXX/g" |
             # Normalize data in logged metrics
             perl -p -e 's/"(points\\\":\[\[)([0-9]+)/\1XXXX/g'
-
     )
 
     if [ ! -f $function_snapshot_path ]; then
