@@ -31,7 +31,3 @@ functions:
   hello-go:
     runtime: go1.x
     handler: bin/hello
-    events:
-      - http:
-          path: hello-go
-          method: get
