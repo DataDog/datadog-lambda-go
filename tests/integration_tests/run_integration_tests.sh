@@ -136,10 +136,8 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             sed -E "s/(Current span ID:|Current trace ID:|account_id:) ?[0-9]+/\1XXXX/g" |
             # Strip API key from logged requests
             sed -E "s/(api_key=|'api_key': ')[a-z0-9\.\-]+/\1XXXX/g" |
-            # # Normalize ISO combined date-time - not causing the problem
-            # sed -E "s/[0-9]{4}\-[0-9]{2}\-[0-9]{2}(T?)[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+ \(\-?[0-9:]+\))?Z/XXXX-XX-XXTXX:XX:XX.XXXZ/" |
             # Normalize log timestamps
-            sed -E "s/[0-9]{4}\-[0-9]{2}\-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+( \(\-?\+?[0-9:]+\))?/XXXX-XX-XX XX:XX:XX.XXX/" |
+            sed -E "s|[0-9]{4}[-/][0-9]{2}[-/][0-9]{2}\s?T?[0-9]{2}:[0-9]{2}:[0-9]{2}Z?( \(\-?\+?[0-9:]+\))?|XXXX-XX-XX XX:XX:XX.XXX|" |
             # Normalize DD trace ID injection
             sed -E "s/(dd\.trace_id=)[0-9]+ (dd\.span_id=)[0-9]+/\1XXXX \2XXXX/" |
             # Normalize execution ID in logs prefix
@@ -148,15 +146,15 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             sed -E "s/(dd_lambda_layer:datadog-go)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
             # Normalize package version tag
             sed -E "s/(datadog_lambda:v)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
-            # Normalize golang version tag - ???
+            # Normalize golang version tag
             sed -E "s/(go)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
-            # Normalize data in logged traces - ???
+            # Normalize data in logged traces
             sed -E 's/"(span_id|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn|runtime-id)":("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
-            # Remove metrics and metas in logged traces (their order is inconsistent) - testing now - ???
+            # Remove metrics and metas in logged traces (their order is inconsistent)
             # sed -E 's/"(meta|metrics)":{[^}]*},/"\1":{"XXXX": "XXXX"},/g' |
             # Strip out run ID (from function name, resource, etc.)
             sed -E "s/$run_id/XXXX/g" |
-            # Normalize data in logged metrics - ???
+            # Normalize data in logged metrics
             sed -E 's/"(points\\\":\[\[)([0-9]+)/\1XXXX/g'
 
     )
