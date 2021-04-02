@@ -77,4 +77,5 @@ jobs:
           DD_API_KEY: ${{ secrets.DD_API_KEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: ./tests/integration_tests/run_integration_tests.sh
+        working-directory: tests/integration_tests/
+        run: ./run_integration_tests.sh
