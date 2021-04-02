@@ -52,6 +52,8 @@ function remove_stack() {
 }
 trap remove_stack EXIT
 
+sls --version
+
 echo "Deploying functions"
 sls deploy --stage $run_id --api-key $DD_API_KEY
 
@@ -102,8 +104,7 @@ set +e # Don't exit this script if there is a diff or the logs endpoint fails
 echo "Fetching logs for invocations and comparing to snapshots"
 for function_name in "${LAMBDA_HANDLERS[@]}"; do
     function_snapshot_path="./snapshots/logs/$function_name.log"
-    
-    serverless --version
+
     # Fetch logs with serverless cli, retrying to avoid AWS account-wide rate limit error
     retry_counter=0
     while [ $retry_counter -lt 10 ]; do
