@@ -132,7 +132,7 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
     logs=$(
         echo "$raw_logs" |
             # Filter serverless cli errors
-            perl -p -e '/Serverless: Recoverable error occurred/d' |
+            sed '/Serverless: Recoverable error occurred/d' |
             # Normalize Lambda runtime report logs
             perl -p -e 's/(RequestId|TraceId|SegmentId|Duration|Memory Used|"e"):( )?[a-z0-9\.\-]+/\1:\2XXXX/g' |
             # Normalize DD APM headers and AWS account ID
