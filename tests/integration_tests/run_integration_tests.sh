@@ -107,6 +107,7 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
     retry_counter=0
     while [ $retry_counter -lt 10 ]; do
         raw_logs=$(serverless logs -f $function_name --stage $run_id --startTime $script_utc_start_time)
+        fetch_logs_exit_code=$?
         echo "fetch logs exit code: $fetch_logs_exit_code"
         if [ $fetch_logs_exit_code -eq 1 ]; then
             echo "Retrying fetch logs for $function_name..."
