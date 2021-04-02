@@ -154,6 +154,8 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             sed -E 's/"(span_id|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn|runtime-id)":("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
             # Remove metrics and metas in logged traces (their order is inconsistent)
             sed -E 's/"(meta|metrics)":{[^}]*},/"\1":{"XXXX": "XXXX"},/g' |
+            # Strip out run ID (from function name, resource, etc.)
+            sed -E "s/$run_id/XXXX/g" |
             # Normalize data in logged metrics
             sed -E 's/"(points\\\":\[\[)([0-9]+)/\1XXXX/g'
 
