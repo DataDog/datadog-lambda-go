@@ -20,9 +20,15 @@ LOGS_WAIT_SECONDS=20
 integration_tests_dir=$(cd `dirname $0` && pwd)
 echo $integration_tests_dir
 
-script_start_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+script_utc_start_time=$(date -u +"%Y%m%dT%H%M%S")
 
 mismatch_found=false
+
+if [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+    echo "No AWS credentials were found in the environment."
+    echo "Note that only Datadog employees can run these integration tests."
+    exit 1
+fi
 
 if [ -z "$DD_API_KEY" ]; then
     echo "No DD_API_KEY env var set, exiting"
@@ -36,8 +42,18 @@ fi
 echo "Building Go binary"
 GOOS=linux go build -ldflags="-s -w" -o bin/hello
 
-echo "Deploying function"
-sls deploy --api-key $DD_API_KEY
+# Generate a random 8-character ID to avoid collisions with other runs
+run_id=$(xxd -l 4 -c 4 -p < /dev/random)
+
+# Always remove the stack before exiting, no matter what
+function remove_stack() {
+    echo "Removing functions"
+    serverless remove --stage $run_id
+}
+trap remove_stack EXIT
+
+echo "Deploying functions"
+sls deploy --stage $run_id --api-key $DD_API_KEY
 
 cd $integration_tests_dir
 
@@ -54,7 +70,7 @@ for input_event_file in "${input_event_files[@]}"; do
         # Return value snapshot file format is snapshots/return_values/{handler}_{runtime}_{input-event}
         snapshot_path="$integration_tests_dir/snapshots/return_values/${function_name}_${input_event_name}.json"
 
-        return_value=$(sls invoke -f $function_name --path "$integration_tests_dir/input_events/$input_event_file" --api-key=$DD_API_KEY)
+        return_value=$(sls invoke --stage $run_id -f $function_name --path "$integration_tests_dir/input_events/$input_event_file" --api-key=$DD_API_KEY)
 
         if [ ! -f $snapshot_path ]; then
             # If the snapshot file doesn't exist yet, we create it
@@ -82,12 +98,32 @@ set -e
 echo "Sleeping $LOGS_WAIT_SECONDS seconds to wait for logs to appear in CloudWatch..."
 sleep $LOGS_WAIT_SECONDS
 
+set +e # Don't exit this script if there is a diff or the logs endpoint fails
 echo "Fetching logs for invocations and comparing to snapshots"
 for function_name in "${LAMBDA_HANDLERS[@]}"; do
     function_snapshot_path="./snapshots/logs/$function_name.log"
 
-    # Fetch logs with serverless cli
-    raw_logs=$(serverless logs -f $function_name --startTime $script_start_time)
+    # Fetch logs with serverless cli, retrying to avoid AWS account-wide rate limit error
+    retry_counter=0
+    while [ $retry_counter -lt 10 ]; do
+        raw_logs=$(serverless logs -f $function_name --stage $run_id --startTime $script_utc_start_time)
+        fetch_logs_exit_code=$?
+        if [ $fetch_logs_exit_code -eq 1 ]; then
+            echo "Retrying fetch logs for $function_name..."
+            retry_counter=$(($retry_counter + 1))
+            sleep 10
+            continue
+        fi
+        break
+    done
+
+    if [ $retry_counter -eq 9 ]; then
+        echo "FAILURE: Could not retrieve logs for $function_name"
+        echo "Error from final attempt to retrieve logs:"
+        echo $raw_logs
+
+        exit 1
+    fi
 
     # Replace invocation-specific data like timestamps and IDs with XXXX to normalize logs across executions
     logs=$(
@@ -103,7 +139,7 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             # Normalize ISO combined date-time
             sed -E "s/[0-9]{4}\-[0-9]{2}\-[0-9]{2}(T?)[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+ \(\-?[0-9:]+\))?Z/XXXX-XX-XXTXX:XX:XX.XXXZ/" |
             # Normalize log timestamps
-            sed -E "s/[0-9]{4}(\-|\/)[0-9]{2}(\-|\/)[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+( \(\-?[0-9:]+\))?)?/XXXX-XX-XX XX:XX:XX.XXX/" |
+            sed -E "s/[0-9]{4}(\-|\/)[0-9]{2}(\-|\/)[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+( \(\-?\+?[0-9:]+\))?)?/XXXX-XX-XX XX:XX:XX.XXX/" |
             # Normalize DD trace ID injection
             sed -E "s/(dd\.trace_id=)[0-9]+ (dd\.span_id=)[0-9]+/\1XXXX \2XXXX/" |
             # Normalize execution ID in logs prefix
@@ -133,7 +169,6 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
         echo "$logs" >$function_snapshot_path
     else
         # Compare new logs to snapshots
-        set +e # Don't exit this script if there is a diff
         diff_output=$(echo "$logs" | diff - $function_snapshot_path)
         if [ $? -eq 1 ]; then
             echo "Failed: Mismatch found between new $function_name logs (first) and snapshot (second):"
@@ -142,9 +177,9 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
         else
             echo "Ok: New logs for $function_name match snapshot"
         fi
-        set -e
     fi
 done
+set -e
 
 if [ "$mismatch_found" = true ]; then
     echo "FAILURE: A mismatch between new data and a snapshot was found and printed above."

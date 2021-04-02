@@ -1,4 +1,5 @@
-service: go-integration-test
+# IAM permissions require service name to begin with 'integration-tests'
+service: integration-tests-go
 
 package:
   exclude:
@@ -20,6 +21,11 @@ provider:
     DD_INTEGRATION_TEST: true
     DD_ENHANCED_METRICS: true
     DD_TRACE_ENABLED: true
+  deploymentBucket:
+    name: integration-tests-deployment-bucket
+  iam:
+    # IAM permissions require that all functions are deployed with this role
+    role: "arn:aws:iam::601427279990:role/serverless-integration-test-lambda-role"
 
 functions:
   hello-go:
