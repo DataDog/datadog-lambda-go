@@ -62,8 +62,9 @@ golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e/go.mod h1:tRJNPiyCQ0inRvYxb
 golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 h1:go1bK/D/BFZV2I8cIQd1NKEZ+0owSTG1fDTci4IqFcE=
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
-gopkg.in/DataDog/dd-trace-go.v1 v1.27.0 h1:WGVt9dwn9vNeWZVdDYzjGQbEW8CghAkJlrC8w80jFVY=
 gopkg.in/DataDog/dd-trace-go.v1 v1.27.0/go.mod h1:Sp1lku8WJMvNV0kjDI4Ni/T7J/U3BO5ct5kEaoVU8+I=
+gopkg.in/DataDog/dd-trace-go.v1 v1.30.0-rc.1 h1:+8vPYA7fpGURlfhRKWAtiujIZMFUuDb+1Y52b6NjiT8=
+gopkg.in/DataDog/dd-trace-go.v1 v1.30.0-rc.1/go.mod h1:FLwUDeuH0z5hkvgvd04/M3MHQN4AF5pQDnedeWRWvok=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/urfave/cli.v1 v1.20.0/go.mod h1:vuBzUtMdQeixQj8LVd+/98pzhxNGQoyuPBlsXHOQNO0=
 gopkg.in/yaml.v2 v2.2.8/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
