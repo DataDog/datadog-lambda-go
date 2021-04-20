@@ -9,3 +9,4 @@ require (
 )
 
 replace github.com/DataDog/datadog-lambda-go => ../../
+replace gopkg.in/DataDog/dd-trace-go.v1 => ../../../dd-trace-go
