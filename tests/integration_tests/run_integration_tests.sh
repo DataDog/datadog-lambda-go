@@ -74,6 +74,10 @@ for input_event_file in "${input_event_files[@]}"; do
         snapshot_path="$integration_tests_dir/snapshots/return_values/${function_name}_${input_event_name}.json"
 
         return_value=$(sls invoke --stage $run_id -f $function_name --path "$integration_tests_dir/input_events/$input_event_file" --api-key=$DD_API_KEY)
+        sls_invoke_exit_code=$?
+        if [ $sls_invoke_exit_code -ne 0 ]; then
+            return_value="Invocation failed"
+        fi
 
         if [ ! -f $snapshot_path ]; then
             # If the snapshot file doesn't exist yet, we create it
