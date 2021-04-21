@@ -13,7 +13,7 @@ export SLS_DEPRECATION_DISABLE=*
 
 # These values need to be in sync with serverless.yml, where there needs to be a function
 # defined for every handler_runtime combination
-LAMBDA_HANDLERS=("hello-go")
+LAMBDA_HANDLERS=("hello" "error")
 
 LOGS_WAIT_SECONDS=20
 
@@ -39,8 +39,9 @@ if [ -n "$UPDATE_SNAPSHOTS" ]; then
     echo "Overwriting snapshots in this execution"
 fi
 
-echo "Building Go binary"
-GOOS=linux go build -ldflags="-s -w" -o bin/hello
+echo "Building Go binaries"
+GOOS=linux go build -ldflags="-s -w" -o bin/hello hello/main.go
+GOOS=linux go build -ldflags="-s -w" -o bin/error error/main.go
 
 # Generate a random 8-character ID to avoid collisions with other runs
 run_id=$(xxd -l 4 -c 4 -p < /dev/random)
@@ -110,7 +111,6 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
     while [ $retry_counter -lt 10 ]; do
         raw_logs=$(serverless logs -f $function_name --stage $run_id --startTime $script_utc_start_time)
         fetch_logs_exit_code=$?
-        echo "fetch logs exit code: $fetch_logs_exit_code"
         if [ $fetch_logs_exit_code -eq 1 ]; then
             echo "Retrying fetch logs for $function_name..."
             retry_counter=$(($retry_counter + 1))
@@ -131,8 +131,10 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
     # Replace invocation-specific data like timestamps and IDs with XXXX to normalize logs across executions
     logs=$(
         echo "$raw_logs" |
-            # Filter serverless cli errors
+            # Remove serverless cli errors
             sed '/Serverless: Recoverable error occurred/d' |
+            # Remove dd-trace-go logs
+            sed '/Datadog Tracer/d' |
             # Normalize Lambda runtime report logs
             perl -p -e 's/(RequestId|TraceId|SegmentId|Duration|Memory Used|"e"):( )?[a-z0-9\.\-]+/\1:\2XXXX/g' |
             # Normalize DD APM headers and AWS account ID
