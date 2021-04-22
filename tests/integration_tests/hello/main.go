@@ -7,13 +7,10 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/aws/aws-lambda-go/lambda"
 
 	ddlambda "github.com/DataDog/datadog-lambda-go"
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambdacontext"
 	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -39,15 +36,6 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 		time.Sleep(100 * time.Millisecond)
 		s.Finish()
 	}
-
-	// Log correlation
-	currentSpan, _ = tracer.SpanFromContext(ctx)
-	log.SetFormatter(&log.JSONFormatter{})
-	lc, _ := lambdacontext.FromContext(ctx)
-	logWithTraceID := log.WithFields(log.Fields{
-		"dd.trace_id": currentSpan.Context().TraceID(),
-	})
-	logWithTraceID.Info("RequestId: ", lc.AwsRequestID, " Custom log line with trace ID")
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,

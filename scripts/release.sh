@@ -1,15 +1,23 @@
 #!/bin/bash
 
+# Run from the root directory.
 # Use with `./release.sh <DESIRED_NEW_VERSION>`
 
 set -e
 
-# Check that we are on the main branch
+# Ensure on main, and pull the latest
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-echo $BRANCH
-
 if [ $BRANCH != "main" ]; then
     echo "Not on main, aborting"
+    exit 1
+else
+    echo "Updating main"
+    git pull origin main
+fi
+
+# Ensure no uncommitted changes
+if [ -n "$(git status --porcelain)" ]; then
+    echo "Detected uncommitted changes, aborting"
     exit 1
 fi
 
@@ -24,8 +32,37 @@ else
     NEW_VERSION=$1
 fi
 
-# Check version numbers and print confirmation message
-# Get dd-trace-go version number from go.mod file
+$CURRENT_DD_TRACE_VERSION = $(grep "const DDTraceVersion" internal/version/version.go | grep -o -E "[0-9]+\.[0-9]+\.[0-9]+")
+$NEW_DD_TRACE_VERSION = $(grep "dd-trace-go.v1" go.mod | grep -o -E "[0-9]+\.[0-9]+\.[0-9]+")
+if [$CURRENT_DD_TRACE_VERSION -ne  $NEW_DD_TRACE_VERSION]; then
+    read -p "Confirm updating dd-trace-go version from $CURRENT_DD_TRACE_VERSION to $NEW_DD_TRACE_VERSION (y/n)?" CONT
+    if [ "$CONT" != "y" ]; then
+        echo "Exiting"
+        exit 1
+    fi
+fi
+
+$CURRENT_VERSION = $(grep "const DDLambdaVersion" internal/version/version.go | grep -o -E "[0-9]+\.[0-9]+\.[0-9]+")
+read -p "Ready to update the library version from $CURRENT_VERSION to $NEW_VERSION and release the library (y/n)?" CONT
+if [ "$CONT" != "y" ]; then
+    echo "Exiting"
+    exit 1
+fi
+
 # Replace version numbers in version.go
-# Push new version to GitHub
-# Tag new release
+sed -E -i '' "s/(DDLambdaVersion = \")[0-9]+\.[0-9]+\.[0-9]+/\1$NEW_VERSION/g" internal/version/version.go
+sed -E -i '' "s/(DDTraceVersion = \")[0-9]+\.[0-9]+\.[0-9]+/\1$NEW_DD_TRACE_VERSION/g" internal/version/version.go
+
+# # Commit change
+# git commit internal/version/version.go -m "Bump version to ${NEW_VERSION}"
+# git push origin main
+
+# # Tag new release
+# git tag "v$NEW_VERSION"
+# git push origin "refs/tags/v$NEW_VERSION"
+
+echo
+echo "Now create a new release with the tag v${NEW_VERSION} created"
+echo "https://github.com/DataDog/datadog-lambda-go/releases/new?tag=v$NEW_VERSION&title=v$NEW_VERSION"
+
+
