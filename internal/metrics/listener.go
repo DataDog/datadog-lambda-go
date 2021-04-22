@@ -134,7 +134,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 }
 
 // HandlerFinished implemented as part of the wrapper.HandlerListener interface
-func (l *Listener) HandlerFinished(ctx context.Context) {
+func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if l.useServerlessAgent {
 		// use the agent
 		// flush the metrics from the DogStatsD client to the Agent
@@ -150,7 +150,7 @@ func (l *Listener) HandlerFinished(ctx context.Context) {
 	} else {
 		// use the api
 		if l.processor != nil {
-			if ctx.Value("error") != nil {
+			if err != nil {
 				l.submitEnhancedMetrics("errors", ctx)
 			}
 			l.processor.FinishProcessing()

@@ -1,4 +1,4 @@
-module github.com/DataDog/datadog-lambda-go/tests/integration_tests/bin/hello
+module github.com/DataDog/datadog-lambda-go/tests/integration_tests/bin/error
 
 go 1.12
 
@@ -8,4 +8,4 @@ require (
 	gopkg.in/DataDog/dd-trace-go.v1 v1.27.0
 )
 
-replace github.com/DataDog/datadog-lambda-go => ../../
+replace github.com/DataDog/datadog-lambda-go => ../../../

@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -44,7 +45,7 @@ func TestHandlerFinishesProcessing(t *testing.T) {
 	listener := MakeListener(Config{})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
 
-	listener.HandlerFinished(ctx)
+	listener.HandlerFinished(ctx, nil)
 	assert.False(t, listener.processor.IsProcessing())
 }
 
@@ -61,7 +62,7 @@ func TestAddDistributionMetricWithAPI(t *testing.T) {
 	listener := MakeListener(Config{APIKey: "12345", Site: server.URL})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
 	listener.AddDistributionMetric("the-metric", 2, time.Now(), false, "tag:a", "tag:b")
-	listener.HandlerFinished(ctx)
+	listener.HandlerFinished(ctx, nil)
 	assert.True(t, called)
 }
 
@@ -76,7 +77,7 @@ func TestAddDistributionMetricWithLogForwarder(t *testing.T) {
 	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, ShouldUseLogForwarder: true})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
 	listener.AddDistributionMetric("the-metric", 2, time.Now(), false, "tag:a", "tag:b")
-	listener.HandlerFinished(ctx)
+	listener.HandlerFinished(ctx, nil)
 	assert.False(t, called)
 }
 func TestAddDistributionMetricWithForceLogForwarder(t *testing.T) {
@@ -90,7 +91,7 @@ func TestAddDistributionMetricWithForceLogForwarder(t *testing.T) {
 	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, ShouldUseLogForwarder: false})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
 	listener.AddDistributionMetric("the-metric", 2, time.Now(), true, "tag:a", "tag:b")
-	listener.HandlerFinished(ctx)
+	listener.HandlerFinished(ctx, nil)
 	assert.False(t, called)
 }
 
@@ -146,7 +147,7 @@ func TestSubmitEnhancedMetrics(t *testing.T) {
 
 	output := captureOutput(func() {
 		ctx = ml.HandlerStarted(ctx, json.RawMessage{})
-		ml.HandlerFinished(ctx)
+		ml.HandlerFinished(ctx, nil)
 	})
 
 	assert.False(t, called)
@@ -173,7 +174,7 @@ func TestDoNotSubmitEnhancedMetrics(t *testing.T) {
 
 	output := captureOutput(func() {
 		ctx = ml.HandlerStarted(ctx, json.RawMessage{})
-		ml.HandlerFinished(ctx)
+		ml.HandlerFinished(ctx, nil)
 	})
 
 	assert.False(t, called)
@@ -202,8 +203,8 @@ func TestSubmitEnhancedMetricsOnlyErrors(t *testing.T) {
 	output := captureOutput(func() {
 		ctx = ml.HandlerStarted(ctx, json.RawMessage{})
 		ml.config.EnhancedMetrics = true
-		ctx = context.WithValue(ctx, "error", true)
-		ml.HandlerFinished(ctx)
+		err := errors.New("something went wrong")
+		ml.HandlerFinished(ctx, err)
 	})
 
 	assert.False(t, called)

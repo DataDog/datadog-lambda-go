@@ -28,6 +28,10 @@ provider:
     role: "arn:aws:iam::601427279990:role/serverless-integration-test-lambda-role"
 
 functions:
-  hello-go:
+  hello:
     runtime: go1.x
     handler: bin/hello
+
+  error:
+    runtime: go1.x
+    handler: bin/error
