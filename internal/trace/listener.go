@@ -57,8 +57,6 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces)
 
-	timeBeforeTracerStarts := time.Now().UnixNano() / 1000000
-	logger.Debug("time before tracer starts: " + fmt.Sprint(timeBeforeTracerStarts))
 	if !tracerInitialized {
 		tracer.Start(
 			tracer.WithService("aws.lambda"),
@@ -68,10 +66,6 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		)
 		tracerInitialized = true
 	}
-	timeAfterTracerStarts := time.Now().UnixNano() / 1000000
-	logger.Debug("time after tracer starts: " + fmt.Sprint(timeAfterTracerStarts))
-	elapsedTracerStartTime := timeAfterTracerStarts - timeBeforeTracerStarts
-	logger.Debug("elapsed tracer start time: " + fmt.Sprint(elapsedTracerStartTime))
 
 	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
 
