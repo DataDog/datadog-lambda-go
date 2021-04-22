@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"runtime/debug"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
@@ -28,7 +27,7 @@ type (
 	// HandlerListener is a point where listener logic can be injected into a handler
 	HandlerListener interface {
 		HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context
-		HandlerFinished(ctx context.Context)
+		HandlerFinished(ctx context.Context, err error)
 	}
 )
 
@@ -49,22 +48,12 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 			ctx = listener.HandlerStarted(ctx, msg)
 		}
 		CurrentContext = ctx
-		defer func() {
-			r := recover()
-			if r != nil {
-				logger.Error(fmt.Errorf("handler function panic, recovered by datadog-lambda-go"))
-				debug.PrintStack()
-			}
-			if err != nil || r != nil {
-				ctx = context.WithValue(ctx, "error", true)
-			}
-			for _, listener := range listeners {
-				listener.HandlerFinished(ctx)
-			}
-			coldStart = false
-			CurrentContext = nil
-		}()
 		result, err := callHandler(ctx, msg, handler)
+		for _, listener := range listeners {
+			listener.HandlerFinished(ctx, err)
+		}
+		coldStart = false
+		CurrentContext = nil
 		return result, err
 	}
 }

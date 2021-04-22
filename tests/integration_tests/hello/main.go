@@ -18,10 +18,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-var (
-	invokeCount = 0
-)
-
 func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	currentSpan, _ := tracer.SpanFromContext(ctx)
 	currentSpanContext := currentSpan.Context()
@@ -35,8 +31,7 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 	client.Do(req)
 
 	// Metric
-	ddlambda.Distribution("hello-go.dog", float64(invokeCount))
-	invokeCount++
+	ddlambda.Distribution("hello-go.dog", 1)
 
 	// User-defined span
 	for i := 0; i < 10; i++ {

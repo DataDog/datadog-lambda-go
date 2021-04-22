@@ -37,13 +37,17 @@ type (
 
 	// Config gives options for how the listener should work
 	Config struct {
-		APIKey                string
-		KMSAPIKey             string
-		Site                  string
-		ShouldRetryOnFailure  bool
-		ShouldUseLogForwarder bool
-		BatchInterval         time.Duration
-		EnhancedMetrics       bool
+		APIKey                      string
+		KMSAPIKey                   string
+		Site                        string
+		ShouldRetryOnFailure        bool
+		ShouldUseLogForwarder       bool
+		BatchInterval               time.Duration
+		EnhancedMetrics             bool
+		HttpClientTimeout           time.Duration
+		CircuitBreakerInterval      time.Duration
+		CircuitBreakerTimeout       time.Duration
+		CircuitBreakerTotalFailures uint32
 	}
 
 	logMetric struct {
@@ -65,11 +69,24 @@ const (
 func MakeListener(config Config) Listener {
 
 	apiClient := MakeAPIClient(context.Background(), APIClientOptions{
-		baseAPIURL: config.Site,
-		apiKey:     config.APIKey,
-		decrypter:  MakeKMSDecrypter(),
-		kmsAPIKey:  config.KMSAPIKey,
+		baseAPIURL:        config.Site,
+		apiKey:            config.APIKey,
+		decrypter:         MakeKMSDecrypter(),
+		kmsAPIKey:         config.KMSAPIKey,
+		httpClientTimeout: config.HttpClientTimeout,
 	})
+	if config.HttpClientTimeout <= 0 {
+		config.HttpClientTimeout = defaultHttpClientTimeout
+	}
+	if config.CircuitBreakerInterval <= 0 {
+		config.CircuitBreakerInterval = defaultCircuitBreakerInterval
+	}
+	if config.CircuitBreakerTimeout <= 0 {
+		config.CircuitBreakerTimeout = defaultCircuitBreakerTimeout
+	}
+	if config.CircuitBreakerTotalFailures <= 0 {
+		config.CircuitBreakerTotalFailures = defaultCircuitBreakerTotalFailures
+	}
 	if config.BatchInterval <= 0 {
 		config.BatchInterval = defaultBatchInterval
 	}
@@ -101,7 +118,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	}
 
 	ts := MakeTimeService()
-	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure)
+	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure, l.config.CircuitBreakerInterval, l.config.CircuitBreakerTimeout, l.config.CircuitBreakerTotalFailures)
 	l.processor = pr
 
 	ctx = AddListener(ctx, l)
@@ -116,7 +133,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 }
 
 // HandlerFinished implemented as part of the wrapper.HandlerListener interface
-func (l *Listener) HandlerFinished(ctx context.Context) {
+func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if l.useServerlessAgent {
 		// use the agent
 		// flush the metrics from the DogStatsD client to the Agent
@@ -132,7 +149,7 @@ func (l *Listener) HandlerFinished(ctx context.Context) {
 	} else {
 		// use the api
 		if l.processor != nil {
-			if ctx.Value("error") != nil {
+			if err != nil {
 				l.submitEnhancedMetrics("errors", ctx)
 			}
 			l.processor.FinishProcessing()
