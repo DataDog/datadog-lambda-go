@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0 // indirect
 	github.com/DataDog/datadog-go v4.4.0+incompatible
+	github.com/Microsoft/go-winio v0.4.19 // indirect
 	github.com/aws/aws-lambda-go v1.11.1
 	github.com/aws/aws-sdk-go v1.36.29
 	github.com/aws/aws-xray-sdk-go v1.0.0-rc.9
