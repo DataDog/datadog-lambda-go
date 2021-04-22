@@ -8,5 +8,4 @@ require (
 	gopkg.in/DataDog/dd-trace-go.v1 v1.30.0-rc.1
 )
 
-replace github.com/DataDog/datadog-lambda-go => ../../
-replace gopkg.in/DataDog/dd-trace-go.v1 => ../../../dd-trace-go
+replace github.com/DataDog/datadog-lambda-go => ../../../

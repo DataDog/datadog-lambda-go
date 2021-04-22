@@ -27,7 +27,7 @@ type (
 	// HandlerListener is a point where listener logic can be injected into a handler
 	HandlerListener interface {
 		HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context
-		HandlerFinished(ctx context.Context)
+		HandlerFinished(ctx context.Context, err error)
 	}
 )
 
@@ -49,11 +49,8 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 		}
 		CurrentContext = ctx
 		result, err := callHandler(ctx, msg, handler)
-		if err != nil {
-			ctx = context.WithValue(ctx, "error", true)
-		}
 		for _, listener := range listeners {
-			listener.HandlerFinished(ctx)
+			listener.HandlerFinished(ctx, err)
 		}
 		coldStart = false
 		CurrentContext = nil

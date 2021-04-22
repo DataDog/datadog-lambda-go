@@ -39,7 +39,7 @@ func (mhl *mockHandlerListener) HandlerStarted(ctx context.Context, msg json.Raw
 	return ctx
 }
 
-func (mhl *mockHandlerListener) HandlerFinished(ctx context.Context) {
+func (mhl *mockHandlerListener) HandlerFinished(ctx context.Context, err error) {
 	mhl.outputCTX = ctx
 }
 
