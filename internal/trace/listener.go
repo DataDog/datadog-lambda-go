@@ -37,6 +37,8 @@ type (
 // The function execution span is the top-level span representing the current Lambda function execution
 var functionExecutionSpan ddtrace.Span
 
+var tracerInitialized = false
+
 // MakeListener initializes a new trace lambda Listener
 func MakeListener(config Config) Listener {
 
@@ -54,12 +56,15 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces)
 
-	tracer.Start(
-		tracer.WithService("aws.lambda"),
-		tracer.WithLambdaMode(true),
-		tracer.WithDebugMode(true),
-		tracer.WithGlobalTag("_dd.origin", "lambda"),
-	)
+	if !tracerInitialized {
+		tracer.Start(
+			tracer.WithService("aws.lambda"),
+			tracer.WithLambdaMode(true),
+			tracer.WithDebugMode(true),
+			tracer.WithGlobalTag("_dd.origin", "lambda"),
+		)
+		tracerInitialized = true
+	}
 
 	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
 
@@ -74,9 +79,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish(tracer.WithError(err))
 	}
-	// Stop the tracer, forcing it to flush any traces it's holding
-	// Without this, we might drop traces
-	tracer.Stop()
+	tracer.Flush()
 }
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
