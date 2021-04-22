@@ -106,7 +106,7 @@ func TestGetEnhancedMetricsTags(t *testing.T) {
 	}
 	tags := getEnhancedMetricsTags(lambdacontext.NewContext(ctx, lc))
 
-	assert.ElementsMatch(t, tags, []string{"functionname:go-lambda-test", "region:us-east-1", "memorysize:256", "cold_start:false", "account_id:123497558138", "resource:go-lambda-test:Latest", "datadog_lambda:" + version.DDLambdaVersion})
+	assert.ElementsMatch(t, tags, []string{"functionname:go-lambda-test", "region:us-east-1", "memorysize:256", "cold_start:false", "account_id:123497558138", "resource:go-lambda-test:Latest", "datadog_lambda:v" + version.DDLambdaVersion})
 }
 
 func TestGetEnhancedMetricsTagsWithAlias(t *testing.T) {
@@ -120,7 +120,7 @@ func TestGetEnhancedMetricsTagsWithAlias(t *testing.T) {
 	}
 
 	tags := getEnhancedMetricsTags((lambdacontext.NewContext(ctx, lc)))
-	assert.ElementsMatch(t, tags, []string{"functionname:go-lambda-test", "region:us-east-1", "memorysize:256", "cold_start:false", "account_id:123497558138", "resource:go-lambda-test:my-alias", "executedversion:1", "datadog_lambda:" + version.DDLambdaVersion})
+	assert.ElementsMatch(t, tags, []string{"functionname:go-lambda-test", "region:us-east-1", "memorysize:256", "cold_start:false", "account_id:123497558138", "resource:go-lambda-test:my-alias", "executedversion:1", "datadog_lambda:v" + version.DDLambdaVersion})
 }
 
 func TestGetEnhancedMetricsTagsNoLambdaContext(t *testing.T) {
