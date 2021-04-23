@@ -22,9 +22,8 @@ import (
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/DataDog/datadog-lambda-go/internal/version"
 )
-
-const datadogLambdaVersion = "v0.9.2"
 
 type (
 	// Listener implements wrapper.HandlerListener, injecting metrics into the context
@@ -231,7 +230,7 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 		memorySize := fmt.Sprintf("memorysize:%d", lambdacontext.MemoryLimitInMB)
 		coldStart := fmt.Sprintf("cold_start:%t", isColdStart.(bool))
 		resource := fmt.Sprintf("resource:%s", lambdacontext.FunctionName)
-		datadogLambda := fmt.Sprintf("datadog_lambda:%s", datadogLambdaVersion)
+		datadogLambda := fmt.Sprintf("datadog_lambda:v%s", version.DDLambdaVersion)
 
 		tags := []string{functionName, region, accountId, memorySize, coldStart, datadogLambda}
 
