@@ -26,12 +26,14 @@ type (
 	Listener struct {
 		ddTraceEnabled  bool
 		mergeXrayTraces bool
+		debugMode       bool
 	}
 
 	// Config gives options for how the Listener should work
 	Config struct {
 		DDTraceEnabled  bool
 		MergeXrayTraces bool
+		DebugMode       bool
 	}
 )
 
@@ -46,6 +48,7 @@ func MakeListener(config Config) Listener {
 	return Listener{
 		ddTraceEnabled:  config.DDTraceEnabled,
 		mergeXrayTraces: config.MergeXrayTraces,
+		debugMode:       config.DebugMode,
 	}
 }
 
@@ -61,7 +64,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		tracer.Start(
 			tracer.WithService("aws.lambda"),
 			tracer.WithLambdaMode(true),
-			tracer.WithDebugMode(true),
+			tracer.WithDebugMode(l.debugMode),
 			tracer.WithGlobalTag("_dd.origin", "lambda"),
 		)
 		tracerInitialized = true

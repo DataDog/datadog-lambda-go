@@ -175,11 +175,13 @@ func (cfg *Config) toTraceConfig() trace.Config {
 	traceConfig := trace.Config{
 		DDTraceEnabled:  false,
 		MergeXrayTraces: false,
+		DebugMode:       false,
 	}
 
 	if cfg != nil {
 		traceConfig.DDTraceEnabled = cfg.DDTraceEnabled
 		traceConfig.MergeXrayTraces = cfg.MergeXrayTraces
+		traceConfig.DebugMode = cfg.DebugLogging
 	}
 
 	if !traceConfig.DDTraceEnabled {
@@ -188,6 +190,11 @@ func (cfg *Config) toTraceConfig() trace.Config {
 
 	if !traceConfig.MergeXrayTraces {
 		traceConfig.MergeXrayTraces, _ = strconv.ParseBool(os.Getenv(MergeXrayTracesEnvVar))
+	}
+
+	if !traceConfig.DebugMode {
+		logLevel := os.Getenv(LogLevelEnvVar)
+		traceConfig.DebugMode = strings.EqualFold(logLevel, "debug")
 	}
 
 	return traceConfig
