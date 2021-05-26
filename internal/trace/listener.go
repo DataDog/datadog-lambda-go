@@ -61,7 +61,6 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		tracer.Start(
 			tracer.WithService("aws.lambda"),
 			tracer.WithLambdaMode(true),
-			tracer.WithDebugMode(true),
 			tracer.WithGlobalTag("_dd.origin", "lambda"),
 		)
 		tracerInitialized = true
