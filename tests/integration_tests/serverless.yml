@@ -17,6 +17,7 @@ provider:
   timeout: 30
   environment:
     DD_API_KEY: ${env:DD_API_KEY}
+    DD_LOG_LEVEL: DEBUG
     DD_INTEGRATION_TEST: true
     DD_ENHANCED_METRICS: true
     DD_TRACE_ENABLED: true
