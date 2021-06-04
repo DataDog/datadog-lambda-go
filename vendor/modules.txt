@@ -1,0 +1,102 @@
+# github.com/DataDog/datadog-go v4.4.0+incompatible
+github.com/DataDog/datadog-go/statsd
+# github.com/Microsoft/go-winio v0.4.19
+github.com/Microsoft/go-winio
+github.com/Microsoft/go-winio/pkg/guid
+# github.com/aws/aws-lambda-go v1.11.1
+github.com/aws/aws-lambda-go/events
+github.com/aws/aws-lambda-go/lambdacontext
+# github.com/aws/aws-sdk-go v1.36.29
+github.com/aws/aws-sdk-go/aws
+github.com/aws/aws-sdk-go/aws/awserr
+github.com/aws/aws-sdk-go/aws/awsutil
+github.com/aws/aws-sdk-go/aws/client
+github.com/aws/aws-sdk-go/aws/client/metadata
+github.com/aws/aws-sdk-go/aws/corehandlers
+github.com/aws/aws-sdk-go/aws/credentials
+github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds
+github.com/aws/aws-sdk-go/aws/credentials/endpointcreds
+github.com/aws/aws-sdk-go/aws/credentials/processcreds
+github.com/aws/aws-sdk-go/aws/credentials/stscreds
+github.com/aws/aws-sdk-go/aws/csm
+github.com/aws/aws-sdk-go/aws/defaults
+github.com/aws/aws-sdk-go/aws/ec2metadata
+github.com/aws/aws-sdk-go/aws/endpoints
+github.com/aws/aws-sdk-go/aws/request
+github.com/aws/aws-sdk-go/aws/session
+github.com/aws/aws-sdk-go/aws/signer/v4
+github.com/aws/aws-sdk-go/internal/context
+github.com/aws/aws-sdk-go/internal/ini
+github.com/aws/aws-sdk-go/internal/sdkio
+github.com/aws/aws-sdk-go/internal/sdkmath
+github.com/aws/aws-sdk-go/internal/sdkrand
+github.com/aws/aws-sdk-go/internal/sdkuri
+github.com/aws/aws-sdk-go/internal/shareddefaults
+github.com/aws/aws-sdk-go/internal/strings
+github.com/aws/aws-sdk-go/internal/sync/singleflight
+github.com/aws/aws-sdk-go/private/protocol
+github.com/aws/aws-sdk-go/private/protocol/json/jsonutil
+github.com/aws/aws-sdk-go/private/protocol/jsonrpc
+github.com/aws/aws-sdk-go/private/protocol/query
+github.com/aws/aws-sdk-go/private/protocol/query/queryutil
+github.com/aws/aws-sdk-go/private/protocol/rest
+github.com/aws/aws-sdk-go/private/protocol/restjson
+github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
+github.com/aws/aws-sdk-go/service/kms
+github.com/aws/aws-sdk-go/service/sts
+github.com/aws/aws-sdk-go/service/sts/stsiface
+github.com/aws/aws-sdk-go/service/xray
+# github.com/aws/aws-xray-sdk-go v1.4.0
+github.com/aws/aws-xray-sdk-go/daemoncfg
+github.com/aws/aws-xray-sdk-go/header
+github.com/aws/aws-xray-sdk-go/internal/logger
+github.com/aws/aws-xray-sdk-go/internal/plugins
+github.com/aws/aws-xray-sdk-go/pattern
+github.com/aws/aws-xray-sdk-go/resources
+github.com/aws/aws-xray-sdk-go/strategy/ctxmissing
+github.com/aws/aws-xray-sdk-go/strategy/exception
+github.com/aws/aws-xray-sdk-go/strategy/sampling
+github.com/aws/aws-xray-sdk-go/utils
+github.com/aws/aws-xray-sdk-go/xray
+github.com/aws/aws-xray-sdk-go/xraylog
+# github.com/cenkalti/backoff v2.1.1+incompatible
+github.com/cenkalti/backoff
+# github.com/davecgh/go-spew v1.1.1
+github.com/davecgh/go-spew/spew
+# github.com/google/uuid v1.1.2
+github.com/google/uuid
+# github.com/jmespath/go-jmespath v0.4.0
+github.com/jmespath/go-jmespath
+# github.com/philhofer/fwd v1.0.0
+github.com/philhofer/fwd
+# github.com/pkg/errors v0.9.1
+github.com/pkg/errors
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/sony/gobreaker v0.4.1
+github.com/sony/gobreaker
+# github.com/stretchr/testify v1.7.0
+github.com/stretchr/testify/assert
+# github.com/tinylib/msgp v1.1.2
+github.com/tinylib/msgp/msgp
+# golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
+golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/windows
+golang.org/x/sys/windows/registry
+# golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+golang.org/x/time/rate
+# golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
+golang.org/x/xerrors
+golang.org/x/xerrors/internal
+# gopkg.in/DataDog/dd-trace-go.v1 v1.30.0
+gopkg.in/DataDog/dd-trace-go.v1/ddtrace
+gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext
+gopkg.in/DataDog/dd-trace-go.v1/ddtrace/internal
+gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer
+gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer
+gopkg.in/DataDog/dd-trace-go.v1/internal
+gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig
+gopkg.in/DataDog/dd-trace-go.v1/internal/log
+gopkg.in/DataDog/dd-trace-go.v1/internal/version
+# gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+gopkg.in/yaml.v3

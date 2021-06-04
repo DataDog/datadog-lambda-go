@@ -12,13 +12,17 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"net/http"
 	"os"
 	"runtime"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aws/aws-xray-sdk-go/header"
+	"github.com/aws/aws-xray-sdk-go/internal/logger"
 	"github.com/aws/aws-xray-sdk-go/internal/plugins"
-	log "github.com/cihub/seelog"
+	"github.com/aws/aws-xray-sdk-go/strategy/sampling"
 )
 
 // NewTraceID generates a string format of random trace ID.
@@ -41,9 +45,22 @@ func NewSegmentID() string {
 	return fmt.Sprintf("%02x", r)
 }
 
+func noOpTraceID() string {
+	return "1-00000000-000000000000000000000000"
+}
+
+func noOpSegmentID() string {
+	return "0000000000000000"
+}
+
 // BeginFacadeSegment creates a Segment for a given name and context.
 func BeginFacadeSegment(ctx context.Context, name string, h *header.Header) (context.Context, *Segment) {
 	seg := basicSegment(name, h)
+
+	if h == nil {
+		// generates segment and trace id based on sampling decision and AWS_XRAY_NOOP_ID env variable
+		idGeneration(seg)
+	}
 
 	cfg := GetRecorder(ctx)
 	seg.assignConfiguration(cfg)
@@ -53,6 +70,17 @@ func BeginFacadeSegment(ctx context.Context, name string, h *header.Header) (con
 
 // BeginSegment creates a Segment for a given name and context.
 func BeginSegment(ctx context.Context, name string) (context.Context, *Segment) {
+
+	return BeginSegmentWithSampling(ctx, name, nil, nil)
+}
+
+func BeginSegmentWithSampling(ctx context.Context, name string, r *http.Request, traceHeader *header.Header) (context.Context, *Segment) {
+	// If SDK is disabled then return with an empty segment
+	if SdkDisabled() {
+		seg := &Segment{}
+		return context.WithValue(ctx, ContextKey, seg), seg
+	}
+
 	seg := basicSegment(name, nil)
 
 	cfg := GetRecorder(ctx)
@@ -67,14 +95,70 @@ func BeginSegment(ctx context.Context, name string) (context.Context, *Segment) 
 		seg.GetService().Version = seg.ParentSegment.GetConfiguration().ServiceVersion
 	}
 
-	go func() {
-		select {
-		case <-ctx.Done():
-			seg.handleContextDone()
+	if r == nil || traceHeader == nil {
+		// No header or request information provided so we can only evaluate sampling based on the serviceName
+		sd := seg.ParentSegment.GetConfiguration().SamplingStrategy.ShouldTrace(&sampling.Request{ServiceName: name})
+		seg.Sampled = sd.Sample
+		logger.Debugf("SamplingStrategy decided: %t", seg.Sampled)
+		seg.AddRuleName(sd)
+	} else {
+		// Sampling strategy for http calls
+		seg.Sampled = traceHeader.SamplingDecision == header.Sampled
+
+		switch traceHeader.SamplingDecision {
+		case header.Sampled:
+			logger.Debug("Incoming header decided: Sampled=true")
+		case header.NotSampled:
+			logger.Debug("Incoming header decided: Sampled=false")
 		}
-	}()
+
+		if traceHeader.SamplingDecision != header.Sampled && traceHeader.SamplingDecision != header.NotSampled {
+			samplingRequest := &sampling.Request{
+				Host:        r.Host,
+				URL:         r.URL.Path,
+				Method:      r.Method,
+				ServiceName: seg.Name,
+				ServiceType: plugins.InstancePluginMetadata.Origin,
+			}
+			sd := seg.ParentSegment.GetConfiguration().SamplingStrategy.ShouldTrace(samplingRequest)
+			seg.Sampled = sd.Sample
+			logger.Debugf("SamplingStrategy decided: %t", seg.Sampled)
+			seg.AddRuleName(sd)
+		}
+	}
+
+	if ctx.Done() != nil {
+		go func() {
+			<-ctx.Done()
+			seg.handleContextDone()
+		}()
+	}
+
+	// check whether segment is dummy or not based on sampling decision
+	if !seg.ParentSegment.Sampled {
+		seg.Dummy = true
+	}
+
+	// generates segment and trace id based on sampling decision and AWS_XRAY_NOOP_ID env variable
+	idGeneration(seg)
 
 	return context.WithValue(ctx, ContextKey, seg), seg
+}
+
+func idGeneration(seg *Segment) {
+	noOpID := os.Getenv("AWS_XRAY_NOOP_ID")
+	if noOpID != "" && strings.ToLower(noOpID) == "false" {
+		seg.TraceID = NewTraceID()
+		seg.ID = NewSegmentID()
+	} else {
+		if !seg.Sampled {
+			seg.TraceID = noOpTraceID()
+			seg.ID = noOpSegmentID()
+		} else {
+			seg.TraceID = NewTraceID()
+			seg.ID = NewSegmentID()
+		}
+	}
 }
 
 func basicSegment(name string, h *header.Header) *Segment {
@@ -82,7 +166,7 @@ func basicSegment(name string, h *header.Header) *Segment {
 		name = name[:200]
 	}
 	seg := &Segment{parent: nil}
-	log.Tracef("Beginning segment named %s", name)
+	logger.Debugf("Beginning segment named %s", name)
 	seg.ParentSegment = seg
 
 	seg.Lock()
@@ -91,10 +175,9 @@ func basicSegment(name string, h *header.Header) *Segment {
 	seg.Name = name
 	seg.StartTime = float64(time.Now().UnixNano()) / float64(time.Second)
 	seg.InProgress = true
+	seg.Dummy = false
 
 	if h == nil {
-		seg.TraceID = NewTraceID()
-		seg.ID = NewSegmentID()
 		seg.Sampled = true
 	} else {
 		seg.Facade = true
@@ -158,11 +241,17 @@ func (seg *Segment) assignConfiguration(cfg *Config) {
 
 // BeginSubsegment creates a subsegment for a given name and context.
 func BeginSubsegment(ctx context.Context, name string) (context.Context, *Segment) {
+	// If SDK is disabled then return with an empty segment
+	if SdkDisabled() {
+		seg := &Segment{}
+		return context.WithValue(ctx, ContextKey, seg), seg
+	}
+
 	if len(name) > 200 {
 		name = name[:200]
 	}
 
-	parent := &Segment{}
+	var parent *Segment
 	// first time to create facade segment
 	if getTraceHeaderFromContext(ctx) != nil && GetSegment(ctx) == nil {
 		_, parent = newFacadeSegment(ctx)
@@ -181,24 +270,37 @@ func BeginSubsegment(ctx context.Context, name string) (context.Context, *Segmen
 	}
 
 	seg := &Segment{parent: parent}
-	log.Tracef("Beginning subsegment named %s", name)
+	logger.Debugf("Beginning subsegment named %s", name)
 
 	seg.Lock()
 	defer seg.Unlock()
 
-	parent.Lock()
-	defer parent.Unlock()
-
 	seg.ParentSegment = parent.ParentSegment
-	if seg.ParentSegment != seg && seg.ParentSegment != parent {
-		seg.ParentSegment.Lock()
-		defer seg.ParentSegment.Unlock()
+
+	// generates subsegment id based on sampling decision and AWS_XRAY_NOOP_ID env variable
+	noOpID := os.Getenv("AWS_XRAY_NOOP_ID")
+	if noOpID != "" && strings.ToLower(noOpID) == "false" {
+		seg.ID = NewSegmentID()
+	} else {
+		if !seg.ParentSegment.Sampled {
+			seg.ID = noOpSegmentID()
+		} else {
+			seg.ID = NewSegmentID()
+		}
 	}
-	seg.ParentSegment.totalSubSegments++
+
+	// check whether segment is dummy or not based on sampling decision
+	if !seg.ParentSegment.Sampled {
+		seg.Dummy = true
+	}
+
+	atomic.AddUint32(&seg.ParentSegment.totalSubSegments, 1)
+
+	parent.Lock()
 	parent.rawSubsegments = append(parent.rawSubsegments, seg)
 	parent.openSegments++
+	parent.Unlock()
 
-	seg.ID = NewSegmentID()
 	seg.Name = name
 	seg.StartTime = float64(time.Now().UnixNano()) / float64(time.Second)
 	seg.InProgress = true
@@ -207,8 +309,8 @@ func BeginSubsegment(ctx context.Context, name string) (context.Context, *Segmen
 }
 
 // NewSegmentFromHeader creates a segment for downstream call and add information to the segment that gets from HTTP header.
-func NewSegmentFromHeader(ctx context.Context, name string, h *header.Header) (context.Context, *Segment) {
-	con, seg := BeginSegment(ctx, name)
+func NewSegmentFromHeader(ctx context.Context, name string, r *http.Request, h *header.Header) (context.Context, *Segment) {
+	con, seg := BeginSegmentWithSampling(ctx, name, r, h)
 
 	if h.TraceID != "" {
 		seg.TraceID = h.TraceID
@@ -217,28 +319,30 @@ func NewSegmentFromHeader(ctx context.Context, name string, h *header.Header) (c
 		seg.ParentID = h.ParentID
 	}
 
-	seg.Sampled = h.SamplingDecision == header.Sampled
-	switch h.SamplingDecision {
-	case header.Sampled:
-		log.Trace("Incoming header decided: Sampled=true")
-	case header.NotSampled:
-		log.Trace("Incoming header decided: Sampled=false")
-	}
-
 	seg.IncomingHeader = h
 	seg.RequestWasTraced = true
 
 	return con, seg
 }
 
+// Check if SDK is disabled
+func SdkDisabled() bool {
+	disableKey := os.Getenv("AWS_XRAY_SDK_DISABLED")
+	return strings.ToLower(disableKey) == "true"
+}
+
 // Close a segment.
 func (seg *Segment) Close(err error) {
+	// If SDK is disabled then return
+	if SdkDisabled() {
+		return
+	}
+
 	seg.Lock()
-	defer seg.Unlock()
 	if seg.parent != nil {
-		log.Tracef("Closing subsegment named %s", seg.Name)
+		logger.Debugf("Closing subsegment named %s", seg.Name)
 	} else {
-		log.Tracef("Closing segment named %s", seg.Name)
+		logger.Debugf("Closing segment named %s", seg.Name)
 	}
 	seg.EndTime = float64(time.Now().UnixNano()) / float64(time.Second)
 	seg.InProgress = false
@@ -247,50 +351,77 @@ func (seg *Segment) Close(err error) {
 		seg.addError(err)
 	}
 
-	seg.flush()
+	// If segment is dummy we return
+	if seg.Dummy {
+		seg.Unlock()
+		return
+	}
+
+	seg.Unlock()
+	seg.send()
 }
 
 // CloseAndStream closes a subsegment and sends it.
-func (subseg *Segment) CloseAndStream(err error) {
-	subseg.Lock()
+func (seg *Segment) CloseAndStream(err error) {
+	// If SDK is disabled then return
+	if SdkDisabled() {
+		return
+	}
 
-	if subseg.parent != nil {
-		log.Tracef("Ending subsegment named: %s", subseg.Name)
-		subseg.EndTime = float64(time.Now().UnixNano()) / float64(time.Second)
-		subseg.InProgress = false
-		subseg.Emitted = true
-		if subseg.parent.RemoveSubsegment(subseg) {
-			log.Tracef("Removing subsegment named: %s", subseg.Name)
+	seg.Lock()
+	defer seg.Unlock()
+
+	if seg.parent != nil {
+		logger.Debugf("Ending subsegment named: %s", seg.Name)
+		seg.EndTime = float64(time.Now().UnixNano()) / float64(time.Second)
+		seg.InProgress = false
+		seg.Emitted = true
+		if seg.parent.RemoveSubsegment(seg) {
+			logger.Debugf("Removing subsegment named: %s", seg.Name)
 		}
 	}
 
 	if err != nil {
-		subseg.addError(err)
+		seg.addError(err)
 	}
 
-	subseg.beforeEmitSubsegment(subseg.parent)
-	subseg.Unlock()
+	// If segment is dummy we return
+	if seg.Dummy {
+		return
+	}
 
-	subseg.emit()
+	seg.beforeEmitSubsegment(seg.parent)
+	seg.emit()
 }
 
 // RemoveSubsegment removes a subsegment child from a segment or subsegment.
 func (seg *Segment) RemoveSubsegment(remove *Segment) bool {
 	seg.Lock()
-	defer seg.Unlock()
 
 	for i, v := range seg.rawSubsegments {
 		if v == remove {
 			seg.rawSubsegments[i] = seg.rawSubsegments[len(seg.rawSubsegments)-1]
 			seg.rawSubsegments[len(seg.rawSubsegments)-1] = nil
 			seg.rawSubsegments = seg.rawSubsegments[:len(seg.rawSubsegments)-1]
-
-			seg.totalSubSegments--
 			seg.openSegments--
+
+			if seg.ParentSegment != seg {
+				seg.Unlock()
+
+				atomic.AddUint32(&seg.ParentSegment.totalSubSegments, ^uint32(0))
+			} else {
+				seg.Unlock()
+			}
+
 			return true
 		}
 	}
+	seg.Unlock()
 	return false
+}
+
+func (seg *Segment) isOrphan() bool {
+	return seg.parent == nil || seg.Type == "subsegment"
 }
 
 func (seg *Segment) emit() {
@@ -299,42 +430,69 @@ func (seg *Segment) emit() {
 
 func (seg *Segment) handleContextDone() {
 	seg.Lock()
-	defer seg.Unlock()
-
 	seg.ContextDone = true
 	if !seg.InProgress && !seg.Emitted {
-		seg.flush()
+		seg.Unlock()
+		seg.send()
+	} else {
+		seg.Unlock()
 	}
 }
 
-func (seg *Segment) flush() {
+// send tries to emit the current (Sub)Segment. If the (Sub)Segment is ready to send,
+// it emits out. If it is ready but has non-nil parent, it traverses to parent and checks whether parent is
+// ready to send and sends entire subtree from the parent. The locking and traversal of the tree
+// is from child to parent. This method is thread safe.
+func (seg *Segment) send() {
+	s := seg
+	s.Lock()
+	for {
+		if s.flush() {
+			s.Unlock()
+			break
+		}
+
+		tmp := s.parent
+		s.Unlock()
+
+		s = tmp
+		s.Lock()
+		s.openSegments--
+	}
+}
+
+// flush emits (Sub)Segment, if it is ready to send.
+// The caller of flush should have write lock on seg instance.
+func (seg *Segment) flush() bool {
 	if (seg.openSegments == 0 && seg.EndTime > 0) || seg.ContextDone {
-		if seg.parent == nil {
+		if seg.isOrphan() {
 			seg.Emitted = true
 			seg.emit()
 		} else if seg.parent != nil && seg.parent.Facade {
 			seg.Emitted = true
 			seg.beforeEmitSubsegment(seg.parent)
-			log.Tracef("emit lambda subsegment named: %v", seg.Name)
+			logger.Debugf("emit lambda subsegment named: %v", seg.Name)
 			seg.emit()
 		} else {
-			seg.parent.safeFlush()
+			return false
 		}
 	}
-}
-
-func (seg *Segment) safeFlush() {
-	seg.Lock()
-	defer seg.Unlock()
-	seg.openSegments--
-	seg.flush()
+	return true
 }
 
 func (seg *Segment) safeInProgress() bool {
-	seg.Lock()
+	seg.RLock()
 	b := seg.InProgress
-	seg.Unlock()
+	seg.RUnlock()
 	return b
+}
+
+// getName returns name of the segment. This method is thread safe.
+func (seg *Segment) getName() string {
+	seg.RLock()
+	n := seg.Name
+	seg.RUnlock()
+	return n
 }
 
 func (seg *Segment) root() *Segment {
@@ -370,29 +528,38 @@ func (seg *Segment) addPlugin(metadata *plugins.PluginMetadata) {
 func (seg *Segment) addSDKAndServiceInformation() {
 	seg.GetAWS()["xray"] = SDK{Version: SDKVersion, Type: SDKType}
 
-	seg.GetService().Compiler = runtime.Compiler
-	seg.GetService().CompilerVersion = runtime.Version()
+	seg.GetService().Runtime = runtime.Compiler
+	seg.GetService().RuntimeVersion = runtime.Version()
 }
 
-func (sub *Segment) beforeEmitSubsegment(seg *Segment) {
+func (seg *Segment) beforeEmitSubsegment(s *Segment) {
 	// Only called within a subsegment locked code block
-	sub.TraceID = seg.root().TraceID
-	sub.ParentID = seg.ID
-	sub.Type = "subsegment"
-	sub.RequestWasTraced = seg.RequestWasTraced
-	sub.parent = nil
+	seg.TraceID = s.root().TraceID
+	seg.ParentID = s.ID
+	seg.Type = "subsegment"
+	seg.RequestWasTraced = s.RequestWasTraced
 }
 
 // AddAnnotation allows adding an annotation to the segment.
 func (seg *Segment) AddAnnotation(key string, value interface{}) error {
+	// If SDK is disabled then return
+	if SdkDisabled() {
+		return nil
+	}
+
+	seg.Lock()
+	defer seg.Unlock()
+
+	// If segment is dummy we return
+	if seg.Dummy {
+		return nil
+	}
+
 	switch value.(type) {
 	case bool, int, uint, float32, float64, string:
 	default:
 		return fmt.Errorf("failed to add annotation key: %q value: %q to subsegment %q. value must be of type string, number or boolean", key, value, seg.Name)
 	}
-
-	seg.Lock()
-	defer seg.Unlock()
 
 	if seg.Annotations == nil {
 		seg.Annotations = map[string]interface{}{}
@@ -403,8 +570,18 @@ func (seg *Segment) AddAnnotation(key string, value interface{}) error {
 
 // AddMetadata allows adding metadata to the segment.
 func (seg *Segment) AddMetadata(key string, value interface{}) error {
+	// If SDK is disabled then return
+	if SdkDisabled() {
+		return nil
+	}
+
 	seg.Lock()
 	defer seg.Unlock()
+
+	// If segment is dummy we return
+	if seg.Dummy {
+		return nil
+	}
 
 	if seg.Metadata == nil {
 		seg.Metadata = map[string]map[string]interface{}{}
@@ -418,8 +595,18 @@ func (seg *Segment) AddMetadata(key string, value interface{}) error {
 
 // AddMetadataToNamespace allows adding a namespace into metadata for the segment.
 func (seg *Segment) AddMetadataToNamespace(namespace string, key string, value interface{}) error {
+	// If SDK is disabled then return
+	if SdkDisabled() {
+		return nil
+	}
+
 	seg.Lock()
 	defer seg.Unlock()
+
+	// If segment is dummy we return
+	if seg.Dummy {
+		return nil
+	}
 
 	if seg.Metadata == nil {
 		seg.Metadata = map[string]map[string]interface{}{}
@@ -433,6 +620,11 @@ func (seg *Segment) AddMetadataToNamespace(namespace string, key string, value i
 
 // AddError allows adding an error to the segment.
 func (seg *Segment) AddError(err error) error {
+	// If SDK is disabled then return
+	if SdkDisabled() {
+		return nil
+	}
+
 	seg.Lock()
 	defer seg.Unlock()
 
@@ -441,10 +633,8 @@ func (seg *Segment) AddError(err error) error {
 	return nil
 }
 
-func (seg *Segment) addError(err error) error {
+func (seg *Segment) addError(err error) {
 	seg.Fault = true
 	seg.GetCause().WorkingDirectory, _ = os.Getwd()
 	seg.GetCause().Exceptions = append(seg.GetCause().Exceptions, seg.ParentSegment.GetConfiguration().ExceptionFormattingStrategy.ExceptionFromError(err))
-
-	return nil
 }

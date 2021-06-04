@@ -8,9 +8,7 @@
 
 package ctxmissing
 
-import (
-	log "github.com/cihub/seelog"
-)
+import "github.com/aws/aws-xray-sdk-go/internal/logger"
 
 // RuntimeErrorStrategy provides the AWS_XRAY_CONTEXT_MISSING
 // environment variable value for enabling the runtime error
@@ -22,6 +20,11 @@ var RuntimeErrorStrategy = "RUNTIME_ERROR"
 // context missing strategy.
 var LogErrorStrategy = "LOG_ERROR"
 
+// IgnoreErrorStrategy provides the AWS_XRAY_CONTEXT_MISSING
+// environment variable value for enabling the ignore error
+// context missing strategy.
+var IgnoreErrorStrategy = "IGNORE_ERROR"
+
 // DefaultRuntimeErrorStrategy implements the
 // runtime error context missing strategy.
 type DefaultRuntimeErrorStrategy struct{}
@@ -29,6 +32,10 @@ type DefaultRuntimeErrorStrategy struct{}
 // DefaultLogErrorStrategy implements the
 // log error context missing strategy.
 type DefaultLogErrorStrategy struct{}
+
+// DefaultIgnoreErrorStrategy implements the
+// ignore error context missing strategy.
+type DefaultIgnoreErrorStrategy struct{}
 
 // NewDefaultRuntimeErrorStrategy initializes
 // an instance of DefaultRuntimeErrorStrategy.
@@ -42,6 +49,12 @@ func NewDefaultLogErrorStrategy() *DefaultLogErrorStrategy {
 	return &DefaultLogErrorStrategy{}
 }
 
+// NewDefaultIgnoreErrorStrategy initializes
+// an instance of DefaultIgnoreErrorStrategy.
+func NewDefaultIgnoreErrorStrategy() *DefaultIgnoreErrorStrategy {
+	return &DefaultIgnoreErrorStrategy{}
+}
+
 // ContextMissing panics when the segment context is missing.
 func (dr *DefaultRuntimeErrorStrategy) ContextMissing(v interface{}) {
 	panic(v)
@@ -50,5 +63,11 @@ func (dr *DefaultRuntimeErrorStrategy) ContextMissing(v interface{}) {
 // ContextMissing logs an error message when the
 // segment context is missing.
 func (dl *DefaultLogErrorStrategy) ContextMissing(v interface{}) {
-	log.Errorf("Suppressing AWS X-Ray context missing panic: %v", v)
+	logger.Errorf("Suppressing AWS X-Ray context missing panic: %v", v)
+}
+
+// ContextMissing ignores an error message when the
+// segment context is missing.
+func (di *DefaultIgnoreErrorStrategy) ContextMissing(v interface{}) {
+	// do nothing
 }

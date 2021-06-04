@@ -21,13 +21,22 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-xray-sdk-go/internal/logger"
 	"github.com/aws/aws-xray-sdk-go/resources"
-	log "github.com/cihub/seelog"
 )
 
+// RequestIDKey is the key name of the request id.
 const RequestIDKey string = "request_id"
+
+// ExtendedRequestIDKey is the key name of the extend request id.
 const ExtendedRequestIDKey string = "id_2"
+
+// S3ExtendedRequestIDHeaderKey is the key name of the s3 extend request id.
 const S3ExtendedRequestIDHeaderKey string = "x-amz-id-2"
+
+// TraceIDHeaderKey is the HTTP header name used for tracing.
+const TraceIDHeaderKey = "x-amzn-trace-id"
 
 type jsonMap struct {
 	object interface{}
@@ -63,7 +72,7 @@ var xRayBeforeValidateHandler = request.NamedHandler{
 		marshalctx, _ := BeginSubsegment(ctx, "marshal")
 
 		r.HTTPRequest = r.HTTPRequest.WithContext(marshalctx)
-		r.HTTPRequest.Header.Set("x-amzn-trace-id", opseg.DownstreamHeader().String())
+		r.HTTPRequest.Header.Set(TraceIDHeaderKey, opseg.DownstreamHeader().String())
 	},
 }
 
@@ -86,23 +95,26 @@ var xRayBeforeSignHandler = request.NamedHandler{
 	},
 }
 
-var xRayAfterSignHandler = request.NamedHandler{
-	Name: "XRayAfterSignHandler",
-	Fn: func(r *request.Request) {
-		endSubsegment(r)
-	},
-}
-
-var xRayBeforeSendHandler = request.NamedHandler{
-	Name: "XRayBeforeSendHandler",
-	Fn: func(r *request.Request) {
-	},
-}
-
 var xRayAfterSendHandler = request.NamedHandler{
 	Name: "XRayAfterSendHandler",
 	Fn: func(r *request.Request) {
-		endSubsegment(r)
+		curseg := GetSegment(r.HTTPRequest.Context())
+
+		if curseg != nil && curseg.Name == "attempt" {
+			// An error could have prevented the connect subsegment from closing,
+			// so clean it up here.
+			curseg.RLock()
+			temp := make([]*Segment, len(curseg.rawSubsegments))
+			copy(temp, curseg.rawSubsegments)
+			curseg.RUnlock()
+
+			for _, subsegment := range temp {
+				if subsegment.getName() == "connect" && subsegment.safeInProgress() {
+					subsegment.Close(nil)
+					return
+				}
+			}
+		}
 	},
 }
 
@@ -138,14 +150,16 @@ var xRayAfterRetryHandler = request.NamedHandler{
 	},
 }
 
-func pushHandlers(c *client.Client) {
-	c.Handlers.Validate.PushFrontNamed(xRayBeforeValidateHandler)
-	c.Handlers.Build.PushBackNamed(xRayAfterBuildHandler)
-	c.Handlers.Sign.PushFrontNamed(xRayBeforeSignHandler)
-	c.Handlers.Unmarshal.PushFrontNamed(xRayBeforeUnmarshalHandler)
-	c.Handlers.Unmarshal.PushBackNamed(xRayAfterUnmarshalHandler)
-	c.Handlers.Retry.PushFrontNamed(xRayBeforeRetryHandler)
-	c.Handlers.AfterRetry.PushBackNamed(xRayAfterRetryHandler)
+func pushHandlers(handlers *request.Handlers, completionWhitelistFilename string) {
+	handlers.Validate.PushFrontNamed(xRayBeforeValidateHandler)
+	handlers.Build.PushBackNamed(xRayAfterBuildHandler)
+	handlers.Sign.PushFrontNamed(xRayBeforeSignHandler)
+	handlers.Send.PushBackNamed(xRayAfterSendHandler)
+	handlers.Unmarshal.PushFrontNamed(xRayBeforeUnmarshalHandler)
+	handlers.Unmarshal.PushBackNamed(xRayAfterUnmarshalHandler)
+	handlers.Retry.PushFrontNamed(xRayBeforeRetryHandler)
+	handlers.AfterRetry.PushBackNamed(xRayAfterRetryHandler)
+	handlers.Complete.PushFrontNamed(xrayCompleteHandler(completionWhitelistFilename))
 }
 
 // AWS adds X-Ray tracing to an AWS client.
@@ -153,8 +167,7 @@ func AWS(c *client.Client) {
 	if c == nil {
 		panic("Please initialize the provided AWS client before passing to the AWS() method.")
 	}
-	pushHandlers(c)
-	c.Handlers.Complete.PushFrontNamed(xrayCompleteHandler(""))
+	pushHandlers(&c.Handlers, "")
 }
 
 // AWSWithWhitelist allows a custom parameter whitelist JSON file to be defined.
@@ -162,8 +175,21 @@ func AWSWithWhitelist(c *client.Client, filename string) {
 	if c == nil {
 		panic("Please initialize the provided AWS client before passing to the AWSWithWhitelist() method.")
 	}
-	pushHandlers(c)
-	c.Handlers.Complete.PushFrontNamed(xrayCompleteHandler(filename))
+	pushHandlers(&c.Handlers, filename)
+}
+
+// AWSSession adds X-Ray tracing to an AWS session. Clients created under this
+// session will inherit X-Ray tracing.
+func AWSSession(s *session.Session) *session.Session {
+	pushHandlers(&s.Handlers, "")
+	return s
+}
+
+// AWSSessionWithWhitelist allows a custom parameter whitelist JSON file to be
+// defined.
+func AWSSessionWithWhitelist(s *session.Session, filename string) *session.Session {
+	pushHandlers(&s.Handlers, filename)
+	return s
 }
 
 func xrayCompleteHandler(filename string) request.NamedHandler {
@@ -225,7 +251,7 @@ func parseWhitelistJSON(filename string) []byte {
 	if filename != "" {
 		readBytes, err := ioutil.ReadFile(filename)
 		if err != nil {
-			log.Errorf("Error occurred while reading customized AWS whitelist JSON file. %v \nReverting to default AWS whitelist JSON file.", err)
+			logger.Errorf("Error occurred while reading customized AWS whitelist JSON file. %v \nReverting to default AWS whitelist JSON file.", err)
 		} else {
 			return readBytes
 		}
@@ -244,7 +270,7 @@ func keyValue(r interface{}, tag string) interface{} {
 		v = v.Elem()
 	}
 	if v.Kind() != reflect.Struct {
-		log.Errorf("keyValue only accepts structs; got %T", v)
+		logger.Errorf("keyValue only accepts structs; got %T", v)
 	}
 	typ := v.Type()
 	for i := 1; i < v.NumField(); i++ {
@@ -274,8 +300,7 @@ func (j *jsonMap) data() interface{} {
 }
 
 func (j *jsonMap) search(keys ...string) *jsonMap {
-	var object interface{}
-	object = j.data()
+	object := j.data()
 
 	for target := 0; target < len(keys); target++ {
 		if mmap, ok := object.(map[string]interface{}); ok {
@@ -327,7 +352,7 @@ func extractParameters(whitelistKey string, rType int, r *request.Request, white
 	if params != nil {
 		children, err := params.children()
 		if err != nil {
-			log.Errorf("failed to get values for aws attribute: %v", err)
+			logger.Errorf("failed to get values for aws attribute: %v", err)
 			return
 		}
 		for _, child := range children {
@@ -351,7 +376,7 @@ func extractDescriptors(whitelistKey string, rType int, r *request.Request, whit
 	if responseDtr != nil {
 		items, err := responseDtr.childrenMap()
 		if err != nil {
-			log.Errorf("failed to get values for aws attribute: %v", err)
+			logger.Errorf("failed to get values for aws attribute: %v", err)
 			return
 		}
 		for k := range items {
@@ -374,7 +399,7 @@ func descriptorType(descriptorMap map[string]interface{}) string {
 	} else if descriptorMap["value"] != nil {
 		typeValue = "value"
 	} else {
-		log.Error("Missing keys in request / response descriptors in AWS whitelist JSON file.")
+		logger.Error("Missing keys in request / response descriptors in AWS whitelist JSON file.")
 	}
 	return typeValue
 }

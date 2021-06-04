@@ -17,12 +17,12 @@ import (
 	"time"
 
 	"github.com/aws/aws-xray-sdk-go/daemoncfg"
+	"github.com/aws/aws-xray-sdk-go/internal/logger"
 	"github.com/aws/aws-xray-sdk-go/internal/plugins"
 
 	"github.com/aws/aws-xray-sdk-go/utils"
 
 	xraySvc "github.com/aws/aws-sdk-go/service/xray"
-	log "github.com/cihub/seelog"
 )
 
 // CentralizedStrategy is an implementation of SamplingStrategy. It
@@ -53,7 +53,7 @@ type CentralizedStrategy struct {
 	// represents daemon endpoints
 	daemonEndpoints *daemoncfg.DaemonEndpoints
 
-	sync.RWMutex
+	mu sync.RWMutex
 }
 
 // svcProxy is the interface for API calls to X-Ray service.
@@ -129,16 +129,18 @@ func newCentralizedStrategy(fb *LocalizedStrategy) (*CentralizedStrategy, error)
 // ShouldTrace determines whether a request should be sampled. It matches the given parameters against
 // a list of known rules and uses the matched rule's values to make a decision.
 func (ss *CentralizedStrategy) ShouldTrace(request *Request) *Decision {
+	ss.mu.Lock()
 	if !ss.pollerStart {
 		ss.start()
 	}
+	ss.mu.Unlock()
 	if request.ServiceType == "" {
 		request.ServiceType = plugins.InstancePluginMetadata.Origin
 	}
-	log.Tracef(
+	logger.Debugf(
 		"Determining ShouldTrace decision for:\n\thost: %s\n\tpath: %s\n\tmethod: %s\n\tservicename: %s\n\tservicetype: %s",
 		request.Host,
-		request.Url,
+		request.URL,
 		request.Method,
 		request.ServiceName,
 		request.ServiceType,
@@ -146,50 +148,48 @@ func (ss *CentralizedStrategy) ShouldTrace(request *Request) *Decision {
 
 	// Use fallback if manifest is expired
 	if ss.manifest.expired() {
-		log.Trace("Centralized sampling data expired. Using fallback sampling strategy")
+		logger.Debug("Centralized sampling data expired. Using fallback sampling strategy")
 
 		return ss.fallback.ShouldTrace(request)
 	}
 
-	ss.manifest.RLock()
-	defer ss.manifest.RUnlock()
+	ss.manifest.mu.RLock()
+	defer ss.manifest.mu.RUnlock()
 
 	// Match against known rules
 	for _, r := range ss.manifest.Rules {
 
-		r.RLock()
+		r.mu.RLock()
 		applicable := r.AppliesTo(request)
-		r.RUnlock()
+		r.mu.RUnlock()
 
 		if !applicable {
 			continue
 		}
 
-		log.Tracef("Applicable rule: %s", r.ruleName)
+		logger.Debugf("Applicable rule: %s", r.ruleName)
 
 		return r.Sample()
 	}
 
 	// Match against default rule
 	if r := ss.manifest.Default; r != nil {
-		log.Tracef("Applicable rule: %s", r.ruleName)
+		logger.Debugf("Applicable rule: %s", r.ruleName)
 
 		return r.Sample()
 	}
 
 	// Use fallback if default rule is unavailable
-	log.Trace("Centralized default sampling rule unavailable. Using fallback sampling strategy")
+	logger.Debug("Centralized default sampling rule unavailable. Using fallback sampling strategy")
 
 	return ss.fallback.ShouldTrace(request)
 }
 
 // start initiates rule and target pollers.
 func (ss *CentralizedStrategy) start() {
-	ss.Lock()
-
 	if !ss.pollerStart {
 		var er error
-		ss.proxy, er = NewProxy(ss.daemonEndpoints)
+		ss.proxy, er = newProxy(ss.daemonEndpoints)
 		if er != nil {
 			panic(er)
 		}
@@ -198,8 +198,6 @@ func (ss *CentralizedStrategy) start() {
 	}
 
 	ss.pollerStart = true
-
-	ss.Unlock()
 }
 
 // startRulePoller starts rule poller.
@@ -207,9 +205,9 @@ func (ss *CentralizedStrategy) startRulePoller() {
 	// Initial refresh
 	go func() {
 		if err := ss.refreshManifest(); err != nil {
-			log.Tracef("Error occurred during initial refresh of sampling rules. %v", err)
+			logger.Debugf("Error occurred during initial refresh of sampling rules. %v", err)
 		} else {
-			log.Info("Successfully fetched sampling rules")
+			logger.Info("Successfully fetched sampling rules")
 		}
 	}()
 
@@ -221,9 +219,9 @@ func (ss *CentralizedStrategy) startRulePoller() {
 		for range t.C() {
 			t.Reset()
 			if err := ss.refreshManifest(); err != nil {
-				log.Tracef("Error occurred while refreshing sampling rules. %v", err)
+				logger.Debugf("Error occurred while refreshing sampling rules. %v", err)
 			} else {
-				log.Info("Successfully fetched sampling rules")
+				logger.Debug("Successfully fetched sampling rules")
 			}
 		}
 	}()
@@ -239,7 +237,7 @@ func (ss *CentralizedStrategy) startTargetPoller() {
 		for range t.C() {
 			t.Reset()
 			if err := ss.refreshTargets(); err != nil {
-				log.Tracef("Error occurred while refreshing targets for sampling rules. %v", err)
+				logger.Debugf("Error occurred while refreshing targets for sampling rules. %v", err)
 			}
 		}
 	}()
@@ -277,43 +275,43 @@ func (ss *CentralizedStrategy) refreshManifest() (err error) {
 		// Extract rule from record
 		svcRule := record.SamplingRule
 		if svcRule == nil {
-			log.Trace("Sampling rule missing from sampling rule record.")
+			logger.Debug("Sampling rule missing from sampling rule record.")
 			failed = true
 			continue
 		}
 
 		if svcRule.RuleName == nil {
-			log.Trace("Sampling rule without rule name is not supported")
+			logger.Debug("Sampling rule without rule name is not supported")
 			failed = true
 			continue
 		}
 
 		// Only sampling rule with version 1 is valid
 		if svcRule.Version == nil {
-			log.Trace("Sampling rule without version number is not supported: ", *svcRule.RuleName)
+			logger.Debug("Sampling rule without version number is not supported: ", *svcRule.RuleName)
 			failed = true
 			continue
 		}
 		version := *svcRule.Version
 		if version != int64(1) {
-			log.Trace("Sampling rule without version 1 is not supported: ", *svcRule.RuleName)
+			logger.Debug("Sampling rule without version 1 is not supported: ", *svcRule.RuleName)
 			failed = true
 			continue
 		}
 
 		if len(svcRule.Attributes) != 0 {
-			log.Trace("Sampling rule with non nil Attributes is not applicable: ", *svcRule.RuleName)
+			logger.Debug("Sampling rule with non nil Attributes is not applicable: ", *svcRule.RuleName)
 			continue
 		}
 
 		if svcRule.ResourceARN == nil {
-			log.Trace("Sampling rule without ResourceARN is not applicable: ", *svcRule.RuleName)
+			logger.Debug("Sampling rule without ResourceARN is not applicable: ", *svcRule.RuleName)
 			continue
 		}
 
 		resourceARN := *svcRule.ResourceARN
 		if resourceARN != "*" {
-			log.Trace("Sampling rule with ResourceARN not equal to * is not applicable: ", *svcRule.RuleName)
+			logger.Debug("Sampling rule with ResourceARN not equal to * is not applicable: ", *svcRule.RuleName)
 			continue
 		}
 
@@ -321,7 +319,7 @@ func (ss *CentralizedStrategy) refreshManifest() (err error) {
 		r, putErr := ss.manifest.putRule(svcRule)
 		if putErr != nil {
 			failed = true
-			log.Tracef("Error occurred creating/updating rule. %v", putErr)
+			logger.Debugf("Error occurred creating/updating rule. %v", putErr)
 		} else if r != nil {
 			actives[r] = true
 		}
@@ -339,9 +337,9 @@ func (ss *CentralizedStrategy) refreshManifest() (err error) {
 	ss.manifest.sort()
 
 	// Update refreshedAt timestamp
-	ss.manifest.Lock()
+	ss.manifest.mu.Lock()
 	ss.manifest.refreshedAt = now
-	ss.manifest.Unlock()
+	ss.manifest.mu.Unlock()
 
 	return
 }
@@ -368,7 +366,7 @@ func (ss *CentralizedStrategy) refreshTargets() (err error) {
 
 	// Do not refresh targets if no statistics to report
 	if len(statistics) == 0 {
-		log.Tracef("No statistics to report. Not refreshing sampling targets.")
+		logger.Debugf("No statistics to report. Not refreshing sampling targets.")
 		return nil
 	}
 
@@ -382,13 +380,13 @@ func (ss *CentralizedStrategy) refreshTargets() (err error) {
 	for _, t := range output.SamplingTargetDocuments {
 		if err = ss.updateTarget(t); err != nil {
 			failed = true
-			log.Tracef("Error occurred updating target for rule. %v", err)
+			logger.Debugf("Error occurred updating target for rule. %v", err)
 		}
 	}
 
 	// Consume unprocessed statistics messages
 	for _, s := range output.UnprocessedStatistics {
-		log.Tracef(
+		logger.Debugf(
 			"Error occurred updating sampling target for rule: %s, code: %s, message: %s",
 			s.RuleName,
 			s.ErrorCode,
@@ -415,14 +413,14 @@ func (ss *CentralizedStrategy) refreshTargets() (err error) {
 	if failed {
 		err = errors.New("error occurred updating sampling targets")
 	} else {
-		log.Info("Successfully refreshed sampling targets")
+		logger.Debug("Successfully refreshed sampling targets")
 	}
 
 	// Set refresh flag if modifiedAt timestamp from remote is greater than ours.
 	if remote := output.LastRuleModification; remote != nil {
-		ss.manifest.RLock()
+		ss.manifest.mu.RLock()
 		local := ss.manifest.refreshedAt
-		ss.manifest.RUnlock()
+		ss.manifest.mu.RUnlock()
 
 		if remote.Unix() >= local {
 			refresh = true
@@ -430,11 +428,11 @@ func (ss *CentralizedStrategy) refreshTargets() (err error) {
 	}
 	// Perform out-of-band async manifest refresh if flag is set
 	if refresh {
-		log.Info("Refreshing sampling rules out-of-band.")
+		logger.Infof("Refreshing sampling rules out-of-band.")
 
 		go func() {
-			if err = ss.refreshManifest(); err != nil {
-				log.Tracef("Error occurred refreshing sampling rules out-of-band. %v", err)
+			if err := ss.refreshManifest(); err != nil {
+				logger.Debugf("Error occurred refreshing sampling rules out-of-band. %v", err)
 			}
 		}()
 	}
@@ -444,11 +442,12 @@ func (ss *CentralizedStrategy) refreshTargets() (err error) {
 // samplingStatistics takes a snapshot of sampling statistics from all rules, resetting
 // statistics counters in the process.
 func (ss *CentralizedStrategy) snapshots() []*xraySvc.SamplingStatisticsDocument {
-	statistics := make([]*xraySvc.SamplingStatisticsDocument, 0, len(ss.manifest.Rules)+1)
 	now := ss.clock.Now().Unix()
 
-	ss.manifest.RLock()
-	defer ss.manifest.RUnlock()
+	ss.manifest.mu.RLock()
+	defer ss.manifest.mu.RUnlock()
+
+	statistics := make([]*xraySvc.SamplingStatisticsDocument, 0, len(ss.manifest.Rules)+1)
 
 	// Generate sampling statistics for user-defined rules
 	for _, r := range ss.manifest.Rules {
@@ -486,16 +485,16 @@ func (ss *CentralizedStrategy) updateTarget(t *xraySvc.SamplingTargetDocument) (
 	}
 
 	// Rule for given target
-	ss.manifest.RLock()
+	ss.manifest.mu.RLock()
 	r, ok := ss.manifest.Index[*t.RuleName]
-	ss.manifest.RUnlock()
+	ss.manifest.mu.RUnlock()
 
 	if !ok {
 		return fmt.Errorf("rule %s not found", *t.RuleName)
 	}
 
-	r.Lock()
-	defer r.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	r.reservoir.refreshedAt = ss.clock.Now().Unix()
 
