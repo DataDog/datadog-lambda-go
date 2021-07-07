@@ -24,14 +24,16 @@ import (
 type (
 	// Listener creates a function execution span and injects it into the context
 	Listener struct {
-		ddTraceEnabled  bool
-		mergeXrayTraces bool
+		ddTraceEnabled        bool
+		mergeXrayTraces       bool
+		traceContextExtractor TraceContextExtractor
 	}
 
 	// Config gives options for how the Listener should work
 	Config struct {
-		DDTraceEnabled  bool
-		MergeXrayTraces bool
+		DDTraceEnabled        bool
+		MergeXrayTraces       bool
+		TraceContextExtractor TraceContextExtractor
 	}
 )
 
@@ -44,8 +46,9 @@ var tracerInitialized = false
 func MakeListener(config Config) Listener {
 
 	return Listener{
-		ddTraceEnabled:  config.DDTraceEnabled,
-		mergeXrayTraces: config.MergeXrayTraces,
+		ddTraceEnabled:        config.DDTraceEnabled,
+		mergeXrayTraces:       config.MergeXrayTraces,
+		traceContextExtractor: config.TraceContextExtractor,
 	}
 }
 
@@ -55,7 +58,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		return ctx
 	}
 
-	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces)
+	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces, l.traceContextExtractor)
 
 	if !tracerInitialized {
 		tracer.Start(
