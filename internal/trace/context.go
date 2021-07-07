@@ -29,8 +29,11 @@ type (
 		Headers map[string]string `json:"headers"`
 	}
 
-	// TraceContext is map of headers containing a Datadog trace context
-	TraceContext map[string]string
+	// Context is map of headers containing a Datadog trace context.
+	Context map[string]string
+
+	// ContextExtractor is a func type for extracting a root TraceContext.
+	ContextExtractor func(ctx context.Context, ev json.RawMessage) map[string]string
 )
 
 type contextKeytype int
@@ -38,12 +41,13 @@ type contextKeytype int
 // traceContextKey is the key used to store a TraceContext in a Context object
 var traceContextKey = new(contextKeytype)
 
-var datadogTraceContextFromEvent TraceContext
+// DefaultTraceExtractor is the default trace extractor. Extracts root trace from API Gateway headers.
+var DefaultTraceExtractor = getDatadogTraceContextFromHeaders
 
 // contextWithRootTraceContext uses the incoming event and context object payloads to determine
 // the root TraceContext and then adds that TraceContext to the context object.
-func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeXrayTraces bool) (context.Context, error) {
-	datadogTraceContext, gotDatadogTraceContext := getDatadogTraceContextFromEvent(ctx, ev)
+func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeXrayTraces bool, extractor ContextExtractor) (context.Context, error) {
+	datadogTraceContext, gotDatadogTraceContext := getContext(extractor(ctx, ev))
 
 	xrayTraceContext, errGettingXrayContext := convertXrayTraceContextFromLambdaContext(ctx)
 	if errGettingXrayContext != nil {
@@ -65,7 +69,7 @@ func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeX
 	}
 
 	logger.Debug("Using merged Datadog/X-Ray trace context")
-	mergedTraceContext := TraceContext{}
+	mergedTraceContext := Context{}
 	mergedTraceContext[traceIDHeader] = datadogTraceContext[traceIDHeader]
 	mergedTraceContext[samplingPriorityHeader] = datadogTraceContext[samplingPriorityHeader]
 	mergedTraceContext[parentIDHeader] = xrayTraceContext[parentIDHeader]
@@ -74,7 +78,7 @@ func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeX
 
 // ConvertCurrentXrayTraceContext returns the current X-Ray trace context converted to Datadog headers, taking into account
 // the current subsegment. It is designed for sending Datadog trace headers from functions instrumented with the X-Ray SDK.
-func ConvertCurrentXrayTraceContext(ctx context.Context) TraceContext {
+func ConvertCurrentXrayTraceContext(ctx context.Context) Context {
 	if xrayTraceContext, err := convertXrayTraceContextFromLambdaContext(ctx); err == nil {
 		// If there is an active X-Ray segment, use it as the parent
 		parentID := xrayTraceContext[parentIDHeader]
@@ -99,7 +103,7 @@ func ConvertCurrentXrayTraceContext(ctx context.Context) TraceContext {
 // createDummySubsegmentForXrayConverter creates a dummy X-Ray subsegment containing Datadog trace context metadata.
 // This metadata is used by the Datadog X-Ray converter to parent the X-Ray trace under the Datadog trace.
 // This subsegment will be dropped by the X-Ray converter and will not appear in Datadog.
-func createDummySubsegmentForXrayConverter(ctx context.Context, traceCtx TraceContext) error {
+func createDummySubsegmentForXrayConverter(ctx context.Context, traceCtx Context) error {
 	_, segment := xray.BeginSubsegment(ctx, xraySubsegmentName)
 
 	traceID := traceCtx[traceIDHeader]
@@ -119,16 +123,41 @@ func createDummySubsegmentForXrayConverter(ctx context.Context, traceCtx TraceCo
 	return nil
 }
 
-// getDatadogTraceContextFromEvent extracts the Datadog trace context from an incoming Lambda event payload
-// and creates a dummy X-Ray subsegment containing this information
-func getDatadogTraceContextFromEvent(ctx context.Context, ev json.RawMessage) (TraceContext, bool) {
+func getContext(context map[string]string) (Context, bool) {
+	tc := Context{}
+
+	traceID, ok := context[traceIDHeader]
+	if !ok {
+		return tc, false
+	}
+
+	parentID, ok := context[parentIDHeader]
+	if !ok {
+		return tc, false
+	}
+
+	samplingPriority, ok := context[samplingPriorityHeader]
+	if !ok {
+		return tc, false
+	}
+
+	tc[samplingPriorityHeader] = samplingPriority
+	tc[traceIDHeader] = traceID
+	tc[parentIDHeader] = parentID
+
+	return tc, true
+}
+
+// getDatadogTraceContextFromHeaders extracts the Datadog trace context from an incoming Lambda event payload
+// and creates a dummy X-Ray subsegment containing this information.
+func getDatadogTraceContextFromHeaders(ctx context.Context, ev json.RawMessage) map[string]string {
 	eh := eventWithHeaders{}
 
-	traceCtx := map[string]string{}
+	headers := map[string]string{}
 
 	err := json.Unmarshal(ev, &eh)
 	if err != nil {
-		return traceCtx, false
+		return headers
 	}
 
 	lowercaseHeaders := map[string]string{}
@@ -136,29 +165,10 @@ func getDatadogTraceContextFromEvent(ctx context.Context, ev json.RawMessage) (T
 		lowercaseHeaders[strings.ToLower(k)] = v
 	}
 
-	traceID, ok := lowercaseHeaders[traceIDHeader]
-	if !ok {
-		return traceCtx, false
-	}
-
-	parentID, ok := lowercaseHeaders[parentIDHeader]
-	if !ok {
-		return traceCtx, false
-	}
-
-	samplingPriority, ok := lowercaseHeaders[samplingPriorityHeader]
-	if !ok {
-		return traceCtx, false
-	}
-
-	traceCtx[samplingPriorityHeader] = samplingPriority
-	traceCtx[traceIDHeader] = traceID
-	traceCtx[parentIDHeader] = parentID
-
-	return traceCtx, true
+	return lowercaseHeaders
 }
 
-func convertXrayTraceContextFromLambdaContext(ctx context.Context) (TraceContext, error) {
+func convertXrayTraceContextFromLambdaContext(ctx context.Context) (Context, error) {
 	traceCtx := map[string]string{}
 
 	header := getXrayTraceHeaderFromContext(ctx)
@@ -249,7 +259,7 @@ func convertXRaySamplingDecision(decision header.SamplingDecision) string {
 }
 
 // ConvertTraceContextToSpanContext converts a TraceContext object to a SpanContext that can be used by dd-trace.
-func ConvertTraceContextToSpanContext(traceCtx TraceContext) (ddtrace.SpanContext, error) {
+func ConvertTraceContextToSpanContext(traceCtx Context) (ddtrace.SpanContext, error) {
 	spanCtx, err := propagator.Extract(tracer.TextMapCarrier(traceCtx))
 
 	if err != nil {

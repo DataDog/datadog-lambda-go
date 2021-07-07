@@ -38,7 +38,7 @@ func mockLambdaXRayTraceContext(ctx context.Context, traceID, parentID string, s
 		TraceID:          traceID,
 		ParentID:         parentID,
 		SamplingDecision: decision,
-		AdditionalData:   make(TraceContext),
+		AdditionalData:   make(Context),
 	}
 	headerString := traceHeader.String()
 	return context.WithValue(ctx, xray.LambdaTraceHeaderKey, headerString)
@@ -58,10 +58,10 @@ func TestGetDatadogTraceContextForTraceMetadataNonProxyEvent(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 
-	headers, ok := getDatadogTraceContextFromEvent(ctx, *ev)
+	headers, ok := getContext(getDatadogTraceContextFromHeaders(ctx, *ev))
 	assert.True(t, ok)
 
-	expected := TraceContext{
+	expected := Context{
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
@@ -73,10 +73,10 @@ func TestGetDatadogTraceContextForTraceMetadataWithMixedCaseHeaders(t *testing.T
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/non-proxy-with-mixed-case-headers.json")
 
-	headers, ok := getDatadogTraceContextFromEvent(ctx, *ev)
+	headers, ok := getContext(getDatadogTraceContextFromHeaders(ctx, *ev))
 	assert.True(t, ok)
 
-	expected := TraceContext{
+	expected := Context{
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
@@ -88,7 +88,7 @@ func TestGetDatadogTraceContextForInvalidData(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/invalid.json")
 
-	_, ok := getDatadogTraceContextFromEvent(ctx, *ev)
+	_, ok := getContext(getDatadogTraceContextFromHeaders(ctx, *ev))
 	assert.False(t, ok)
 }
 
@@ -96,7 +96,7 @@ func TestGetDatadogTraceContextForMissingData(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/non-proxy-no-headers.json")
 
-	_, ok := getDatadogTraceContextFromEvent(ctx, *ev)
+	_, ok := getContext(getDatadogTraceContextFromHeaders(ctx, *ev))
 	assert.False(t, ok)
 }
 
@@ -162,10 +162,10 @@ func TestContextWithRootTraceContextNoDatadogContext(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
 
-	newCTX, _ := contextWithRootTraceContext(ctx, *ev, false)
-	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
+	newCTX, _ := contextWithRootTraceContext(ctx, *ev, false, DefaultTraceExtractor)
+	traceContext, _ := newCTX.Value(traceContextKey).(Context)
 
-	expected := TraceContext{}
+	expected := Context{}
 	assert.Equal(t, expected, traceContext)
 }
 
@@ -173,10 +173,10 @@ func TestContextWithRootTraceContextWithDatadogContext(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 
-	newCTX, _ := contextWithRootTraceContext(ctx, *ev, false)
-	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
+	newCTX, _ := contextWithRootTraceContext(ctx, *ev, false, DefaultTraceExtractor)
+	traceContext, _ := newCTX.Value(traceContextKey).(Context)
 
-	expected := TraceContext{
+	expected := Context{
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
@@ -188,10 +188,10 @@ func TestContextWithRootTraceContextMergeXrayTracesNoDatadogContext(t *testing.T
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/apig-event-no-headers.json")
 
-	newCTX, _ := contextWithRootTraceContext(ctx, *ev, true)
-	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
+	newCTX, _ := contextWithRootTraceContext(ctx, *ev, true, DefaultTraceExtractor)
+	traceContext, _ := newCTX.Value(traceContextKey).(Context)
 
-	expected := TraceContext{
+	expected := Context{
 		traceIDHeader:          convertedXRayTraceID,
 		parentIDHeader:         convertedXRayEntityID,
 		samplingPriorityHeader: "2",
@@ -203,10 +203,10 @@ func TestContextWithRootTraceContextMergeXrayTracesWithDatadogContext(t *testing
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 
-	newCTX, _ := contextWithRootTraceContext(ctx, *ev, true)
-	traceContext, _ := newCTX.Value(traceContextKey).(TraceContext)
+	newCTX, _ := contextWithRootTraceContext(ctx, *ev, true, DefaultTraceExtractor)
+	traceContext, _ := newCTX.Value(traceContextKey).(Context)
 
-	expected := TraceContext{
+	expected := Context{
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         convertedXRayEntityID,
 		samplingPriorityHeader: "2",

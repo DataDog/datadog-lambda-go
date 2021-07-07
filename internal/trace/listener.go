@@ -24,14 +24,16 @@ import (
 type (
 	// Listener creates a function execution span and injects it into the context
 	Listener struct {
-		ddTraceEnabled  bool
-		mergeXrayTraces bool
+		ddTraceEnabled        bool
+		mergeXrayTraces       bool
+		traceContextExtractor ContextExtractor
 	}
 
 	// Config gives options for how the Listener should work
 	Config struct {
-		DDTraceEnabled  bool
-		MergeXrayTraces bool
+		DDTraceEnabled        bool
+		MergeXrayTraces       bool
+		TraceContextExtractor ContextExtractor
 	}
 )
 
@@ -44,8 +46,9 @@ var tracerInitialized = false
 func MakeListener(config Config) Listener {
 
 	return Listener{
-		ddTraceEnabled:  config.DDTraceEnabled,
-		mergeXrayTraces: config.MergeXrayTraces,
+		ddTraceEnabled:        config.DDTraceEnabled,
+		mergeXrayTraces:       config.MergeXrayTraces,
+		traceContextExtractor: config.TraceContextExtractor,
 	}
 }
 
@@ -55,7 +58,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		return ctx
 	}
 
-	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces)
+	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces, l.traceContextExtractor)
 
 	if !tracerInitialized {
 		tracer.Start(
@@ -87,7 +90,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) tracer.Span {
 	// Extract information from context
 	lambdaCtx, _ := lambdacontext.FromContext(ctx)
-	rootTraceContext, ok := ctx.Value(traceContextKey).(TraceContext)
+	rootTraceContext, ok := ctx.Value(traceContextKey).(Context)
 	if !ok {
 		logger.Error(fmt.Errorf("Error extracting trace context from context object"))
 	}

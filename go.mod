@@ -8,10 +8,8 @@ require (
 	github.com/Microsoft/go-winio v0.4.19 // indirect
 	github.com/aws/aws-lambda-go v1.11.1
 	github.com/aws/aws-sdk-go v1.36.29
-	github.com/aws/aws-xray-sdk-go v1.0.0-rc.9
+	github.com/aws/aws-xray-sdk-go v1.6.0
 	github.com/cenkalti/backoff v2.1.1+incompatible
-	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575 // indirect
-	github.com/google/uuid v1.1.2 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/sony/gobreaker v0.4.1
