@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
@@ -34,6 +35,8 @@ type (
 		MergeXrayTraces bool
 	}
 )
+
+const extensionPath = "/opt/extensions/datadog-agent"
 
 // The function execution span is the top-level span representing the current Lambda function execution
 var functionExecutionSpan ddtrace.Span
@@ -60,7 +63,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	if !tracerInitialized {
 		tracer.Start(
 			tracer.WithService("aws.lambda"),
-			tracer.WithLambdaMode(true),
+			tracer.WithLambdaMode(isLambdaMode(extensionPath)),
 			tracer.WithGlobalTag("_dd.origin", "lambda"),
 		)
 		tracerInitialized = true
@@ -133,4 +136,13 @@ func separateVersionFromFunctionArn(functionArn string) (arnWithoutVersion strin
 		functionVersion = arnSegments[7]
 	}
 	return arnWithoutVersion, functionVersion
+}
+
+func isLambdaMode(extensionPath string) bool {
+	lambdaMode := true
+	if _, err := os.Stat(extensionPath); err == nil {
+		logger.Debug("Lambda extension is detected, using the serverless agent")
+		lambdaMode = false
+	}
+	return lambdaMode
 }
