@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/datadog-lambda-go/extension"
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/version"
 	"github.com/aws/aws-lambda-go/lambdacontext"

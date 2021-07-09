@@ -12,7 +12,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DataDog/datadog-lambda-go/extension"
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/stretchr/testify/assert"
 )
 

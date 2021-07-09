@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DataDog/datadog-lambda-go/extension"
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/metrics"
 	"github.com/DataDog/datadog-lambda-go/internal/trace"
