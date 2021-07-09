@@ -10,7 +10,6 @@ package trace
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
@@ -135,14 +134,4 @@ func TestStartFunctionExecutionSpanFromEventWithMergeDisabled(t *testing.T) {
 	finishedSpan := mt.FinishedSpans()[0]
 
 	assert.Equal(t, nil, finishedSpan.Tag("_dd.parent_source"))
-}
-
-func TestIsLambdaModeFalse(t *testing.T) {
-	pwd, err := os.Getwd()
-	assert.Nil(t, err)
-	assert.False(t, isLambdaMode(pwd))
-}
-
-func TestIsLambdaModeTrue(t *testing.T) {
-	assert.True(t, isLambdaMode("/impos/sible/path"))
 }

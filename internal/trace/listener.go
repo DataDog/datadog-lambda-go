@@ -12,9 +12,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
+	"github.com/DataDog/datadog-lambda-go/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/version"
 	"github.com/aws/aws-lambda-go/lambdacontext"
@@ -25,8 +25,9 @@ import (
 type (
 	// Listener creates a function execution span and injects it into the context
 	Listener struct {
-		ddTraceEnabled  bool
-		mergeXrayTraces bool
+		ddTraceEnabled   bool
+		mergeXrayTraces  bool
+		extensionManager *extension.ExtensionManager
 	}
 
 	// Config gives options for how the Listener should work
@@ -36,19 +37,18 @@ type (
 	}
 )
 
-const extensionPath = "/opt/extensions/datadog-agent"
-
 // The function execution span is the top-level span representing the current Lambda function execution
 var functionExecutionSpan ddtrace.Span
 
 var tracerInitialized = false
 
 // MakeListener initializes a new trace lambda Listener
-func MakeListener(config Config) Listener {
+func MakeListener(config Config, extensionManager *extension.ExtensionManager) Listener {
 
 	return Listener{
-		ddTraceEnabled:  config.DDTraceEnabled,
-		mergeXrayTraces: config.MergeXrayTraces,
+		ddTraceEnabled:   config.DDTraceEnabled,
+		mergeXrayTraces:  config.MergeXrayTraces,
+		extensionManager: extensionManager,
 	}
 }
 
@@ -63,7 +63,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	if !tracerInitialized {
 		tracer.Start(
 			tracer.WithService("aws.lambda"),
-			tracer.WithLambdaMode(isLambdaMode(extensionPath)),
+			tracer.WithLambdaMode(!l.extensionManager.IsExtensionRunning()),
 			tracer.WithGlobalTag("_dd.origin", "lambda"),
 		)
 		tracerInitialized = true
@@ -136,13 +136,4 @@ func separateVersionFromFunctionArn(functionArn string) (arnWithoutVersion strin
 		functionVersion = arnSegments[7]
 	}
 	return arnWithoutVersion, functionVersion
-}
-
-func isLambdaMode(extensionPath string) bool {
-	lambdaMode := true
-	if _, err := os.Stat(extensionPath); err == nil {
-		logger.Debug("Lambda extension is detected, using the serverless agent")
-		lambdaMode = false
-	}
-	return lambdaMode
 }
