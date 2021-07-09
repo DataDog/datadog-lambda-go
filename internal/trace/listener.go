@@ -127,6 +127,9 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 
 func separateVersionFromFunctionArn(functionArn string) (arnWithoutVersion string, functionVersion string) {
 	arnSegments := strings.Split(functionArn, ":")
+	if cap(arnSegments) < 7 {
+		return "", ""
+	}
 	functionVersion = "$LATEST"
 	arnWithoutVersion = strings.Join(arnSegments[0:7], ":")
 	if len(arnSegments) > 7 {
