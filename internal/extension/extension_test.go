@@ -11,6 +11,7 @@ package extension
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,6 +42,7 @@ func TestBuildExtensionManager(t *testing.T) {
 	em := BuildExtensionManager()
 	assert.Equal(t, "http://localhost:8124/lambda/hello", em.helloRoute)
 	assert.Equal(t, "http://localhost:8124/lambda/flush", em.flushRoute)
+	assert.Equal(t, "/opt/extensions/datadog-agent", em.extensionPath)
 	assert.NotNil(t, em.httpClient)
 }
 
@@ -50,9 +52,22 @@ func TestIsAgentRunningFalse(t *testing.T) {
 	}
 	assert.False(t, em.IsExtensionRunning())
 }
-func TestIsAgentRunningTrue(t *testing.T) {
+
+func TestIsAgentRunningFalseSinceTheAgentIsNotHere(t *testing.T) {
 	em := &ExtensionManager{
-		httpClient: &ClientSuccessMock{},
+		extensionPath: "/impossible/path/test",
+	}
+	em.checkAgentRunning()
+	assert.False(t, em.IsExtensionRunning())
+}
+
+func TestIsAgentRunningTrue(t *testing.T) {
+	existingPath, err := os.Getwd()
+	assert.Nil(t, err)
+
+	em := &ExtensionManager{
+		httpClient:    &ClientSuccessMock{},
+		extensionPath: existingPath,
 	}
 	em.checkAgentRunning()
 	assert.True(t, em.IsExtensionRunning())

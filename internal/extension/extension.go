@@ -11,6 +11,7 @@ package extension
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
@@ -22,16 +23,16 @@ const (
 	// want to let it having some time for its cold start so we should not set this too low.
 	timeout = 3000 * time.Millisecond
 
-	// helloUrl is the hello route url
 	helloUrl = "http://localhost:8124/lambda/hello"
-
-	// flushUrl is the flush route url
 	flushUrl = "http://localhost:8124/lambda/flush"
+
+	extensionPath = "/opt/extensions/datadog-agent"
 )
 
 type ExtensionManager struct {
 	helloRoute         string
 	flushRoute         string
+	extensionPath      string
 	httpClient         HTTPClient
 	isExtensionRunning bool
 }
@@ -42,22 +43,28 @@ type HTTPClient interface {
 
 func BuildExtensionManager() *ExtensionManager {
 	em := &ExtensionManager{
-		helloRoute: helloUrl,
-		flushRoute: flushUrl,
-		httpClient: &http.Client{Timeout: timeout},
+		helloRoute:    helloUrl,
+		flushRoute:    flushUrl,
+		extensionPath: extensionPath,
+		httpClient:    &http.Client{Timeout: timeout},
 	}
 	em.checkAgentRunning()
 	return em
 }
 
 func (em *ExtensionManager) checkAgentRunning() {
-	req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
-	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-		logger.Debug("Will use the Serverless Agent")
-		em.isExtensionRunning = true
-	} else {
+	if _, err := os.Stat(em.extensionPath); err != nil {
 		logger.Debug("Will use the API")
 		em.isExtensionRunning = false
+	} else {
+		req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
+		if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
+			logger.Debug("Will use the Serverless Agent")
+			em.isExtensionRunning = true
+		} else {
+			logger.Debug("Will use the API since the Serverless Agent was detected but the hello route was unreachable")
+			em.isExtensionRunning = false
+		}
 	}
 }
 
