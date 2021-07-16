@@ -39,6 +39,14 @@ func TestSeparateVersionFromFunctionArnWithoutVersion(t *testing.T) {
 	assert.Equal(t, expectedFunctionVersion, functionVersion)
 }
 
+func TestSeparateVersionFromFunctionArnEmptyString(t *testing.T) {
+	inputArn := ""
+
+	arnWithoutVersion, functionVersion := separateVersionFromFunctionArn(inputArn)
+	assert.Empty(t, arnWithoutVersion)
+	assert.Empty(t, functionVersion)
+}
+
 var traceContextFromXray = TraceContext{
 	traceIDHeader:  "1231452342",
 	parentIDHeader: "45678910",
