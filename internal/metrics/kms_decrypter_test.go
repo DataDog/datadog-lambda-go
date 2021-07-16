@@ -33,7 +33,11 @@ type mockKMSClientWithEncryptionContext struct {
 }
 
 func (mockKMSClientWithEncryptionContext) Decrypt(params *kms.DecryptInput) (*kms.DecryptOutput, error) {
-	if *params.EncryptionContext[encryptionContextKey] != mockFunctionName {
+	encryptionContextPointer, exists := params.EncryptionContext[encryptionContextKey]
+	if !exists {
+		return nil, errors.New("InvalidCiphertextExeption")
+	}
+	if *encryptionContextPointer != mockFunctionName {
 		return nil, errors.New("InvalidCiphertextExeption")
 	}
 	if bytes.Equal(params.CiphertextBlob, []byte(mockDecodedEncryptedAPIKey)) {
