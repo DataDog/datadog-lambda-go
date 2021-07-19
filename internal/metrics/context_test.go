@@ -12,6 +12,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,7 +23,7 @@ func TestGetProcessorEmptyContext(t *testing.T) {
 }
 
 func TestGetProcessorSuccess(t *testing.T) {
-	lst := MakeListener(Config{})
+	lst := MakeListener(Config{}, &extension.ExtensionManager{})
 	ctx := AddListener(context.Background(), &lst)
 	result := GetListener(ctx)
 	assert.NotNil(t, result)
