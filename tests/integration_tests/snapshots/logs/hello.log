@@ -1,6 +1,4 @@
 START RequestId: XXXX Version: $LATEST
-XXXX-XX-XXTXX:XX:XX.XXXZ [Info] using daemon endpoints from environment variable AWS_XRAY_DAEMON_ADDRESS: 169.254.79.2:2000
-XXXX-XX-XXTXX:XX:XX.XXXZ [Info] Emitter using address: 169.254.79.2:2000
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Will use the API"}
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Merge X-Ray Traces is off, using trace context from Datadog only"}
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Could not convert TraceContext to a SpanContext (most likely TraceContext was empty)"}
