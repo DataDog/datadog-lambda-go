@@ -3,7 +3,7 @@
  * under the Apache License Version 2.0.
  *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019 Datadog, Inc.
+ * Copyright 2021 Datadog, Inc.
  */
 
 package trace
@@ -130,6 +130,9 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 
 func separateVersionFromFunctionArn(functionArn string) (arnWithoutVersion string, functionVersion string) {
 	arnSegments := strings.Split(functionArn, ":")
+	if cap(arnSegments) < 7 {
+		return "", ""
+	}
 	functionVersion = "$LATEST"
 	arnWithoutVersion = strings.Join(arnSegments[0:7], ":")
 	if len(arnSegments) > 7 {

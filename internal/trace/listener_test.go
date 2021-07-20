@@ -3,7 +3,7 @@
  * under the Apache License Version 2.0.
  *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019 Datadog, Inc.
+ * Copyright 2021 Datadog, Inc.
  */
 
 package trace
@@ -37,6 +37,14 @@ func TestSeparateVersionFromFunctionArnWithoutVersion(t *testing.T) {
 	expectedFunctionVersion := "$LATEST"
 	assert.Equal(t, expectedArnWithoutVersion, arnWithoutVersion)
 	assert.Equal(t, expectedFunctionVersion, functionVersion)
+}
+
+func TestSeparateVersionFromFunctionArnEmptyString(t *testing.T) {
+	inputArn := ""
+
+	arnWithoutVersion, functionVersion := separateVersionFromFunctionArn(inputArn)
+	assert.Empty(t, arnWithoutVersion)
+	assert.Empty(t, functionVersion)
 }
 
 var traceContextFromXray = TraceContext{
