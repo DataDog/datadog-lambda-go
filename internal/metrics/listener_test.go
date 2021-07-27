@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/version"
 	"github.com/aws/aws-lambda-go/lambdacontext"
@@ -36,14 +37,14 @@ func captureOutput(f func()) string {
 }
 
 func TestHandlerAddsItselfToContext(t *testing.T) {
-	listener := MakeListener(Config{})
+	listener := MakeListener(Config{}, &extension.ExtensionManager{})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
 	pr := GetListener(ctx)
 	assert.NotNil(t, pr)
 }
 
 func TestHandlerFinishesProcessing(t *testing.T) {
-	listener := MakeListener(Config{})
+	listener := MakeListener(Config{}, &extension.ExtensionManager{})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
 
 	listener.HandlerFinished(ctx, nil)
@@ -60,7 +61,7 @@ func TestAddDistributionMetricWithAPI(t *testing.T) {
 	}))
 	defer server.Close()
 
-	listener := MakeListener(Config{APIKey: "12345", Site: server.URL})
+	listener := MakeListener(Config{APIKey: "12345", Site: server.URL}, &extension.ExtensionManager{})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
 	listener.AddDistributionMetric("the-metric", 2, time.Now(), false, "tag:a", "tag:b")
 	listener.HandlerFinished(ctx, nil)
@@ -75,7 +76,7 @@ func TestAddDistributionMetricWithLogForwarder(t *testing.T) {
 	}))
 	defer server.Close()
 
-	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, ShouldUseLogForwarder: true})
+	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, ShouldUseLogForwarder: true}, &extension.ExtensionManager{})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
 	listener.AddDistributionMetric("the-metric", 2, time.Now(), false, "tag:a", "tag:b")
 	listener.HandlerFinished(ctx, nil)
@@ -89,7 +90,7 @@ func TestAddDistributionMetricWithForceLogForwarder(t *testing.T) {
 	}))
 	defer server.Close()
 
-	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, ShouldUseLogForwarder: false})
+	listener := MakeListener(Config{APIKey: "12345", Site: server.URL, ShouldUseLogForwarder: false}, &extension.ExtensionManager{})
 	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
 	listener.AddDistributionMetric("the-metric", 2, time.Now(), true, "tag:a", "tag:b")
 	listener.HandlerFinished(ctx, nil)
@@ -143,6 +144,7 @@ func TestSubmitEnhancedMetrics(t *testing.T) {
 			Site:            server.URL,
 			EnhancedMetrics: true,
 		},
+		&extension.ExtensionManager{},
 	)
 	ctx := context.WithValue(context.Background(), "cold_start", false)
 
@@ -170,6 +172,7 @@ func TestDoNotSubmitEnhancedMetrics(t *testing.T) {
 			Site:            server.URL,
 			EnhancedMetrics: false,
 		},
+		&extension.ExtensionManager{},
 	)
 	ctx := context.WithValue(context.Background(), "cold_start", true)
 
@@ -197,6 +200,7 @@ func TestSubmitEnhancedMetricsOnlyErrors(t *testing.T) {
 			Site:            server.URL,
 			EnhancedMetrics: false,
 		},
+		&extension.ExtensionManager{},
 	)
 
 	ctx := context.WithValue(context.Background(), "cold_start", true)

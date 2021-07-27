@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/metrics"
 	"github.com/DataDog/datadog-lambda-go/internal/trace"
@@ -100,9 +101,11 @@ func WrapHandler(handler interface{}, cfg *Config) interface{} {
 		logger.SetLogLevel(logger.LevelDebug)
 	}
 
+	extensionManager := extension.BuildExtensionManager()
+
 	// Wrap the handler with listeners that add instrumentation for traces and metrics.
-	tl := trace.MakeListener(cfg.toTraceConfig())
-	ml := metrics.MakeListener(cfg.toMetricsConfig())
+	tl := trace.MakeListener(cfg.toTraceConfig(), extensionManager)
+	ml := metrics.MakeListener(cfg.toMetricsConfig(), extensionManager)
 	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
 }
 

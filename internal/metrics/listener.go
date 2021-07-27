@@ -12,7 +12,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"runtime"
 	"strconv"
 	"strings"
@@ -21,6 +20,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambdacontext"
 
 	"github.com/DataDog/datadog-go/statsd"
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/version"
 )
@@ -28,11 +28,12 @@ import (
 type (
 	// Listener implements wrapper.HandlerListener, injecting metrics into the context
 	Listener struct {
-		apiClient          *APIClient
-		statsdClient       *statsd.Client
-		config             *Config
-		processor          Processor
-		useServerlessAgent bool
+		apiClient        *APIClient
+		statsdClient     *statsd.Client
+		config           *Config
+		processor        Processor
+		isAgentRunning   bool
+		extensionManager *extension.ExtensionManager
 	}
 
 	// Config gives options for how the listener should work
@@ -58,15 +59,8 @@ type (
 	}
 )
 
-const (
-	// We don't want call to the Serverless Agent to block indefinitely for any reasons,
-	// so here's a configuration of the timeout when calling the Serverless Agent. We also
-	// want to let it having some time for its cold start so we should not set this too low.
-	AgentCallTimeout = 3000 * time.Millisecond
-)
-
 // MakeListener initializes a new metrics lambda listener
-func MakeListener(config Config) Listener {
+func MakeListener(config Config, extensionManager *extension.ExtensionManager) Listener {
 
 	apiClient := MakeAPIClient(context.Background(), APIClientOptions{
 		baseAPIURL:        config.Site,
@@ -95,7 +89,7 @@ func MakeListener(config Config) Listener {
 	// immediate call to the Agent, if not a 200, fallback to API
 	// TODO(remy): we may want to use an environment var to force the use of the
 	// Agent instead of using this "discovery" implementation.
-	if isServerlessAgentRunning() {
+	if extensionManager.IsExtensionRunning() {
 		var err error
 		if statsdClient, err = statsd.New("127.0.0.1:8125"); err != nil {
 			statsdClient = nil // force nil if an error occurred during statsd client init
@@ -103,11 +97,12 @@ func MakeListener(config Config) Listener {
 	}
 
 	return Listener{
-		apiClient:          apiClient,
-		config:             &config,
-		useServerlessAgent: statsdClient != nil,
-		statsdClient:       statsdClient,
-		processor:          nil,
+		apiClient:        apiClient,
+		config:           &config,
+		isAgentRunning:   statsdClient != nil,
+		statsdClient:     statsdClient,
+		processor:        nil,
+		extensionManager: extensionManager,
 	}
 }
 
@@ -134,7 +129,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 // HandlerFinished implemented as part of the wrapper.HandlerListener interface
 func (l *Listener) HandlerFinished(ctx context.Context, err error) {
-	if l.useServerlessAgent {
+	if l.isAgentRunning {
 		// use the agent
 		// flush the metrics from the DogStatsD client to the Agent
 		if l.statsdClient != nil {
@@ -143,7 +138,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 			}
 		}
 		// send a message to the Agent to flush the metrics
-		if err := flushServerlessAgent(); err != nil {
+		if err := l.extensionManager.Flush(); err != nil {
 			logger.Error(fmt.Errorf("error while flushing the metrics: %s", err))
 		}
 	} else {
@@ -163,7 +158,7 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp
 	// We add our own runtime tag to the metric for version tracking
 	tags = append(tags, getRuntimeTag())
 
-	if l.useServerlessAgent {
+	if l.isAgentRunning {
 		l.statsdClient.Distribution(metric, value, tags, 1)
 		return
 	}
@@ -264,30 +259,4 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 func isNotNumeric(s string) bool {
 	_, err := strconv.ParseInt(s, 0, 64)
 	return err != nil
-}
-
-func isServerlessAgentRunning() bool {
-	client := &http.Client{Timeout: AgentCallTimeout}
-	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8124/lambda/hello", nil)
-	if response, err := client.Do(req); err == nil && response.StatusCode == 200 {
-		logger.Debug("Will use the Serverless Agent")
-		return true
-	}
-	logger.Debug("Will use the API")
-	return false
-}
-
-func flushServerlessAgent() error {
-	client := &http.Client{Timeout: AgentCallTimeout}
-	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8124/lambda/flush", nil)
-	if response, err := client.Do(req); err != nil {
-		err := fmt.Errorf("was not able to reach the Agent to flush: %s", err)
-		logger.Error(err)
-		return err
-	} else if response.StatusCode != 200 {
-		err := fmt.Errorf("the Agent didn't returned HTTP 200: %s", response.Status)
-		logger.Error(err)
-		return err
-	}
-	return nil
 }
