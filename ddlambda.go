@@ -93,18 +93,17 @@ const (
 	DefaultEnhancedMetrics = true
 )
 
-// WrapHandlerInterface is used to instrument your lambda functions.
-// It returns a modified handler that can be passed directly to the lambda.StartHandler function.
-func WrapHandlerInterface(handler lambda.Handler, cfg *Config) lambda.Handler {
+// WrapWithCustomHandler is used to instrument your lambda functions.
+// It returns a modified handler that can be passed directly to the lambda.StartHandler function from aws-lambda-go.
+func WrapWithCustomHandler(handler lambda.Handler, cfg *Config) lambda.Handler {
 	listeners := initializeListeners(cfg)
 	return wrapper.WrapHandlerInterfaceWithListeners(handler, listeners...)
 }
 
 // WrapHandler is used to instrument your lambda functions.
-// It returns a modified handler that can be passed directly to the lambda. Start function.
+// It returns a modified handler that can be passed directly to the lambda.Start function from aws-lambda-go.
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
 	listeners := initializeListeners(cfg)
-
 	return wrapper.WrapHandlerWithListeners(handler, listeners...)
 }
 
