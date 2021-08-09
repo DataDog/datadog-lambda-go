@@ -96,33 +96,16 @@ const (
 // WrapHandlerInterface is used to instrument your lambda functions.
 // It returns a modified handler that can be passed directly to the lambda.StartHandler function.
 func WrapHandlerInterface(handler lambda.Handler, cfg *Config) lambda.Handler {
-	logLevel := os.Getenv(LogLevelEnvVar)
-	if strings.EqualFold(logLevel, "debug") || (cfg != nil && cfg.DebugLogging) {
-		logger.SetLogLevel(logger.LevelDebug)
-	}
-	extensionManager := extension.BuildExtensionManager()
-
-	// Wrap the handler with listeners that add instrumentation for traces and metrics.
-	tl := trace.MakeListener(cfg.toTraceConfig(), extensionManager)
-	ml := metrics.MakeListener(cfg.toMetricsConfig(), extensionManager)
-	return wrapper.WrapHandlerInterfaceWithListeners(handler, &tl, &ml)
+	listeners := initializeListeners(cfg)
+	return wrapper.WrapHandlerInterfaceWithListeners(handler, listeners...)
 }
 
 // WrapHandler is used to instrument your lambda functions.
 // It returns a modified handler that can be passed directly to the lambda. Start function.
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
+	listeners := initializeListeners(cfg)
 
-	logLevel := os.Getenv(LogLevelEnvVar)
-	if strings.EqualFold(logLevel, "debug") || (cfg != nil && cfg.DebugLogging) {
-		logger.SetLogLevel(logger.LevelDebug)
-	}
-
-	extensionManager := extension.BuildExtensionManager()
-
-	// Wrap the handler with listeners that add instrumentation for traces and metrics.
-	tl := trace.MakeListener(cfg.toTraceConfig(), extensionManager)
-	ml := metrics.MakeListener(cfg.toMetricsConfig(), extensionManager)
-	return wrapper.WrapHandlerWithListeners(handler, &tl, &ml)
+	return wrapper.WrapHandlerWithListeners(handler, listeners...)
 }
 
 // GetTraceHeaders returns a map containing Datadog trace headers that reflect the
@@ -210,6 +193,21 @@ func (cfg *Config) toTraceConfig() trace.Config {
 	}
 
 	return traceConfig
+}
+
+func initializeListeners(cfg *Config) []wrapper.HandlerListener {
+	logLevel := os.Getenv(LogLevelEnvVar)
+	if strings.EqualFold(logLevel, "debug") || (cfg != nil && cfg.DebugLogging) {
+		logger.SetLogLevel(logger.LevelDebug)
+	}
+	extensionManager := extension.BuildExtensionManager()
+
+	// Wrap the handler with listeners that add instrumentation for traces and metrics.
+	tl := trace.MakeListener(cfg.toTraceConfig(), extensionManager)
+	ml := metrics.MakeListener(cfg.toMetricsConfig(), extensionManager)
+	return []wrapper.HandlerListener{
+		&tl, &ml,
+	}
 }
 
 func (cfg *Config) toMetricsConfig() metrics.Config {
