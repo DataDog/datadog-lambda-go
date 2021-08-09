@@ -1,3 +1,11 @@
+Serverless: Deprecation warning: Detected unrecognized CLI options: "--api-key".
+            Starting with the next major, Serverless Framework will report them with a thrown error
+            More Info: https://www.serverless.com/framework/docs/deprecations/#UNSUPPORTED_CLI_OPTIONS
+Serverless: Deprecation warning: Support for "package.include" and "package.exclude" will be removed with next major release. Please use "package.patterns" instead
+            More Info: https://www.serverless.com/framework/docs/deprecations/#NEW_PACKAGE_PATTERNS
+Serverless: Deprecation warning: Resolution of lambda version hashes was improved with better algorithm, which will be used in next major release.
+            Switch to it now by setting "provider.lambdaHashingVersion" to "20201221"
+            More Info: https://www.serverless.com/framework/docs/deprecations/#LAMBDA_HASHING_VERSION_V2
 {
     "statusCode": 200,
     "headers": null,
