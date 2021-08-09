@@ -76,10 +76,11 @@ func (h *DatadogHandler) Invoke(ctx context.Context, payload []byte) ([]byte, er
 		logger.Error(fmt.Errorf("couldn't load handler payload: %v", err))
 	}
 
-	CurrentContext = ctx
 	for _, listener := range h.listeners {
 		ctx = listener.HandlerStarted(ctx, msg)
 	}
+
+	CurrentContext = ctx
 	result, err := h.handler.Invoke(ctx, payload)
 	if err != nil {
 		ctx = context.WithValue(ctx, "error", true)
