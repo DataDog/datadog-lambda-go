@@ -3,7 +3,7 @@
  * under the Apache License Version 2.0.
  *
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2021 Datadog, Inc.
+ * Copyright 2019 Datadog, Inc.
  */
 
 package wrapper
@@ -12,12 +12,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"reflect"
 	"testing"
-
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/stretchr/testify/assert"
 )
 
 type (
@@ -52,6 +52,21 @@ func runHandlerWithJSON(t *testing.T, filename string, handler interface{}) (*mo
 	wrappedHandler := WrapHandlerWithListeners(handler, &mhl).(func(context.Context, json.RawMessage) (interface{}, error))
 
 	response, err := wrappedHandler(ctx, *payload)
+	return &mhl, response, err
+}
+
+func runHandlerInterfaceWithJSON(t *testing.T, filename string, handler lambda.Handler) (*mockHandlerListener, []byte, error) {
+	ctx := context.Background()
+	payload, err := ioutil.ReadFile(filename)
+	if err != nil {
+		assert.Fail(t, "Couldn't find JSON file")
+		return nil, nil, nil
+	}
+	mhl := mockHandlerListener{}
+
+	wrappedHandler := WrapHandlerInterfaceWithListeners(handler, &mhl)
+
+	response, err := wrappedHandler.Invoke(ctx, payload)
 	return &mhl, response, err
 }
 
@@ -264,4 +279,20 @@ func TestWrapHandlerReturnsOriginalHandlerIfInvalid(t *testing.T) {
 
 	assert.Equal(t, reflect.ValueOf(handler).Pointer(), reflect.ValueOf(wrappedHandler).Pointer())
 
+}
+
+func TestWrapHandlerInterfaceWithListeners(t *testing.T) {
+	called := false
+
+	handler := lambda.NewHandler(func(ctx context.Context, request events.APIGatewayProxyRequest) (int, error) {
+		called = true
+		assert.Equal(t, "c6af9ac6-7b61-11e6-9a41-93e8deadbeef", request.RequestContext.RequestID)
+		return 5, nil
+	})
+
+	_, response, err := runHandlerInterfaceWithJSON(t, "../testdata/apig-event-no-headers.json", handler)
+
+	assert.True(t, called)
+	assert.NoError(t, err)
+	assert.Equal(t, uint8('5'), response[0])
 }

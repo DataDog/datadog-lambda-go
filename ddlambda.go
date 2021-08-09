@@ -23,6 +23,7 @@ import (
 	"github.com/DataDog/datadog-lambda-go/internal/metrics"
 	"github.com/DataDog/datadog-lambda-go/internal/trace"
 	"github.com/DataDog/datadog-lambda-go/internal/wrapper"
+	"github.com/aws/aws-lambda-go/lambda"
 )
 
 type (
@@ -91,6 +92,21 @@ const (
 	// DefaultEnhancedMetrics enables enhanced metrics by default.
 	DefaultEnhancedMetrics = true
 )
+
+// WrapHandlerInterface is used to instrument your lambda functions.
+// It returns a modified handler that can be passed directly to the lambda.StartHandler function.
+func WrapHandlerInterface(handler lambda.Handler, cfg *Config) lambda.Handler {
+	logLevel := os.Getenv(LogLevelEnvVar)
+	if strings.EqualFold(logLevel, "debug") || (cfg != nil && cfg.DebugLogging) {
+		logger.SetLogLevel(logger.LevelDebug)
+	}
+	extensionManager := extension.BuildExtensionManager()
+
+	// Wrap the handler with listeners that add instrumentation for traces and metrics.
+	tl := trace.MakeListener(cfg.toTraceConfig(), extensionManager)
+	ml := metrics.MakeListener(cfg.toMetricsConfig(), extensionManager)
+	return wrapper.WrapHandlerInterfaceWithListeners(handler, &tl, &ml)
+}
 
 // WrapHandler is used to instrument your lambda functions.
 // It returns a modified handler that can be passed directly to the lambda. Start function.
