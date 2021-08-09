@@ -9,68 +9,81 @@
 package xray
 
 import (
-	"bytes"
 	"encoding/json"
 	"net"
 	"sync"
 
-	log "github.com/cihub/seelog"
+	"github.com/aws/aws-xray-sdk-go/internal/logger"
 )
 
 // Header is added before sending segments to daemon.
-var Header = []byte(`{"format": "json", "version": 1}` + "\n")
+const Header = `{"format": "json", "version": 1}` + "\n"
 
 // DefaultEmitter provides the naive implementation of emitting trace entities.
 type DefaultEmitter struct {
 	sync.Mutex
 	conn *net.UDPConn
+	addr *net.UDPAddr
 }
 
 // NewDefaultEmitter initializes and returns a
 // pointer to an instance of DefaultEmitter.
 func NewDefaultEmitter(raddr *net.UDPAddr) (*DefaultEmitter, error) {
 	initLambda()
-	d := &DefaultEmitter{}
-	d.RefreshEmitterWithAddress(raddr)
+	d := &DefaultEmitter{addr: raddr}
 	return d, nil
 }
 
 // RefreshEmitterWithAddress dials UDP based on the input UDP address.
 func (de *DefaultEmitter) RefreshEmitterWithAddress(raddr *net.UDPAddr) {
 	de.Lock()
-	de.conn, _ = net.DialUDP("udp", nil, raddr)
-	log.Infof("Emitter using address: %v", raddr)
+	de.refresh(raddr)
 	de.Unlock()
 }
 
+func (de *DefaultEmitter) refresh(raddr *net.UDPAddr) (err error) {
+	de.conn, err = net.DialUDP("udp", nil, raddr)
+	de.addr = raddr
+
+	if err != nil {
+		logger.Errorf("Error dialing emitter address %v: %s", raddr, err)
+		return err
+	}
+
+	logger.Infof("Emitter using address: %v", raddr)
+	return nil
+}
+
 // Emit segment or subsegment if root segment is sampled.
+// seg has a write lock acquired by the caller.
 func (de *DefaultEmitter) Emit(seg *Segment) {
+	HeaderBytes := []byte(Header)
+
 	if seg == nil || !seg.ParentSegment.Sampled {
 		return
 	}
 
-	var logLevel string
-	if seg.Configuration != nil && seg.Configuration.LogLevel == "trace" {
-		logLevel = "trace"
-	} else if globalCfg.logLevel <= log.TraceLvl {
-		logLevel = "trace"
-	}
-
 	for _, p := range packSegments(seg, nil) {
-		if logLevel == "trace" {
-			b := &bytes.Buffer{}
-			json.Indent(b, p, "", " ")
-			log.Trace(b.String())
-		}
+		logger.Debug(string(p))
+
 		de.Lock()
-		_, err := de.conn.Write(append(Header, p...))
+
+		if de.conn == nil {
+			if err := de.refresh(de.addr); err != nil {
+				de.Unlock()
+				return
+			}
+		}
+
+		_, err := de.conn.Write(append(HeaderBytes, p...))
 		if err != nil {
-			log.Error(err)
+			logger.Error(err)
 		}
 		de.Unlock()
 	}
 }
 
+// seg has a write lock acquired by the caller.
 func packSegments(seg *Segment, outSegments [][]byte) [][]byte {
 	trimSubsegment := func(s *Segment) []byte {
 		ss := globalCfg.StreamingStrategy()
@@ -84,17 +97,22 @@ func packSegments(seg *Segment, outSegments [][]byte) [][]byte {
 			cb := ss.StreamCompletedSubsegments(s)
 			outSegments = append(outSegments, cb...)
 		}
-		b, _ := json.Marshal(s)
+		b, err := json.Marshal(s)
+		if err != nil {
+			logger.Errorf("JSON error while marshalling (Sub)Segment: %v", err)
+		}
 		return b
 	}
 
 	for _, s := range seg.rawSubsegments {
+		s.Lock()
 		outSegments = packSegments(s, outSegments)
 		if b := trimSubsegment(s); b != nil {
 			seg.Subsegments = append(seg.Subsegments, b)
 		}
+		s.Unlock()
 	}
-	if seg.parent == nil {
+	if seg.isOrphan() {
 		if b := trimSubsegment(seg); b != nil {
 			outSegments = append(outSegments, b)
 		}

@@ -49,5 +49,5 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 }
 
 func main() {
-	lambda.Start(ddlambda.WrapHandler(handleRequest, nil))
+	lambda.StartHandler(ddlambda.WrapHandlerInterface(lambda.NewHandler(handleRequest)), nil))
 }

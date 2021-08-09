@@ -11,11 +11,11 @@ package sampling
 import (
 	"sync"
 
+	"github.com/aws/aws-xray-sdk-go/internal/logger"
 	"github.com/aws/aws-xray-sdk-go/pattern"
 	"github.com/aws/aws-xray-sdk-go/utils"
 
 	xraySvc "github.com/aws/aws-sdk-go/service/xray"
-	log "github.com/cihub/seelog"
 )
 
 // Properties is the base set of properties that define a sampling rule.
@@ -40,7 +40,7 @@ func (p *Properties) AppliesTo(host, path, method string) bool {
 // Assumes lock is already held, if required.
 func (r *CentralizedRule) AppliesTo(request *Request) bool {
 	return (request.Host == "" || pattern.WildcardMatchCaseInsensitive(r.Host, request.Host)) &&
-		(request.Url == "" || pattern.WildcardMatchCaseInsensitive(r.URLPath, request.Url)) &&
+		(request.URL == "" || pattern.WildcardMatchCaseInsensitive(r.URLPath, request.URL)) &&
 		(request.Method == "" || pattern.WildcardMatchCaseInsensitive(r.HTTPMethod, request.Method)) &&
 		(request.ServiceName == "" || pattern.WildcardMatchCaseInsensitive(r.ServiceName, request.ServiceName)) &&
 		(request.ServiceType == "" || pattern.WildcardMatchCaseInsensitive(r.serviceType, request.ServiceType))
@@ -87,13 +87,13 @@ type CentralizedRule struct {
 	// Provides random numbers
 	rand utils.Rand
 
-	sync.RWMutex
+	mu sync.RWMutex
 }
 
 // stale returns true if the quota is due for a refresh. False otherwise.
 func (r *CentralizedRule) stale(now int64) bool {
-	r.Lock()
-	defer r.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	return r.requests != 0 && now >= r.reservoir.refreshedAt+r.reservoir.interval
 }
@@ -105,15 +105,15 @@ func (r *CentralizedRule) Sample() *Decision {
 		Rule: &r.ruleName,
 	}
 
-	r.Lock()
-	defer r.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	r.requests++
 
 	// Fallback to bernoulli sampling if quota has expired
 	if r.reservoir.expired(now) {
 		if r.reservoir.borrow(now) {
-			log.Tracef(
+			logger.Debugf(
 				"Sampling target has expired for rule %s. Borrowing a request.",
 				r.ruleName,
 			)
@@ -123,7 +123,7 @@ func (r *CentralizedRule) Sample() *Decision {
 			return sd
 		}
 
-		log.Tracef(
+		logger.Debugf(
 			"Sampling target has expired for rule %s. Using fixed rate.",
 			r.ruleName,
 		)
@@ -140,7 +140,7 @@ func (r *CentralizedRule) Sample() *Decision {
 		return sd
 	}
 
-	log.Tracef(
+	logger.Debugf(
 		"Sampling target has been exhausted for rule %s. Using fixed rate.",
 		r.ruleName,
 	)
@@ -165,7 +165,7 @@ func (r *CentralizedRule) bernoulliSample() bool {
 // snapshot takes a snapshot of the sampling statistics counters, returning
 // xraySvc.SamplingStatistics. It also resets statistics counters.
 func (r *CentralizedRule) snapshot() *xraySvc.SamplingStatisticsDocument {
-	r.Lock()
+	r.mu.Lock()
 
 	name := &r.ruleName
 
@@ -176,7 +176,7 @@ func (r *CentralizedRule) snapshot() *xraySvc.SamplingStatisticsDocument {
 	// Reset counters
 	r.requests, r.sampled, r.borrows = 0, 0, 0
 
-	r.Unlock()
+	r.mu.Unlock()
 
 	now := r.clock.Now()
 	s := &xraySvc.SamplingStatisticsDocument{
@@ -190,7 +190,7 @@ func (r *CentralizedRule) snapshot() *xraySvc.SamplingStatisticsDocument {
 	return s
 }
 
-// Local Sampling Rule
+// Rule is local sampling rule.
 type Rule struct {
 	reservoir *Reservoir
 
@@ -199,16 +199,19 @@ type Rule struct {
 
 	// Common sampling rule properties
 	*Properties
+
+	mu sync.RWMutex
 }
 
+// Sample is used to provide sampling decision.
 func (r *Rule) Sample() *Decision {
 	var sd Decision
-
+	r.mu.Lock()
 	if r.reservoir.Take() {
 		sd.Sample = true
 	} else {
 		sd.Sample = r.rand.Float64() < r.Rate
 	}
-
+	r.mu.Unlock()
 	return &sd
 }

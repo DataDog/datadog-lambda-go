@@ -10,21 +10,21 @@ package xray
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"sync"
 
 	"github.com/aws/aws-xray-sdk-go/daemoncfg"
+	"github.com/aws/aws-xray-sdk-go/internal/logger"
+	"github.com/aws/aws-xray-sdk-go/xraylog"
 
 	"github.com/aws/aws-xray-sdk-go/strategy/ctxmissing"
 	"github.com/aws/aws-xray-sdk-go/strategy/exception"
 	"github.com/aws/aws-xray-sdk-go/strategy/sampling"
-	log "github.com/cihub/seelog"
 )
 
 // SDKVersion records the current X-Ray Go SDK version.
-const SDKVersion = "1.0.0-rc.9"
+const SDKVersion = "1.6.0"
 
 // SDKType records which X-Ray SDK customer uses.
 const SDKType = "X-Ray for Go"
@@ -36,15 +36,25 @@ type SDK struct {
 	RuleName string `json:"sampling_rule_name,omitempty"`
 }
 
+// SetLogger sets the logger instance used by xray.
+// Only set from init() functions as SetLogger is not goroutine safe.
+func SetLogger(l xraylog.Logger) {
+	logger.Logger = l
+}
+
 var globalCfg = newGlobalConfig()
 
 func newGlobalConfig() *globalConfig {
 	ret := &globalConfig{}
 
-	// Set the logging configuration to the defaults
-	ret.logLevel, ret.logFormat = loadLogConfig("", "")
-
-	ret.daemonAddr = daemoncfg.GetDaemonEndpoints().UDPAddr
+	daemonEndpoint, err := daemoncfg.GetDaemonEndpointsFromEnv()
+	if err != nil {
+		panic(err)
+	}
+	if daemonEndpoint == nil {
+		daemonEndpoint = daemoncfg.GetDefaultDaemonEndpoints()
+	}
+	ret.daemonAddr = daemonEndpoint.UDPAddr
 
 	ss, err := sampling.NewCentralizedStrategy()
 	if err != nil {
@@ -70,9 +80,22 @@ func newGlobalConfig() *globalConfig {
 	}
 	ret.emitter = emt
 
-	cm := ctxmissing.NewDefaultRuntimeErrorStrategy()
-
-	ret.contextMissingStrategy = cm
+	cms := os.Getenv("AWS_XRAY_CONTEXT_MISSING")
+	if cms != "" {
+		if cms == ctxmissing.RuntimeErrorStrategy {
+			cm := ctxmissing.NewDefaultRuntimeErrorStrategy()
+			ret.contextMissingStrategy = cm
+		} else if cms == ctxmissing.LogErrorStrategy {
+			cm := ctxmissing.NewDefaultLogErrorStrategy()
+			ret.contextMissingStrategy = cm
+		} else if cms == ctxmissing.IgnoreErrorStrategy {
+			cm := ctxmissing.NewDefaultIgnoreErrorStrategy()
+			ret.contextMissingStrategy = cm
+		}
+	} else {
+		cm := ctxmissing.NewDefaultRuntimeErrorStrategy()
+		ret.contextMissingStrategy = cm
+	}
 
 	return ret
 }
@@ -87,8 +110,6 @@ type globalConfig struct {
 	streamingStrategy           StreamingStrategy
 	exceptionFormattingStrategy exception.FormattingStrategy
 	contextMissingStrategy      ctxmissing.Strategy
-	logLevel                    log.LogLevel
-	logFormat                   string
 }
 
 // Config is a set of X-Ray configurations.
@@ -100,8 +121,12 @@ type Config struct {
 	StreamingStrategy           StreamingStrategy
 	ExceptionFormattingStrategy exception.FormattingStrategy
 	ContextMissingStrategy      ctxmissing.Strategy
-	LogLevel                    string
-	LogFormat                   string
+
+	// LogLevel and LogFormat are deprecated and no longer have any effect.
+	// See SetLogger() and the associated xraylog.Logger interface to control
+	// logging.
+	LogLevel  string
+	LogFormat string
 }
 
 // ContextWithConfig returns context with given configuration settings.
@@ -129,10 +154,11 @@ func ContextWithConfig(ctx context.Context, c Config) (context.Context, error) {
 		} else if cms == ctxmissing.LogErrorStrategy {
 			cm := ctxmissing.NewDefaultLogErrorStrategy()
 			c.ContextMissingStrategy = cm
+		} else if cms == ctxmissing.IgnoreErrorStrategy {
+			cm := ctxmissing.NewDefaultIgnoreErrorStrategy()
+			c.ContextMissingStrategy = cm
 		}
 	}
-
-	loadLogConfig(c.LogLevel, c.LogFormat)
 
 	var err error
 	switch len(errors) {
@@ -197,6 +223,9 @@ func Configure(c Config) error {
 		} else if cms == ctxmissing.LogErrorStrategy {
 			cm := ctxmissing.NewDefaultLogErrorStrategy()
 			globalCfg.contextMissingStrategy = cm
+		} else if cms == ctxmissing.IgnoreErrorStrategy {
+			cm := ctxmissing.NewDefaultIgnoreErrorStrategy()
+			globalCfg.contextMissingStrategy = cm
 		}
 	} else if c.ContextMissingStrategy != nil {
 		globalCfg.contextMissingStrategy = c.ContextMissingStrategy
@@ -206,8 +235,6 @@ func Configure(c Config) error {
 		globalCfg.serviceVersion = c.ServiceVersion
 	}
 
-	globalCfg.logLevel, globalCfg.logFormat = loadLogConfig(c.LogLevel, c.LogFormat)
-
 	switch len(errors) {
 	case 0:
 		return nil
@@ -216,41 +243,6 @@ func Configure(c Config) error {
 	default:
 		return errors
 	}
-}
-
-func loadLogConfig(logLevel string, logFormat string) (log.LogLevel, string) {
-	var level log.LogLevel
-	var format string
-
-	switch logLevel {
-	case "trace":
-		level = log.TraceLvl
-	case "debug":
-		level = log.DebugLvl
-	case "info":
-		level = log.InfoLvl
-	case "warn":
-		level = log.WarnLvl
-	case "error":
-		level = log.ErrorLvl
-	default:
-		level = log.InfoLvl
-		logLevel = "info"
-	}
-
-	if logFormat != "" {
-		format = logFormat
-	} else {
-		format = "%Date(2006-01-02T15:04:05Z07:00) [%Level] %Msg%n"
-	}
-
-	writer, _ := log.NewConsoleWriter()
-	logger, err := log.LoggerFromWriterWithMinLevelAndFormat(writer, level, format)
-	if err != nil {
-		panic(fmt.Errorf("failed to create logs as StdOut: %v", err))
-	}
-	log.ReplaceLogger(logger)
-	return level, format
 }
 
 func (c *globalConfig) DaemonAddr() *net.UDPAddr {
@@ -287,16 +279,4 @@ func (c *globalConfig) ServiceVersion() string {
 	c.RLock()
 	defer c.RUnlock()
 	return c.serviceVersion
-}
-
-func (c *globalConfig) LogLevel() log.LogLevel {
-	c.RLock()
-	defer c.RUnlock()
-	return c.logLevel
-}
-
-func (c *globalConfig) LogFormat() string {
-	c.RLock()
-	defer c.RUnlock()
-	return c.logFormat
 }

@@ -13,16 +13,11 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-xray-sdk-go/strategy/sampling"
-
 	"github.com/aws/aws-xray-sdk-go/header"
-	"github.com/aws/aws-xray-sdk-go/internal/plugins"
 	"github.com/aws/aws-xray-sdk-go/pattern"
-	log "github.com/cihub/seelog"
 )
 
 // SegmentNamer is the interface for naming service node.
@@ -40,9 +35,6 @@ type FixedSegmentNamer struct {
 // If the AWS_XRAY_TRACING_NAME environment variable is set,
 // its value will override the provided name argument.
 func NewFixedSegmentNamer(name string) *FixedSegmentNamer {
-	if fName := os.Getenv("AWS_XRAY_TRACING_NAME"); fName != "" {
-		name = fName
-	}
 	return &FixedSegmentNamer{
 		FixedName: name,
 	}
@@ -67,9 +59,6 @@ type DynamicSegmentNamer struct {
 
 // NewDynamicSegmentNamer creates a new dynamic segment namer.
 func NewDynamicSegmentNamer(fallback string, recognized string) *DynamicSegmentNamer {
-	if dName := os.Getenv("AWS_XRAY_TRACING_NAME"); dName != "" {
-		fallback = dName
-	}
 	return &DynamicSegmentNamer{
 		FallbackName:    fallback,
 		RecognizedHosts: recognized,
@@ -89,13 +78,14 @@ func (dSN *DynamicSegmentNamer) Name(host string) string {
 // specific trace fields. HandlerWithContext names the generated segments
 // using the provided SegmentNamer.
 func HandlerWithContext(ctx context.Context, sn SegmentNamer, h http.Handler) http.Handler {
+	cfg := GetRecorder(ctx)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := sn.Name(r.Host)
 
-		traceHeader := header.FromString(r.Header.Get("x-amzn-trace-id"))
-
-		r = r.WithContext(ctx)
-		c, seg := NewSegmentFromHeader(r.Context(), name, traceHeader)
+		traceHeader := header.FromString(r.Header.Get(TraceIDHeaderKey))
+		ctx := context.WithValue(r.Context(), RecorderContextKey{}, cfg)
+		c, seg := NewSegmentFromHeader(ctx, name, r, traceHeader)
+		defer seg.Close(nil)
 		r = r.WithContext(c)
 
 		httpTrace(seg, h, w, r, traceHeader)
@@ -110,9 +100,9 @@ func Handler(sn SegmentNamer, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := sn.Name(r.Host)
 
-		traceHeader := header.FromString(r.Header.Get("x-amzn-trace-id"))
-		ctx, seg := NewSegmentFromHeader(r.Context(), name, traceHeader)
-
+		traceHeader := header.FromString(r.Header.Get(TraceIDHeaderKey))
+		ctx, seg := NewSegmentFromHeader(r.Context(), name, r, traceHeader)
+		defer seg.Close(nil)
 		r = r.WithContext(ctx)
 
 		httpTrace(seg, h, w, r, traceHeader)
@@ -120,62 +110,18 @@ func Handler(sn SegmentNamer, h http.Handler) http.Handler {
 }
 
 func httpTrace(seg *Segment, h http.Handler, w http.ResponseWriter, r *http.Request, traceHeader *header.Header) {
-	seg.Lock()
+	httpCaptureRequest(seg, r)
+	traceIDHeaderValue := generateTraceIDHeaderValue(seg, traceHeader)
+	w.Header().Set(TraceIDHeaderKey, traceIDHeaderValue)
 
-	scheme := "https://"
-	if r.TLS == nil {
-		scheme = "http://"
-	}
-	seg.GetHTTP().GetRequest().Method = r.Method
-	seg.GetHTTP().GetRequest().URL = scheme + r.Host + r.URL.Path
-	seg.GetHTTP().GetRequest().ClientIP, seg.GetHTTP().GetRequest().XForwardedFor = clientIP(r)
-	seg.GetHTTP().GetRequest().UserAgent = r.UserAgent()
-
-	// Don't use the segment's header here as we only want to
-	// send back the root and possibly sampled values.
-	var respHeader bytes.Buffer
-	respHeader.WriteString("Root=")
-	respHeader.WriteString(seg.TraceID)
-
-	if traceHeader.SamplingDecision != header.Sampled && traceHeader.SamplingDecision != header.NotSampled {
-		samplingRequest := &sampling.Request{
-			Host:        r.Host,
-			Url:         r.URL.Path,
-			Method:      r.Method,
-			ServiceName: seg.Name,
-			ServiceType: plugins.InstancePluginMetadata.Origin,
-		}
-		sd := seg.ParentSegment.GetConfiguration().SamplingStrategy.ShouldTrace(samplingRequest)
-		seg.Sampled = sd.Sample
-		log.Tracef("SamplingStrategy decided: %t", seg.Sampled)
-		seg.AddRuleName(sd)
-	}
-	if traceHeader.SamplingDecision == header.Requested {
-		respHeader.WriteString(";Sampled=")
-		respHeader.WriteString(strconv.Itoa(btoi(seg.Sampled)))
-	}
-
-	w.Header().Set("x-amzn-trace-id", respHeader.String())
-	seg.Unlock()
-
-	resp := &responseCapturer{w, 200, 0}
+	capturer := &responseCapturer{w, 200, 0}
+	resp := capturer.wrappedResponseWriter()
 	h.ServeHTTP(resp, r)
 
 	seg.Lock()
-	seg.GetHTTP().GetResponse().Status = resp.status
-	seg.GetHTTP().GetResponse().ContentLength, _ = strconv.Atoi(resp.Header().Get("Content-Length"))
-
-	if resp.status >= 400 && resp.status < 500 {
-		seg.Error = true
-	}
-	if resp.status == 429 {
-		seg.Throttle = true
-	}
-	if resp.status >= 500 && resp.status < 600 {
-		seg.Fault = true
-	}
+	seg.GetHTTP().GetResponse().ContentLength, _ = strconv.Atoi(capturer.Header().Get("Content-Length"))
 	seg.Unlock()
-	seg.Close(nil)
+	HttpCaptureResponse(seg, capturer.status)
 }
 
 func clientIP(r *http.Request) (string, bool) {
@@ -190,25 +136,60 @@ func clientIP(r *http.Request) (string, bool) {
 	return ip, false
 }
 
-type responseCapturer struct {
-	http.ResponseWriter
-	status int
-	length int
-}
-
-func (w *responseCapturer) WriteHeader(status int) {
-	w.status = status
-	w.ResponseWriter.WriteHeader(status)
-}
-
-func (w *responseCapturer) Write(data []byte) (int, error) {
-	w.length += len(data)
-	return w.ResponseWriter.Write(data)
-}
-
 func btoi(b bool) int {
 	if b {
 		return 1
 	}
 	return 0
+}
+
+// generateTraceIDHeaderValue generates value for _x_amzn_trace_id header key
+func generateTraceIDHeaderValue(seg *Segment, traceHeader *header.Header) string {
+	seg.Lock()
+	defer seg.Unlock()
+
+	var respHeader bytes.Buffer
+	respHeader.WriteString("Root=")
+	respHeader.WriteString(seg.TraceID)
+
+	if traceHeader.SamplingDecision == header.Requested {
+		respHeader.WriteString(";Sampled=")
+		respHeader.WriteString(strconv.Itoa(btoi(seg.Sampled)))
+	}
+
+	return respHeader.String()
+}
+
+// HttpCaptureResponse fill response by http status code
+func HttpCaptureResponse(seg *Segment, statusCode int) {
+	seg.Lock()
+	defer seg.Unlock()
+
+	seg.GetHTTP().GetResponse().Status = statusCode
+
+	if statusCode >= 400 && statusCode < 500 {
+		seg.Error = true
+	}
+	if statusCode == 429 {
+		seg.Throttle = true
+	}
+	if statusCode >= 500 && statusCode < 600 {
+		seg.Fault = true
+	}
+}
+
+// httpCaptureRequest fill request data by http.Request
+func httpCaptureRequest(seg *Segment, r *http.Request) {
+	seg.Lock()
+	defer seg.Unlock()
+
+	scheme := "https://"
+	if r.TLS == nil {
+		scheme = "http://"
+	}
+
+	seg.GetHTTP().GetRequest().Method = r.Method
+	seg.GetHTTP().GetRequest().URL = scheme + r.Host + r.URL.Path
+	seg.GetHTTP().GetRequest().ClientIP, seg.GetHTTP().GetRequest().XForwardedFor = clientIP(r)
+	seg.GetHTTP().GetRequest().UserAgent = r.UserAgent()
 }

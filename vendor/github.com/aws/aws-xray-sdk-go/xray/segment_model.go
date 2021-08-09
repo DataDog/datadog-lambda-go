@@ -19,10 +19,10 @@ import (
 
 // Segment provides the resource's name, details about the request, and details about the work done.
 type Segment struct {
-	sync.Mutex
+	sync.RWMutex
 	parent           *Segment
 	openSegments     int
-	totalSubSegments int
+	totalSubSegments uint32
 	Sampled          bool           `json:"-"`
 	RequestWasTraced bool           `json:"-"` // Used by xray.RequestWasTraced
 	ContextDone      bool           `json:"-"`
@@ -73,6 +73,9 @@ type Segment struct {
 
 	// Lambda
 	Facade bool `json:"-"`
+
+	// Dummy Segment flag
+	Dummy bool
 }
 
 // CauseData provides the shape for unmarshalling data that records exception.
@@ -106,9 +109,9 @@ type ResponseData struct {
 
 // ServiceData provides the shape for unmarshalling service version.
 type ServiceData struct {
-	Version         string `json:"version,omitempty"`
-	CompilerVersion string `json:"compiler_version,omitempty"`
-	Compiler        string `json:"compiler,omitempty"`
+	Version        string `json:"version,omitempty"`
+	RuntimeVersion string `json:"runtime_version,omitempty"`
+	Runtime        string `json:"runtime,omitempty"`
 }
 
 // SQLData provides the shape for unmarshalling sql data.
@@ -125,11 +128,15 @@ type SQLData struct {
 
 // DownstreamHeader returns a header for passing to downstream calls.
 func (s *Segment) DownstreamHeader() *header.Header {
-	r := s.ParentSegment.IncomingHeader
-	if r == nil {
-		r = &header.Header{
-			TraceID: s.ParentSegment.TraceID,
-		}
+	r := &header.Header{}
+
+	// If SDK is disabled then return with an empty header
+	if SdkDisabled() {
+		return r
+	}
+
+	if parent := s.ParentSegment.IncomingHeader; parent != nil {
+		*r = *parent // copy parent incoming header
 	}
 	if r.TraceID == "" {
 		r.TraceID = s.ParentSegment.TraceID

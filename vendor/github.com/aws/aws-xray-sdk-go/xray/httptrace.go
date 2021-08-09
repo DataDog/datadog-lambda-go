@@ -19,6 +19,11 @@ import (
 )
 
 // HTTPSubsegments is a set of context in different HTTP operation.
+// Note: from ClientTrace godoc
+//               Functions may be called concurrently from different goroutines
+//
+// HTTPSubsegments must operate as though all functions on it can be called in
+// different goroutines and must protect against races
 type HTTPSubsegments struct {
 	opCtx       context.Context
 	connCtx     context.Context
@@ -39,7 +44,9 @@ func NewHTTPSubsegments(opCtx context.Context) *HTTPSubsegments {
 // GetConn begins a connect subsegment if the HTTP operation
 // subsegment is still in progress.
 func (xt *HTTPSubsegments) GetConn(hostPort string) {
-	if GetSegment(xt.opCtx).InProgress {
+	xt.mu.Lock()
+	defer xt.mu.Unlock()
+	if GetSegment(xt.opCtx).safeInProgress() {
 		xt.connCtx, _ = BeginSubsegment(xt.opCtx, "connect")
 	}
 }
@@ -47,7 +54,9 @@ func (xt *HTTPSubsegments) GetConn(hostPort string) {
 // DNSStart begins a dns subsegment if the HTTP operation
 // subsegment is still in progress.
 func (xt *HTTPSubsegments) DNSStart(info httptrace.DNSStartInfo) {
-	if GetSegment(xt.opCtx).safeInProgress() {
+	xt.mu.Lock()
+	defer xt.mu.Unlock()
+	if GetSegment(xt.opCtx).safeInProgress() && xt.connCtx != nil {
 		xt.dnsCtx, _ = BeginSubsegment(xt.connCtx, "dns")
 	}
 }
@@ -58,6 +67,8 @@ func (xt *HTTPSubsegments) DNSStart(info httptrace.DNSStartInfo) {
 // and whether or not the call was coalesced is added as
 // metadata to the dns subsegment.
 func (xt *HTTPSubsegments) DNSDone(info httptrace.DNSDoneInfo) {
+	xt.mu.Lock()
+	defer xt.mu.Unlock()
 	if xt.dnsCtx != nil && GetSegment(xt.opCtx).safeInProgress() {
 		metadata := make(map[string]interface{})
 		metadata["addresses"] = info.Addrs
@@ -71,7 +82,9 @@ func (xt *HTTPSubsegments) DNSDone(info httptrace.DNSDoneInfo) {
 // ConnectStart begins a dial subsegment if the HTTP operation
 // subsegment is still in progress.
 func (xt *HTTPSubsegments) ConnectStart(network, addr string) {
-	if GetSegment(xt.opCtx).safeInProgress() {
+	xt.mu.Lock()
+	defer xt.mu.Unlock()
+	if GetSegment(xt.opCtx).safeInProgress() && xt.connCtx != nil {
 		xt.connectCtx, _ = BeginSubsegment(xt.connCtx, "dial")
 	}
 }
@@ -81,6 +94,8 @@ func (xt *HTTPSubsegments) ConnectStart(network, addr string) {
 // (if any). Information about the network over which the dial
 // was made is added as metadata to the subsegment.
 func (xt *HTTPSubsegments) ConnectDone(network, addr string, err error) {
+	xt.mu.Lock()
+	defer xt.mu.Unlock()
 	if xt.connectCtx != nil && GetSegment(xt.opCtx).safeInProgress() {
 		metadata := make(map[string]interface{})
 		metadata["network"] = network
@@ -93,7 +108,9 @@ func (xt *HTTPSubsegments) ConnectDone(network, addr string, err error) {
 // TLSHandshakeStart begins a tls subsegment if the HTTP operation
 // subsegment is still in progress.
 func (xt *HTTPSubsegments) TLSHandshakeStart() {
-	if GetSegment(xt.opCtx).safeInProgress() {
+	xt.mu.Lock()
+	defer xt.mu.Unlock()
+	if GetSegment(xt.opCtx).safeInProgress() && xt.connCtx != nil {
 		xt.tlsCtx, _ = BeginSubsegment(xt.connCtx, "tls")
 	}
 }
@@ -103,6 +120,8 @@ func (xt *HTTPSubsegments) TLSHandshakeStart() {
 // error value(if any). Information about the tls connection
 // is added as metadata to the subsegment.
 func (xt *HTTPSubsegments) TLSHandshakeDone(connState tls.ConnectionState, err error) {
+	xt.mu.Lock()
+	defer xt.mu.Unlock()
 	if xt.tlsCtx != nil && GetSegment(xt.opCtx).safeInProgress() {
 		metadata := make(map[string]interface{})
 		metadata["did_resume"] = connState.DidResume
@@ -121,10 +140,14 @@ func (xt *HTTPSubsegments) TLSHandshakeDone(connState tls.ConnectionState, err e
 // metadata to the subsegment. If the connection is marked as reused,
 // the connect subsegment is deleted.
 func (xt *HTTPSubsegments) GotConn(info *httptrace.GotConnInfo, err error) {
-	if xt.connCtx != nil && GetSegment(xt.opCtx).InProgress { // GetConn may not have been called (client_test.TestBadRoundTrip)
+	xt.mu.Lock()
+	defer xt.mu.Unlock()
+	if xt.connCtx != nil && GetSegment(xt.opCtx).safeInProgress() { // GetConn may not have been called (client_test.TestBadRoundTrip)
 		if info != nil {
 			if info.Reused {
 				GetSegment(xt.opCtx).RemoveSubsegment(GetSegment(xt.connCtx))
+				// Remove the connCtx context since it is no longer needed.
+				xt.connCtx = nil
 			} else {
 				metadata := make(map[string]interface{})
 				metadata["reused"] = info.Reused
@@ -136,6 +159,8 @@ func (xt *HTTPSubsegments) GotConn(info *httptrace.GotConnInfo, err error) {
 				AddMetadataToNamespace(xt.connCtx, "http", "connection", metadata)
 				GetSegment(xt.connCtx).Close(err)
 			}
+		} else if xt.connCtx != nil && GetSegment(xt.connCtx).safeInProgress() {
+			GetSegment(xt.connCtx).Close(err)
 		}
 
 		if err == nil {
@@ -149,12 +174,20 @@ func (xt *HTTPSubsegments) GotConn(info *httptrace.GotConnInfo, err error) {
 // subsegment is still in progress, passing the error value
 // (if any). The response subsegment is then begun.
 func (xt *HTTPSubsegments) WroteRequest(info httptrace.WroteRequestInfo) {
-	if xt.reqCtx != nil && GetSegment(xt.opCtx).InProgress {
+	xt.mu.Lock()
+	defer xt.mu.Unlock()
+	if xt.reqCtx != nil && GetSegment(xt.opCtx).safeInProgress() {
 		GetSegment(xt.reqCtx).Close(info.Err)
 		resCtx, _ := BeginSubsegment(xt.opCtx, "response")
-		xt.mu.Lock()
 		xt.responseCtx = resCtx
-		xt.mu.Unlock()
+	}
+
+	// In case the GotConn http trace handler wasn't called,
+	// we close the connection subsegment since a connection
+	// had to have been acquired before attempting to write
+	// the request.
+	if xt.connCtx != nil && GetSegment(xt.connCtx).safeInProgress() {
+		GetSegment(xt.connCtx).Close(nil)
 	}
 }
 
@@ -162,9 +195,9 @@ func (xt *HTTPSubsegments) WroteRequest(info httptrace.WroteRequestInfo) {
 // operation subsegment is still in progress.
 func (xt *HTTPSubsegments) GotFirstResponseByte() {
 	xt.mu.Lock()
+	defer xt.mu.Unlock()
 	resCtx := xt.responseCtx
-	xt.mu.Unlock()
-	if resCtx != nil && GetSegment(xt.opCtx).InProgress {
+	if resCtx != nil && GetSegment(xt.opCtx).safeInProgress() {
 		GetSegment(resCtx).Close(nil)
 	}
 }

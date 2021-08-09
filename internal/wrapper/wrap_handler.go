@@ -13,9 +13,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
-
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/aws/aws-lambda-go/lambda"
+
+	"reflect"
 )
 
 var (
@@ -28,6 +29,12 @@ type (
 	HandlerListener interface {
 		HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context
 		HandlerFinished(ctx context.Context)
+	}
+
+	DatadogHandler struct {
+		coldStart bool
+		handler   lambda.Handler
+		listeners []HandlerListener
 	}
 )
 
@@ -58,6 +65,38 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 		coldStart = false
 		CurrentContext = nil
 		return result, err
+	}
+}
+
+func (h *DatadogHandler) Invoke(ctx context.Context, payload []byte) ([]byte, error) {
+	ctx = context.WithValue(ctx, "cold_start", h.coldStart)
+	msg := json.RawMessage{}
+	err := msg.UnmarshalJSON(payload)
+	if err != nil {
+		logger.Error(fmt.Errorf("couldn't load handler payload: %v", err))
+	}
+
+	CurrentContext = ctx
+	for _, listener := range h.listeners {
+		ctx = listener.HandlerStarted(ctx, msg)
+	}
+	result, err := h.handler.Invoke(ctx, payload)
+	if err != nil {
+		ctx = context.WithValue(ctx, "error", true)
+	}
+	for _, listener := range h.listeners {
+		listener.HandlerFinished(ctx)
+	}
+	h.coldStart = false
+	CurrentContext = nil
+	return result, err
+}
+
+func WrapHandlerInterfaceWithListeners(handler lambda.Handler, listeners ...HandlerListener) lambda.Handler {
+	return &DatadogHandler{
+		coldStart: true,
+		handler:   handler,
+		listeners: listeners,
 	}
 }
 

@@ -447,6 +447,24 @@
           }
         }
       }
+    },
+    "sns": {
+      "operations": {
+        "Publish": {
+          "request_parameters": [
+            "TopicArn"
+          ]
+        }
+      }
+    },
+    "runtime.sagemaker": {
+      "operations": {
+        "InvokeEndpoint": {
+          "request_parameters": [
+            "EndpointName"
+          ]
+        }
+      }
     }
   }
 }
