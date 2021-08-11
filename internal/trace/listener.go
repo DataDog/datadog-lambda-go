@@ -116,6 +116,7 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 		tracer.Tag("function_version", functionVersion),
 		tracer.Tag("request_id", lambdaCtx.AwsRequestID),
 		tracer.Tag("resource_names", lambdacontext.FunctionName),
+		tracer.Tag("functionname", strings.ToLower(lambdacontext.FunctionName)),
 		tracer.Tag("datadog_lambda", version.DDLambdaVersion),
 		tracer.Tag("dd_trace", version.DDTraceVersion),
 	)
