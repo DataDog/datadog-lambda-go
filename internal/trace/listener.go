@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/version"
 	"github.com/aws/aws-lambda-go/lambdacontext"
@@ -26,6 +27,7 @@ type (
 	Listener struct {
 		ddTraceEnabled        bool
 		mergeXrayTraces       bool
+		extensionManager      *extension.ExtensionManager
 		traceContextExtractor ContextExtractor
 	}
 
@@ -43,11 +45,12 @@ var functionExecutionSpan ddtrace.Span
 var tracerInitialized = false
 
 // MakeListener initializes a new trace lambda Listener
-func MakeListener(config Config) Listener {
+func MakeListener(config Config, extensionManager *extension.ExtensionManager) Listener {
 
 	return Listener{
 		ddTraceEnabled:        config.DDTraceEnabled,
 		mergeXrayTraces:       config.MergeXrayTraces,
+		extensionManager:      extensionManager,
 		traceContextExtractor: config.TraceContextExtractor,
 	}
 }
@@ -63,7 +66,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	if !tracerInitialized {
 		tracer.Start(
 			tracer.WithService("aws.lambda"),
-			tracer.WithLambdaMode(true),
+			tracer.WithLambdaMode(!l.extensionManager.IsExtensionRunning()),
 			tracer.WithGlobalTag("_dd.origin", "lambda"),
 		)
 		tracerInitialized = true
