@@ -148,7 +148,7 @@ func getDatadogTraceContextFromEvent(ctx context.Context, ev json.RawMessage) (T
 
 	samplingPriority, ok := lowercaseHeaders[samplingPriorityHeader]
 	if !ok {
-		return traceCtx, false
+		samplingPriority = "1" //sampler-keep
 	}
 
 	traceCtx[samplingPriorityHeader] = samplingPriority
