@@ -29,21 +29,25 @@ type (
 		Headers map[string]string `json:"headers"`
 	}
 
-	// TraceContext is map of headers containing a Datadog trace context
+	// TraceContext is map of headers containing a Datadog trace context.
 	TraceContext map[string]string
+
+	// ContextExtractor is a func type for extracting a root TraceContext.
+	ContextExtractor func(ctx context.Context, ev json.RawMessage) map[string]string
 )
 
 type contextKeytype int
 
-// traceContextKey is the key used to store a TraceContext in a Context object
+// traceContextKey is the key used to store a TraceContext in a TraceContext object
 var traceContextKey = new(contextKeytype)
 
-var datadogTraceContextFromEvent TraceContext
+// DefaultTraceExtractor is the default trace extractor. Extracts root trace from API Gateway headers.
+var DefaultTraceExtractor = getHeadersFromEventHeaders
 
 // contextWithRootTraceContext uses the incoming event and context object payloads to determine
 // the root TraceContext and then adds that TraceContext to the context object.
-func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeXrayTraces bool) (context.Context, error) {
-	datadogTraceContext, gotDatadogTraceContext := getDatadogTraceContextFromEvent(ctx, ev)
+func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeXrayTraces bool, extractor ContextExtractor) (context.Context, error) {
+	datadogTraceContext, gotDatadogTraceContext := getTraceContext(extractor(ctx, ev))
 
 	xrayTraceContext, errGettingXrayContext := convertXrayTraceContextFromLambdaContext(ctx)
 	if errGettingXrayContext != nil {
@@ -119,16 +123,42 @@ func createDummySubsegmentForXrayConverter(ctx context.Context, traceCtx TraceCo
 	return nil
 }
 
-// getDatadogTraceContextFromEvent extracts the Datadog trace context from an incoming Lambda event payload
-// and creates a dummy X-Ray subsegment containing this information
-func getDatadogTraceContextFromEvent(ctx context.Context, ev json.RawMessage) (TraceContext, bool) {
+func getTraceContext(context map[string]string) (TraceContext, bool) {
+	tc := TraceContext{}
+
+	traceID, ok := context[traceIDHeader]
+	if !ok {
+		return tc, false
+	}
+
+	parentID, ok := context[parentIDHeader]
+	if !ok {
+		return tc, false
+	}
+
+	samplingPriority, ok := context[samplingPriorityHeader]
+	if !ok {
+		samplingPriority = "1" //sampler-keep
+	}
+
+	tc[samplingPriorityHeader] = samplingPriority
+	tc[traceIDHeader] = traceID
+	tc[parentIDHeader] = parentID
+
+	return tc, true
+}
+
+// getHeadersFromEventHeaders extracts the Datadog trace context from an incoming Lambda event payload
+// and creates a dummy X-Ray subsegment containing this information.
+// This is used as the DefaultTraceExtractor.
+func getHeadersFromEventHeaders(ctx context.Context, ev json.RawMessage) map[string]string {
 	eh := eventWithHeaders{}
 
-	traceCtx := map[string]string{}
+	headers := map[string]string{}
 
 	err := json.Unmarshal(ev, &eh)
 	if err != nil {
-		return traceCtx, false
+		return headers
 	}
 
 	lowercaseHeaders := map[string]string{}
@@ -136,26 +166,7 @@ func getDatadogTraceContextFromEvent(ctx context.Context, ev json.RawMessage) (T
 		lowercaseHeaders[strings.ToLower(k)] = v
 	}
 
-	traceID, ok := lowercaseHeaders[traceIDHeader]
-	if !ok {
-		return traceCtx, false
-	}
-
-	parentID, ok := lowercaseHeaders[parentIDHeader]
-	if !ok {
-		return traceCtx, false
-	}
-
-	samplingPriority, ok := lowercaseHeaders[samplingPriorityHeader]
-	if !ok {
-		samplingPriority = "1" //sampler-keep
-	}
-
-	traceCtx[samplingPriorityHeader] = samplingPriority
-	traceCtx[traceIDHeader] = traceID
-	traceCtx[parentIDHeader] = parentID
-
-	return traceCtx, true
+	return lowercaseHeaders
 }
 
 func convertXrayTraceContextFromLambdaContext(ctx context.Context) (TraceContext, error) {

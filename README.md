@@ -59,6 +59,25 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 
 If you are also using AWS X-Ray to trace your Lambda functions, you can set the `DD_MERGE_XRAY_TRACES` environment variable to `true`, and Datadog will merge your Datadog and X-Ray traces into a single, unified trace.
 
+### Trace Context Extraction
+
+To link your distributed traces, datadog-lambda-go looks for the `x-datadog-trace-id`, `x-datadog-parent-id` and `x-datadog-sampling-priority` trace `headers` in the Lambda event payload.
+If the headers are found it will set the parent trace to the trace context extracted from the headers.
+
+It is possible to configure your own trace context extractor function if the default extractor does not support your event.
+
+```go
+myExtractorFunc := func(ctx context.Context, ev json.RawMessage) map[string]string {
+    // extract x-datadog-trace-id, x-datadog-parent-id and x-datadog-sampling-priority.
+}
+
+cfg := &ddlambda.Config{
+    TraceContextExtractor: myExtractorFunc,
+}
+ddlambda.WrapFunction(handler, cfg)
+```
+
+A more complete example can be found in the `ddlambda_example_test.go` file.
 
 ## Environment Variables
 
