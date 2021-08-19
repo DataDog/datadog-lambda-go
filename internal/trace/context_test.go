@@ -84,6 +84,21 @@ func TestGetDatadogTraceContextForTraceMetadataWithMixedCaseHeaders(t *testing.T
 	assert.Equal(t, expected, headers)
 }
 
+func TestGetDatadogTraceContextForTraceMetadataWithMissingSamplingPriority(t *testing.T) {
+	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
+	ev := loadRawJSON(t, "../testdata/non-proxy-with-missing-sampling-priority.json")
+
+	headers, ok := getDatadogTraceContextFromEvent(ctx, *ev)
+	assert.True(t, ok)
+
+	expected := TraceContext{
+		traceIDHeader:          "1231452342",
+		parentIDHeader:         "45678910",
+		samplingPriorityHeader: "1",
+	}
+	assert.Equal(t, expected, headers)
+}
+
 func TestGetDatadogTraceContextForInvalidData(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/invalid.json")

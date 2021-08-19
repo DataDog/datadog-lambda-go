@@ -138,7 +138,7 @@ func getTraceContext(context map[string]string) (TraceContext, bool) {
 
 	samplingPriority, ok := context[samplingPriorityHeader]
 	if !ok {
-		return tc, false
+		samplingPriority = "1" //sampler-keep
 	}
 
 	tc[samplingPriorityHeader] = samplingPriority
