@@ -88,7 +88,7 @@ func TestGetDatadogTraceContextForTraceMetadataWithMissingSamplingPriority(t *te
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/non-proxy-with-missing-sampling-priority.json")
 
-	headers, ok := getDatadogTraceContextFromEvent(ctx, *ev)
+	headers, ok := getTraceContext(getHeadersFromEventHeaders(ctx, *ev))
 	assert.True(t, ok)
 
 	expected := TraceContext{
