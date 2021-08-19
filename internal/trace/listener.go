@@ -93,7 +93,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) tracer.Span {
 	// Extract information from context
 	lambdaCtx, _ := lambdacontext.FromContext(ctx)
-	rootTraceContext, ok := ctx.Value(traceContextKey).(Context)
+	rootTraceContext, ok := ctx.Value(traceContextKey).(TraceContext)
 	if !ok {
 		logger.Error(fmt.Errorf("Error extracting trace context from context object"))
 	}
