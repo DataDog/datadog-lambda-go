@@ -86,6 +86,7 @@ func TestStartFunctionExecutionSpanFromXrayWithMergeEnabled(t *testing.T) {
 	assert.Equal(t, "abcdefgh-1234-5678-1234-abcdefghijkl", finishedSpan.Tag("request_id"))
 	assert.Equal(t, "MockFunctionName", finishedSpan.Tag("resource.name"))
 	assert.Equal(t, "MockFunctionName", finishedSpan.Tag("resource_names"))
+	assert.Equal(t, "mockfunctionname", finishedSpan.Tag("functionname"))
 	assert.Equal(t, "serverless", finishedSpan.Tag("span.type"))
 	assert.Equal(t, "xray", finishedSpan.Tag("_dd.parent_source"))
 }
