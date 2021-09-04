@@ -28,7 +28,7 @@ Check out the instructions for [submitting custom metrics from AWS Lambda functi
 
 Set the `DD_TRACE_ENABLED` environment variable to `true` to enable Datadog tracing. When Datadog tracing is enabled, the library will inject a span representing the Lambda's execution into the context object. You can then use the included `dd-trace-go` package to create additional spans from the context or pass the context to other services. For more information, see the [dd-trace-go documentation](https://godoc.org/gopkg.in/DataDog/dd-trace-go.v1/ddtrace).
 
-```
+```go
 import (
   "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
   httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
@@ -50,7 +50,7 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 
 You can also use the injected span to [connect your logs and traces](https://docs.datadoghq.com/tracing/connect_logs_and_traces/go/).
 
-```
+```go
 func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
   currentSpan, _ := tracer.SpanFromContext(ctx)
   log.Printf("my log message %v", currentSpan)
