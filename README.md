@@ -1,185 +1,109 @@
 # datadog-lambda-go
 
-[![CircleCI](https://img.shields.io/circleci/build/github/DataDog/datadog-lambda-go)](https://circleci.com/gh/DataDog/datadog-lambda-go)
+![build](https://github.com/DataDog/datadog-lambda-go/workflows/build/badge.svg)
 [![Code Coverage](https://img.shields.io/codecov/c/github/DataDog/datadog-lambda-go)](https://codecov.io/gh/DataDog/datadog-lambda-go)
 [![Slack](https://img.shields.io/badge/slack-%23serverless-blueviolet?logo=slack)](https://datadoghq.slack.com/channels/serverless/)
 [![Godoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/DataDog/datadog-lambda-go)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/DataDog/datadog-lambda-go/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/DataDog/datadog-lambda-go/blob/main/LICENSE)
 
-Datadog's Lambda Go client library enables distributed tracing between serverful and serverless environments.
+Datadog Lambda Library for Go enables enhanced Lambda metrics, distributed tracing, and custom metric submission from AWS Lambda functions.  
 
 ## Installation
 
-```bash
-go get github.com/DataDog/datadog-lambda-go
-```
+Follow the installation instructions [here](https://docs.datadoghq.com/serverless/installation/go/).
 
-You can set the following environment variables via the AWS CLI or Serverless Framework
+## Enhanced Metrics
 
-### DD_API_KEY
+Once [installed](#installation), you should be able to view enhanced metrics for your Lambda function in Datadog.
 
-Your datadog API key
-
-### DD_SITE
-
-Which Datadog site to use. Set this to `datadoghq.eu` to send your data to the Datadog EU site.
-
-### DD_LOG_LEVEL
-
-How much logging datadog-lambda-go should do. Set this to "debug" for extensive logs.
-
-### DD_FLUSH_TO_LOG
-
-If your Lambda function powers a performance-critical task (e.g., a consumer-facing API). You can avoid the added latencies of metric-submitting API calls, by setting this value to true. Custom metrics will be submitted asynchronously through CloudWatch Logs and the Datadog log forwarder.
-
-### DD_ENHANCED_METRICS
-
-The Lambda layer will increment a Lambda integration metric called `aws.lambda.enhanced.invocations` with each invocation and `aws.lambda.enhanced.errors` if the invocation results in an error. These metrics are tagged with the function name, region, account, runtime, memorysize, and `cold_start:true|false`. This is enabled by default.
-
-## Usage
-
-Datadog needs to be able to read headers from the incoming Lambda event. Wrap your Lambda handler function like so:
-
-```go
-package main
-
-import (
-  "github.com/aws/aws-lambda-go/lambda"
-  "github.com/DataDog/datadog-lambda-go"
-)
-
-func main() {
-  // Wrap your lambda handler like this
-  lambda.Start(ddlambda.WrapHandler(myHandler, nil))
-  /* OR with manual configuration options
-  lambda.Start(ddlambda.WrapHandler(myHandler, &ddlambda.Config{
-    BatchInterval: time.Second * 15
-    APIKey: "my-api-key",
-  }))
-  */
-}
-
-func myHandler(ctx context.Context, event MyEvent) (string, error) {
-  // ...
-}
-```
+Check out the official documentation on [Datadog Lambda enhanced metrics](https://docs.datadoghq.com/integrations/amazon_lambda/?tab=go#real-time-enhanced-lambda-metrics).
 
 ## Custom Metrics
 
-Custom metrics can be submitted using the `Metric` function. The metrics are submitted as [distribution metrics](https://docs.datadoghq.com/graphing/metrics/distributions/).
+Once [installed](#installation), you should be able to submit custom metrics from your Lambda function.
 
-**IMPORTANT NOTE:** If you have already been submitting the same custom metric as non-distribution metric (e.g., gauge, count, or histogram) without using the datadog-lambda-go lib, you MUST pick a new metric name to use for `ddlambda.Metric`. Otherwise that existing metric will be converted to a distribution metric and the historical data prior to the conversion will be no longer queryable.
+Check out the instructions for [submitting custom metrics from AWS Lambda functions](https://docs.datadoghq.com/integrations/amazon_lambda/?tab=go#custom-metrics).
 
-```go
-ddlambda.Metric(
-  "coffee_house.order_value", // Metric name
-  12.45, // The value
-  "product:latte", "order:online" // Associated tags
+## Tracing
+
+Set the `DD_TRACE_ENABLED` environment variable to `true` to enable Datadog tracing. When Datadog tracing is enabled, the library will inject a span representing the Lambda's execution into the context object. You can then use the included `dd-trace-go` package to create additional spans from the context or pass the context to other services. For more information, see the [dd-trace-go documentation](https://godoc.org/gopkg.in/DataDog/dd-trace-go.v1/ddtrace).
+
+```
+import (
+  "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+  httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 )
-```
 
-### VPC
-
-If your Lambda function is associated with a VPC, you need to ensure it has access to the [public internet](https://aws.amazon.com/premiumsupport/knowledge-center/internet-access-lambda-function/).
-
-## Distributed Tracing
-
-[Distributed tracing](https://docs.datadoghq.com/tracing/guide/distributed_tracing/?tab=python) allows you to propagate a trace context from a service running on a host to a service running on AWS Lambda, and vice versa, so you can see performance end-to-end. Linking is implemented by injecting Datadog trace context into the HTTP request headers.
-
-Distributed tracing headers are language agnostic, e.g., a trace can be propagated between a Java service running on a host to a Lambda function written in Go.
-
-Because the trace context is propagated through HTTP request headers, the Lambda function needs to be triggered by AWS API Gateway or AWS Application Load Balancer.
-
-To enable this feature, make sure any outbound requests have Datadog's tracing headers.
-
-```go
-  req, err := http.NewRequest("GET", "http://example.com/status")
-  // Use the same Context object given to your lambda handler.
-  // If you don't want to pass the context through your call hierarchy, you can use ddlambda.GetContext()
-  ddlambda.AddTraceHeaders(ctx, req)
-
+func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+  // Trace an HTTP request
+  req, _ := http.NewRequestWithContext(ctx, "GET", "https://www.datadoghq.com", nil)
   client := http.Client{}
+  client = *httptrace.WrapClient(&client)
   client.Do(req)
+
+  // Create a custom span
+  s, _ := tracer.StartSpanFromContext(ctx, "child.span")
+  time.Sleep(100 * time.Millisecond)
+  s.Finish()
 }
 ```
 
-## Sampling
+You can also use the injected span to [connect your logs and traces](https://docs.datadoghq.com/tracing/connect_logs_and_traces/go/).
 
-The traces for your Lambda function are converted by Datadog from AWS X-Ray traces. X-Ray needs to sample the traces that the Datadog tracing agent decides to sample, in order to collect as many complete traces as possible. You can create X-Ray sampling rules to ensure requests with header `x-datadog-sampling-priority:1` or `x-datadog-sampling-priority:2` via API Gateway always get sampled by X-Ray.
-
-These rules can be created using the following AWS CLI command.
-
-```bash
-aws xray create-sampling-rule --cli-input-json file://datadog-sampling-priority-1.json
-aws xray create-sampling-rule --cli-input-json file://datadog-sampling-priority-2.json
 ```
-
-The file content for `datadog-sampling-priority-1.json`:
-
-```json
-{
-  "SamplingRule": {
-    "RuleName": "Datadog-Sampling-Priority-1",
-    "ResourceARN": "*",
-    "Priority": 9998,
-    "FixedRate": 1,
-    "ReservoirSize": 100,
-    "ServiceName": "*",
-    "ServiceType": "AWS::APIGateway::Stage",
-    "Host": "*",
-    "HTTPMethod": "*",
-    "URLPath": "*",
-    "Version": 1,
-    "Attributes": {
-      "x-datadog-sampling-priority": "1"
-    }
-  }
+func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+  currentSpan, _ := tracer.SpanFromContext(ctx)
+  log.Printf("my log message %v", currentSpan)
 }
 ```
 
-The file content for `datadog-sampling-priority-2.json`:
+If you are also using AWS X-Ray to trace your Lambda functions, you can set the `DD_MERGE_XRAY_TRACES` environment variable to `true`, and Datadog will merge your Datadog and X-Ray traces into a single, unified trace.
 
-```json
-{
-  "SamplingRule": {
-    "RuleName": "Datadog-Sampling-Priority-2",
-    "ResourceARN": "*",
-    "Priority": 9999,
-    "FixedRate": 1,
-    "ReservoirSize": 100,
-    "ServiceName": "*",
-    "ServiceType": "AWS::APIGateway::Stage",
-    "Host": "*",
-    "HTTPMethod": "*",
-    "URLPath": "*",
-    "Version": 1,
-    "Attributes": {
-      "x-datadog-sampling-priority": "2"
-    }
-  }
-}
-```
 
-## Non-proxy integration
+## Environment Variables
 
-If your Lambda function is triggered by API Gateway via the non-proxy integration, then you have to set up a mapping template, which passes the Datadog trace context from the incoming HTTP request headers to the Lambda function via the event object.
+### DD_FLUSH_TO_LOG
 
-If your Lambda function is deployed by the Serverless Framework, such a mapping template gets created by default.
+Set to `true` (recommended) to send custom metrics asynchronously (with no added latency to your Lambda function executions) through CloudWatch Logs with the help of [Datadog Forwarder](https://github.com/DataDog/datadog-serverless-functions/tree/master/aws/logs_monitoring). Defaults to `false`. If set to `false`, you also need to set `DD_API_KEY` and `DD_SITE`.
+
+### DD_API_KEY
+
+If `DD_FLUSH_TO_LOG` is set to `false` (not recommended), the Datadog API Key must be defined.
+
+### DD_SITE
+
+If `DD_FLUSH_TO_LOG` is set to `false` (not recommended), and your data need to be sent to the Datadog EU site, you must set `DD_SITE` to `datadoghq.eu`. Defaults to `datadoghq.com`.
+
+### DD_LOG_LEVEL
+
+Set to `debug` enable debug logs from the Datadog Lambda Library. Defaults to `info`.
+
+### DD_ENHANCED_METRICS
+
+Generate enhanced Datadog Lambda integration metrics, such as, `aws.lambda.enhanced.invocations` and `aws.lambda.enhanced.errors`. Defaults to `true`.
+
+### DD_TRACE_ENABLED
+
+Initialize the Datadog tracer when set to `true`. Defaults to `false`.
+
+### DD_MERGE_XRAY_TRACES
+
+If you are using both X-Ray and Datadog tracing, set this to `true` to merge the X-Ray and Datadog traces. Defaults to `false`.
 
 ## Opening Issues
 
 If you encounter a bug with this package, we want to hear about it. Before opening a new issue, search the existing issues to avoid duplicates.
 
-When opening an issue, include the Datadog Lambda Layer version, Python version, and stack trace if available. In addition, include the steps to reproduce when appropriate.
+When opening an issue, include the datadog-lambda-go version, `go version`, and stack trace if available. In addition, include the steps to reproduce when appropriate.
 
 You can also open an issue for a feature request.
 
 ## Contributing
 
-If you find an issue with this package and have a fix, please feel free to open a pull request following the [procedures](https://github.com/DataDog/dd-lambda-go/blob/master/CONTRIBUTING.md).
+If you find an issue with this package and have a fix, please feel free to open a pull request following the [procedures](https://github.com/DataDog/dd-lambda-go/blob/main/CONTRIBUTING.md).
 
 ## License
 
 Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
 
-This product includes software developed at Datadog (https://www.datadoghq.com/). Copyright 2019 Datadog, Inc.
+This product includes software developed at Datadog (https://www.datadoghq.com/). Copyright 2020 Datadog, Inc.

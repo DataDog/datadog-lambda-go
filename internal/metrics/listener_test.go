@@ -100,11 +100,25 @@ func TestGetEnhancedMetricsTags(t *testing.T) {
 	lambdacontext.MemoryLimitInMB = 256
 	lambdacontext.FunctionName = "go-lambda-test"
 	lc := &lambdacontext.LambdaContext{
-		InvokedFunctionArn: "arn:aws:lambda:us-east-1:123497558138:function:go-lambda-test",
+		InvokedFunctionArn: "arn:aws:lambda:us-east-1:123497558138:function:go-lambda-test:$Latest",
 	}
 	tags := getEnhancedMetricsTags(lambdacontext.NewContext(ctx, lc))
 
-	assert.ElementsMatch(t, tags, []string{"functionname:go-lambda-test", "region:us-east-1", "memorysize:256", "cold_start:false", "account_id:123497558138"})
+	assert.ElementsMatch(t, tags, []string{"functionname:go-lambda-test", "region:us-east-1", "memorysize:256", "cold_start:false", "account_id:123497558138", "resource:go-lambda-test:Latest", "datadog_lambda:" + datadogLambdaVersion})
+}
+
+func TestGetEnhancedMetricsTagsWithAlias(t *testing.T) {
+	ctx := context.WithValue(context.Background(), "cold_start", false)
+
+	lambdacontext.MemoryLimitInMB = 256
+	lambdacontext.FunctionName = "go-lambda-test"
+	lambdacontext.FunctionVersion = "1"
+	lc := &lambdacontext.LambdaContext{
+		InvokedFunctionArn: "arn:aws:lambda:us-east-1:123497558138:function:go-lambda-test:my-alias",
+	}
+
+	tags := getEnhancedMetricsTags((lambdacontext.NewContext(ctx, lc)))
+	assert.ElementsMatch(t, tags, []string{"functionname:go-lambda-test", "region:us-east-1", "memorysize:256", "cold_start:false", "account_id:123497558138", "resource:go-lambda-test:my-alias", "executedversion:1", "datadog_lambda:" + datadogLambdaVersion})
 }
 
 func TestGetEnhancedMetricsTagsNoLambdaContext(t *testing.T) {

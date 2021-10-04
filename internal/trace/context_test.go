@@ -31,7 +31,7 @@ func mockLambdaTraceContext(ctx context.Context, traceID, parentID string, sampl
 		TraceID:          traceID,
 		ParentID:         parentID,
 		SamplingDecision: decision,
-		AdditionalData:   make(map[string]string),
+		AdditionalData:   make(TraceContext),
 	}
 	headerString := traceHeader.String()
 	return context.WithValue(ctx, xray.LambdaTraceHeaderKey, headerString)
@@ -53,10 +53,11 @@ func TestUnmarshalEventForTraceMetadataNonProxyEvent(t *testing.T) {
 	headers, ok := unmarshalEventForTraceContext(*ev)
 	assert.True(t, ok)
 
-	expected := map[string]string{
+	expected := TraceContext{
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
+		sourceType:             "event",
 	}
 	assert.Equal(t, expected, headers)
 }
@@ -67,10 +68,11 @@ func TestUnmarshalEventForTraceMetadataWithMixedCaseHeaders(t *testing.T) {
 	headers, ok := unmarshalEventForTraceContext(*ev)
 	assert.True(t, ok)
 
-	expected := map[string]string{
+	expected := TraceContext{
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "45678910",
 		samplingPriorityHeader: "2",
+		sourceType:             "event",
 	}
 	assert.Equal(t, expected, headers)
 }
@@ -147,11 +149,11 @@ func TestXrayTraceContextWithSegment(t *testing.T) {
 	assert.NotNil(t, headers[parentIDHeader])
 }
 
-func TestExtractTraceContextFromContext(t *testing.T) {
+func TestContextWithTraceContextFromContext(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-no-metadata.json")
 	ctx := mockLambdaTraceContext(context.Background(), "1-5ce31dc2-2c779014b90ce44db5e03875", "779014b90ce44db5e03875", true)
 
-	newCTX, err := ExtractTraceContext(ctx, *ev)
+	newCTX, err := ContextWithTraceContext(ctx, *ev)
 	headers := GetTraceHeaders(newCTX, false)
 
 	assert.NoError(t, err)
@@ -159,15 +161,15 @@ func TestExtractTraceContextFromContext(t *testing.T) {
 	assert.NotNil(t, headers[traceIDHeader])
 	assert.NotNil(t, headers[parentIDHeader])
 }
-func TestExtractTraceContextFromEvent(t *testing.T) {
+func TestContextWithTraceContextFromEvent(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-metadata.json")
 	ctx := mockLambdaTraceContext(context.Background(), "1-5ce31dc2-2c779014b90ce44db5e03875", "779014b90ce44db5e03875", true)
 
-	newCTX, err := ExtractTraceContext(ctx, *ev)
+	newCTX, err := ContextWithTraceContext(ctx, *ev)
 	headers := GetTraceHeaders(newCTX, false)
 	assert.NoError(t, err)
 
-	expected := map[string]string{
+	expected := TraceContext{
 		traceIDHeader:          "1231452342",
 		parentIDHeader:         "13334283619152181365", // Use the parentID from the context, not the event
 		samplingPriorityHeader: "2",
@@ -175,11 +177,11 @@ func TestExtractTraceContextFromEvent(t *testing.T) {
 	assert.Equal(t, expected, headers)
 }
 
-func TestExtractTraceContextFail(t *testing.T) {
+func TestContextWithTraceContextFail(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-no-metadata.json")
 	ctx := context.Background()
 
-	_, err := ExtractTraceContext(ctx, *ev)
+	_, err := ContextWithTraceContext(ctx, *ev)
 	assert.Error(t, err)
 }
 
@@ -187,7 +189,7 @@ func TestGetTraceHeadersWithUpdatedParent(t *testing.T) {
 	ev := loadRawJSON(t, "../testdata/apig-event-metadata.json")
 	ctx := mockLambdaTraceContext(context.Background(), "1-5ce31dc2-2c779014b90ce44db5e03875", "779014b90ce44db5e03874", true)
 
-	ctx, _ = ExtractTraceContext(ctx, *ev)
+	ctx, _ = ContextWithTraceContext(ctx, *ev)
 
 	ctx, _ = xray.BeginSubsegment(ctx, "The Subsegment")
 

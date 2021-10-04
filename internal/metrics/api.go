@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
@@ -49,7 +50,9 @@ type (
 
 // MakeAPIClient creates a new API client with the given api and app keys
 func MakeAPIClient(ctx context.Context, options APIClientOptions) *APIClient {
-	httpClient := &http.Client{}
+	httpClient := &http.Client{
+		Timeout: time.Second * 5,
+	}
 	client := &APIClient{
 		apiKey:     options.apiKey,
 		baseAPIURL: options.baseAPIURL,

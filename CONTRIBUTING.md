@@ -16,6 +16,6 @@ go test ./...
 
 Push to your fork and [submit a pull request][pr].
 
-[pr]: https://github.com/your-username/datadog-lambda-go/compare/DataDog:master...master
+[pr]: https://github.com/your-username/datadog-lambda-go/compare/DataDog:main...main
 
 At this point you're waiting on us. We may suggest some changes or improvements or alternatives.
