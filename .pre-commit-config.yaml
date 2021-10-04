@@ -3,7 +3,7 @@ repos:
     rev: v2.1.0
     hooks:
       - id: check-merge-conflict
-        files: \.py$
+        files: \.go$
   - repo: local
     hooks:
       - id: detect-api-keys
