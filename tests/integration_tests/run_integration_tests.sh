@@ -56,7 +56,7 @@ trap remove_stack EXIT
 sls --version
 
 echo "Deploying functions"
-sls deploy --stage $run_id --api-key $DD_API_KEY
+sls deploy --stage $run_id
 
 cd $integration_tests_dir
 
