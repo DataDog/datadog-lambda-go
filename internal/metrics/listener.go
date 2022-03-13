@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
+	"github.com/aws/aws-sdk-go/aws/session"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
@@ -62,13 +63,13 @@ type (
 
 // MakeListener initializes a new metrics lambda listener
 func MakeListener(config Config, extensionManager *extension.ExtensionManager) Listener {
-
+	sess := session.Must(session.NewSession())
 	apiClient := MakeAPIClient(context.Background(), APIClientOptions{
 		baseAPIURL:        config.Site,
 		apiKey:            config.APIKey,
-		decrypter:         MakeKMSDecrypter(),
+		decrypter:         MakeKMSDecrypter(sess),
 		kmsAPIKey:         config.KMSAPIKey,
-		secretFetcher:     MakeSecretsManagerSecretFetcher(),
+		secretFetcher:     MakeSecretsManagerSecretFetcher(sess),
 		apiKeySecretARN:   config.APIKeySecretARN,
 		httpClientTimeout: config.HttpClientTimeout,
 	})

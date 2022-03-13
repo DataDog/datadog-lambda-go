@@ -13,7 +13,7 @@ import (
 	"os"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/service/kms"
 	"github.com/aws/aws-sdk-go/service/kms/kmsiface"
 )
@@ -35,10 +35,10 @@ const functionNameEnvVar = "AWS_LAMBDA_FUNCTION_NAME"
 // encryptionContextKey is the key added to the encryption context by the Lambda console UI
 const encryptionContextKey = "LambdaFunctionName"
 
-// MakeKMSDecrypter creates a new decrypter which uses the AWS KMS service to decrypt variables
-func MakeKMSDecrypter() Decrypter {
+// MakeKMSDecrypter creates a new decrypter which uses the AWS KMS service to decrypt variables.
+func MakeKMSDecrypter(p client.ConfigProvider) Decrypter {
 	return &kmsDecrypter{
-		kmsClient: kms.New(session.New(nil)),
+		kmsClient: kms.New(p),
 	}
 }
 

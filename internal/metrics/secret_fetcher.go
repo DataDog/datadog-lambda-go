@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 )
@@ -26,9 +26,9 @@ type secretsManagerSecretFether struct {
 
 // MakeSecretsManagerSecretFetcher creates a new SecretFetcher which uses the AWS
 // Secrets Manager service to fetch a secret.
-func MakeSecretsManagerSecretFetcher() SecretFetcher {
+func MakeSecretsManagerSecretFetcher(p client.ConfigProvider) SecretFetcher {
 	return &secretsManagerSecretFether{
-		client: secretsmanager.New(session.Must(session.NewSession())),
+		client: secretsmanager.New(p),
 	}
 }
 
