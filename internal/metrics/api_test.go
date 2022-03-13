@@ -22,6 +22,7 @@ const (
 	mockAPIKey          = "12345"
 	mockEncryptedAPIKey = "mockEncrypted"
 	mockDecryptedAPIKey = "mockDecrypted"
+	mockAPIKeySecretARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:apiKey"
 )
 
 type (
@@ -33,6 +34,15 @@ type (
 
 func (md *mockDecrypter) Decrypt(cipherText string) (string, error) {
 	return md.returnValue, md.returnError
+}
+
+type mockSecretFetcher struct {
+	returnValue string
+	returnError error
+}
+
+func (m *mockSecretFetcher) FetchSecret(secretID string) (string, error) {
+	return m.returnValue, m.returnError
 }
 
 func TestAddAPICredentials(t *testing.T) {
@@ -140,33 +150,57 @@ func TestSendMetricsCantReachServer(t *testing.T) {
 	assert.False(t, called)
 }
 
-func TestDecryptsUsingKMSKey(t *testing.T) {
-	called := false
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-		assert.Equal(t, "/distribution_points?api_key=mockDecrypted", r.URL.String())
-	}))
-	defer server.Close()
-
-	am := []APIMetric{
-		{
-			Name:       "metric-1",
-			Host:       nil,
-			Tags:       []string{"a", "b", "c"},
-			MetricType: DistributionType,
-			Points: []interface{}{
-				[]interface{}{float64(1), []interface{}{float64(2)}},
-				[]interface{}{float64(3), []interface{}{float64(4)}},
-				[]interface{}{float64(5), []interface{}{float64(6)}},
+func TestLazyLoadAPIKey(t *testing.T) {
+	tests := map[string]struct {
+		clientOptions  APIClientOptions
+		expectedAPIKey string
+	}{
+		"decrypt using KMS key": {
+			clientOptions: APIClientOptions{
+				kmsAPIKey: mockEncryptedAPIKey,
+				decrypter: &mockDecrypter{returnValue: mockDecryptedAPIKey},
 			},
+			expectedAPIKey: mockDecryptedAPIKey,
+		},
+		"fetch from secret ARN": {
+			clientOptions: APIClientOptions{
+				apiKeySecretARN: mockAPIKeySecretARN,
+				secretFetcher:   &mockSecretFetcher{returnValue: mockAPIKey},
+			},
+			expectedAPIKey: mockAPIKey,
 		},
 	}
-	md := mockDecrypter{}
-	md.returnValue = mockDecryptedAPIKey
 
-	cl := MakeAPIClient(context.Background(), APIClientOptions{baseAPIURL: server.URL, apiKey: "", kmsAPIKey: mockEncryptedAPIKey, decrypter: &md})
-	err := cl.SendMetrics(am)
+	for name, tt := range tests {
+		tt := tt // https://go.dev/doc/faq#closures_and_goroutines
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	assert.NoError(t, err)
-	assert.True(t, called)
+			called := false
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				called = true
+				assert.Equal(t, "/distribution_points?api_key="+tt.expectedAPIKey, r.URL.String())
+			}))
+			defer server.Close()
+
+			am := []APIMetric{
+				{
+					Name:       "metric-1",
+					Host:       nil,
+					Tags:       []string{"a", "b", "c"},
+					MetricType: DistributionType,
+					Points: []interface{}{
+						[]interface{}{float64(1), []interface{}{float64(2)}},
+						[]interface{}{float64(3), []interface{}{float64(4)}},
+						[]interface{}{float64(5), []interface{}{float64(6)}},
+					},
+				},
+			}
+			tt.clientOptions.baseAPIURL = server.URL
+			err := MakeAPIClient(context.Background(), tt.clientOptions).SendMetrics(am)
+
+			assert.NoError(t, err)
+			assert.True(t, called)
+		})
+	}
 }

@@ -28,11 +28,11 @@ type (
 
 	// APIClient send metrics to Datadog, via the Datadog API
 	APIClient struct {
-		apiKey            string
-		apiKeyDecryptChan <-chan string
-		baseAPIURL        string
-		httpClient        *http.Client
-		context           context.Context
+		apiKey             string
+		apiKeyLazyLoadChan <-chan string
+		baseAPIURL         string
+		httpClient         *http.Client
+		context            context.Context
 	}
 
 	// APIClientOptions contains instantiation options from creating an APIClient.
@@ -41,6 +41,8 @@ type (
 		apiKey            string
 		kmsAPIKey         string
 		decrypter         Decrypter
+		apiKeySecretARN   string
+		secretFetcher     SecretFetcher
 		httpClientTimeout time.Duration
 	}
 
@@ -60,20 +62,58 @@ func MakeAPIClient(ctx context.Context, options APIClientOptions) *APIClient {
 		httpClient: httpClient,
 		context:    ctx,
 	}
-	if len(options.apiKey) == 0 && len(options.kmsAPIKey) != 0 {
-		client.apiKeyDecryptChan = client.decryptAPIKey(options.decrypter, options.kmsAPIKey)
+	if options.apiKey != "" {
+		return client
+	}
+
+	if options.kmsAPIKey != "" {
+		client.apiKeyLazyLoadChan = decryptAPIKey(options.decrypter, options.kmsAPIKey)
+	} else if options.apiKeySecretARN != "" {
+		client.apiKeyLazyLoadChan = fetchAPIKey(options.secretFetcher, options.apiKeySecretARN)
 	}
 
 	return client
+}
+
+func decryptAPIKey(decrypter Decrypter, kmsAPIKey string) <-chan string {
+	ch := make(chan string)
+
+	go func() {
+		result, err := decrypter.Decrypt(kmsAPIKey)
+		if err != nil {
+			logger.Error(fmt.Errorf("Couldn't decrypt api kms key: %s", err))
+		}
+
+		ch <- result
+		close(ch)
+	}()
+
+	return ch
+}
+
+func fetchAPIKey(fetcher SecretFetcher, apiKeySecretARN string) <-chan string {
+	ch := make(chan string)
+
+	go func() {
+		result, err := fetcher.FetchSecret(apiKeySecretARN)
+		if err != nil {
+			logger.Error(fmt.Errorf("Couldn't retrieve api key secret: %s", err))
+		}
+
+		ch <- result
+		close(ch)
+	}()
+
+	return ch
 }
 
 // SendMetrics posts a batch metrics payload to the Datadog API
 func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 
 	// If the api key was provided as a kms key, wait for it to finish decrypting
-	if cl.apiKeyDecryptChan != nil {
-		cl.apiKey = <-cl.apiKeyDecryptChan
-		cl.apiKeyDecryptChan = nil
+	if cl.apiKeyLazyLoadChan != nil {
+		cl.apiKey = <-cl.apiKeyLazyLoadChan
+		cl.apiKeyLazyLoadChan = nil
 	}
 
 	content, err := marshalAPIMetricsModel(metrics)
@@ -116,21 +156,6 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 	}
 
 	return err
-}
-
-func (cl *APIClient) decryptAPIKey(decrypter Decrypter, kmsAPIKey string) <-chan string {
-
-	ch := make(chan string)
-
-	go func() {
-		result, err := decrypter.Decrypt(kmsAPIKey)
-		if err != nil {
-			logger.Error(fmt.Errorf("Couldn't decrypt api kms key %s", err))
-		}
-		ch <- result
-		close(ch)
-	}()
-	return ch
 }
 
 func (cl *APIClient) addAPICredentials(req *http.Request) {
