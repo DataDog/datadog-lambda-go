@@ -33,6 +33,9 @@ type (
 		APIKey string
 		// KMSAPIKey is your Datadog API key, encrypted using the AWS KMS service. This is used for sending metrics.
 		KMSAPIKey string
+		// APIKeySecretARN is the ARN of an AWS Secrets Manager secret where your Datadog API key is stored.
+		// This is used for sending metrics.
+		APIKeySecretARN string
 		// ShouldRetryOnFailure is used to turn on retry logic when sending metrics via the API. This can negatively effect the performance of your lambda,
 		// and should only be turned on if you can't afford to lose metrics data under poor network conditions.
 		ShouldRetryOnFailure bool
@@ -79,6 +82,8 @@ const (
 	DatadogAPIKeyEnvVar = "DD_API_KEY"
 	// DatadogKMSAPIKeyEnvVar is the environment variable that will be sent to KMS for decryption, then used as an API key.
 	DatadogKMSAPIKeyEnvVar = "DD_KMS_API_KEY"
+	// DatadogAPIKeySecretARNEnvVar is the environment variable that will be used to retreive the API key from AWS Secrets Manager.
+	DatadogAPIKeySecretARNEnvVar = "DD_API_KEY_SECRET_ARN"
 	// DatadogSiteEnvVar is the environment variable that will be used as the API host.
 	DatadogSiteEnvVar = "DD_SITE"
 	// LogLevelEnvVar is the environment variable that will be used to set the log level.
@@ -234,6 +239,7 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 		mc.ShouldRetryOnFailure = cfg.ShouldRetryOnFailure
 		mc.APIKey = cfg.APIKey
 		mc.KMSAPIKey = cfg.KMSAPIKey
+		mc.APIKeySecretARN = cfg.APIKeySecretARN
 		mc.Site = cfg.Site
 		mc.ShouldUseLogForwarder = cfg.ShouldUseLogForwarder
 		mc.HttpClientTimeout = cfg.HttpClientTimeout
@@ -258,13 +264,17 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 
 	if mc.APIKey == "" {
 		mc.APIKey = os.Getenv(DatadogAPIKeyEnvVar)
-
 	}
 	if mc.KMSAPIKey == "" {
 		mc.KMSAPIKey = os.Getenv(DatadogKMSAPIKeyEnvVar)
 	}
-	if mc.APIKey == "" && mc.KMSAPIKey == "" && !mc.ShouldUseLogForwarder {
-		logger.Error(fmt.Errorf("couldn't read DD_API_KEY or DD_KMS_API_KEY from environment"))
+	if mc.APIKeySecretARN == "" {
+		mc.APIKeySecretARN = os.Getenv(DatadogAPIKeySecretARNEnvVar)
+	}
+	if mc.APIKey == "" && mc.KMSAPIKey == "" && mc.APIKeySecretARN == "" && !mc.ShouldUseLogForwarder {
+		logger.Error(fmt.Errorf(
+			"couldn't read DD_API_KEY, DD_KMS_API_KEY or DD_API_KEY_SECRET_ARN from environment",
+		))
 	}
 
 	enhancedMetrics := os.Getenv("DD_ENHANCED_METRICS")

@@ -40,6 +40,7 @@ type (
 	Config struct {
 		APIKey                      string
 		KMSAPIKey                   string
+		APIKeySecretARN             string
 		Site                        string
 		ShouldRetryOnFailure        bool
 		ShouldUseLogForwarder       bool
@@ -67,6 +68,8 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 		apiKey:            config.APIKey,
 		decrypter:         MakeKMSDecrypter(),
 		kmsAPIKey:         config.KMSAPIKey,
+		secretFetcher:     MakeSecretsManagerSecretFetcher(),
+		apiKeySecretARN:   config.APIKeySecretARN,
 		httpClientTimeout: config.HttpClientTimeout,
 	})
 	if config.HttpClientTimeout <= 0 {
