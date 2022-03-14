@@ -83,11 +83,28 @@ A more complete example can be found in the `ddlambda_example_test.go` file.
 
 ### DD_FLUSH_TO_LOG
 
-Set to `true` (recommended) to send custom metrics asynchronously (with no added latency to your Lambda function executions) through CloudWatch Logs with the help of [Datadog Forwarder](https://github.com/DataDog/datadog-serverless-functions/tree/master/aws/logs_monitoring). Defaults to `false`. If set to `false`, you also need to set `DD_API_KEY` and `DD_SITE`.
+Set to `true` (recommended) to send custom metrics asynchronously (with no added latency to your Lambda function executions) through CloudWatch Logs with the help of [Datadog Forwarder](https://github.com/DataDog/datadog-serverless-functions/tree/master/aws/logs_monitoring). Defaults to `false`. If set to `false`, you also need to set `DD_SITE` and one of the
+following `DD_API_KEY`, `DD_KMS_API_KEY` or `DD_API_KEY_SECRET_ARN`.
 
 ### DD_API_KEY
 
-If `DD_FLUSH_TO_LOG` is set to `false` (not recommended), the Datadog API Key must be defined.
+If `DD_FLUSH_TO_LOG` is set to `false` (not recommended), the Datadog API key must be
+set to `DD_API_KEY`, or either `DD_KMS_API_KEY` or `DD_API_KEY_SECRET_ARN` below must
+be defined instead.
+
+### DD_KMS_API_KEY
+
+If `DD_FLUSH_TO_LOG` is set to `false` (not recommended) and `DD_API_KEY` is not set,
+the Datadog API key encrypted using the AWS Key Management Service (KMS) must be set to
+`DD_KMS_API_KEY`, or the following `DD_API_KEY_SECRET_ARN` must be defined instead.
+The encryption key used to encrypt the API key must be a symmetric KMS key.
+
+### DD_API_KEY_SECRET_ARN
+
+If `DD_FLUSH_TO_LOG` is set to `false` (not recommended) and neither `DD_API_KEY` nor
+`DD_KMS_API_KEY` is set, the ARN of an AWS Secrets Manager secret where the Datadog API
+key is stored must be set to `DD_API_KEY_SECRET_ARN`. The secret value must be just the
+API key string itself (no double quotes), not a JSON object.
 
 ### DD_SITE
 
