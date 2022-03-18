@@ -106,9 +106,14 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 	}
 }
 
+// canSendMetrics reports whether l can send metrics.
+func (l *Listener) canSendMetrics() bool {
+	return l.isAgentRunning || l.apiClient.apiKey != "" || l.config.KMSAPIKey != "" || l.config.ShouldUseLogForwarder
+}
+
 // HandlerStarted adds metrics service to the context
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
-	if l.apiClient.apiKey == "" && l.config.KMSAPIKey == "" && !l.config.ShouldUseLogForwarder {
+	if !l.canSendMetrics() {
 		logger.Error(fmt.Errorf("datadog api key isn't set, won't be able to send metrics"))
 	}
 

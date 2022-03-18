@@ -214,16 +214,17 @@ func initializeListeners(cfg *Config) []wrapper.HandlerListener {
 		logger.SetLogLevel(logger.LevelDebug)
 	}
 	extensionManager := extension.BuildExtensionManager()
+	isExtensionRunning := extensionManager.IsExtensionRunning()
 
 	// Wrap the handler with listeners that add instrumentation for traces and metrics.
 	tl := trace.MakeListener(cfg.toTraceConfig(), extensionManager)
-	ml := metrics.MakeListener(cfg.toMetricsConfig(), extensionManager)
+	ml := metrics.MakeListener(cfg.toMetricsConfig(isExtensionRunning), extensionManager)
 	return []wrapper.HandlerListener{
 		&tl, &ml,
 	}
 }
 
-func (cfg *Config) toMetricsConfig() metrics.Config {
+func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 
 	mc := metrics.Config{
 		ShouldRetryOnFailure: false,
@@ -263,8 +264,10 @@ func (cfg *Config) toMetricsConfig() metrics.Config {
 	if mc.KMSAPIKey == "" {
 		mc.KMSAPIKey = os.Getenv(DatadogKMSAPIKeyEnvVar)
 	}
-	if mc.APIKey == "" && mc.KMSAPIKey == "" && !mc.ShouldUseLogForwarder {
-		logger.Error(fmt.Errorf("couldn't read DD_API_KEY or DD_KMS_API_KEY from environment"))
+	if !isExtensionRunning && mc.APIKey == "" && mc.KMSAPIKey == "" && !mc.ShouldUseLogForwarder {
+		logger.Error(fmt.Errorf(
+			"couldn't read %s or %s from environment", DatadogAPIKeyEnvVar, DatadogKMSAPIKeyEnvVar,
+		))
 	}
 
 	enhancedMetrics := os.Getenv("DD_ENHANCED_METRICS")
