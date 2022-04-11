@@ -41,6 +41,7 @@ func mockLambdaXRayTraceContext(ctx context.Context, traceID, parentID string, s
 		AdditionalData:   make(TraceContext),
 	}
 	headerString := traceHeader.String()
+	//nolint:staticcheck // SA1029 ignore
 	return context.WithValue(ctx, xray.LambdaTraceHeaderKey, headerString)
 }
 
