@@ -28,7 +28,7 @@ jobs:
           go-version: '1.17.6'
 
       - name: Run tests
-        run: go mod tidy && go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+        run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload code coverage report
         run: bash <(curl -s https://codecov.io/bash)
