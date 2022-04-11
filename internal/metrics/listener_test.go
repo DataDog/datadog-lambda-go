@@ -98,7 +98,7 @@ func TestAddDistributionMetricWithForceLogForwarder(t *testing.T) {
 }
 
 func TestGetEnhancedMetricsTags(t *testing.T) {
-	ctx := context.WithValue(context.Background(), "cold_start", false)
+	ctx := context.WithValue(context.Background(), &contextColdStartKey{}, false)
 
 	lambdacontext.MemoryLimitInMB = 256
 	lambdacontext.FunctionName = "go-lambda-test"
@@ -111,7 +111,7 @@ func TestGetEnhancedMetricsTags(t *testing.T) {
 }
 
 func TestGetEnhancedMetricsTagsWithAlias(t *testing.T) {
-	ctx := context.WithValue(context.Background(), "cold_start", false)
+	ctx := context.WithValue(context.Background(), &contextColdStartKey{}, false)
 
 	lambdacontext.MemoryLimitInMB = 256
 	lambdacontext.FunctionName = "go-lambda-test"
@@ -125,7 +125,7 @@ func TestGetEnhancedMetricsTagsWithAlias(t *testing.T) {
 }
 
 func TestGetEnhancedMetricsTagsNoLambdaContext(t *testing.T) {
-	ctx := context.WithValue(context.Background(), "cold_start", true)
+	ctx := context.WithValue(context.Background(), &contextColdStartKey{}, true)
 	tags := getEnhancedMetricsTags(ctx)
 
 	assert.Empty(t, tags)
@@ -146,7 +146,7 @@ func TestSubmitEnhancedMetrics(t *testing.T) {
 		},
 		&extension.ExtensionManager{},
 	)
-	ctx := context.WithValue(context.Background(), "cold_start", false)
+	ctx := context.WithValue(context.Background(), &contextColdStartKey{}, false)
 
 	output := captureOutput(func() {
 		ctx = ml.HandlerStarted(ctx, json.RawMessage{})
@@ -174,7 +174,7 @@ func TestDoNotSubmitEnhancedMetrics(t *testing.T) {
 		},
 		&extension.ExtensionManager{},
 	)
-	ctx := context.WithValue(context.Background(), "cold_start", true)
+	ctx := context.WithValue(context.Background(), &contextColdStartKey{}, true)
 
 	output := captureOutput(func() {
 		ctx = ml.HandlerStarted(ctx, json.RawMessage{})
@@ -203,7 +203,7 @@ func TestSubmitEnhancedMetricsOnlyErrors(t *testing.T) {
 		&extension.ExtensionManager{},
 	)
 
-	ctx := context.WithValue(context.Background(), "cold_start", true)
+	ctx := context.WithValue(context.Background(), &contextColdStartKey{}, true)
 
 	output := captureOutput(func() {
 		ctx = ml.HandlerStarted(ctx, json.RawMessage{})

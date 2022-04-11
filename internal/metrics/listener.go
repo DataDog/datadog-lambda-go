@@ -59,6 +59,8 @@ type (
 	}
 )
 
+type contextColdStartKey struct{}
+
 // MakeListener initializes a new metrics lambda listener
 func MakeListener(config Config, extensionManager *extension.ExtensionManager) Listener {
 
@@ -211,8 +213,16 @@ func (l *Listener) submitEnhancedMetrics(metricName string, ctx context.Context)
 	}
 }
 
+func getColdStartValueFromContext(ctx context.Context) bool {
+	fmt.Println("HERE")
+	if v, ok := ctx.Value(contextColdStartKey{}).(bool); ok {
+		return v
+	}
+	return false
+}
+
 func getEnhancedMetricsTags(ctx context.Context) []string {
-	isColdStart := ctx.Value("cold_start")
+	isColdStart := getColdStartValueFromContext(ctx)
 
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		// ex: arn:aws:lambda:us-east-1:123497558138:function:golang-layer:alias
@@ -231,7 +241,7 @@ func getEnhancedMetricsTags(ctx context.Context) []string {
 		region := fmt.Sprintf("region:%s", splitArn[3])
 		accountId := fmt.Sprintf("account_id:%s", splitArn[4])
 		memorySize := fmt.Sprintf("memorysize:%d", lambdacontext.MemoryLimitInMB)
-		coldStart := fmt.Sprintf("cold_start:%t", isColdStart.(bool))
+		coldStart := fmt.Sprintf("cold_start:%t", isColdStart)
 		resource := fmt.Sprintf("resource:%s", lambdacontext.FunctionName)
 		datadogLambda := fmt.Sprintf("datadog_lambda:v%s", version.DDLambdaVersion)
 

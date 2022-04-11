@@ -39,6 +39,7 @@ const encryptionContextKey = "LambdaFunctionName"
 func MakeKMSDecrypter() Decrypter {
 	sess, err := session.NewSession(nil)
 	if err != nil {
+		logger.Error(fmt.Errorf("could not create a new aws-sdk session: %v", err))
 		panic(err)
 	}
 	return &kmsDecrypter{
