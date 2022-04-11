@@ -40,5 +40,5 @@ XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: adding metric \"he
   ]
 }
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: posting to url https://api.datadoghq.com/api/v1/distribution_points"}
-XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Sending payload with body {\"series\":[{\"metric\":\"hello-go.dog\",\"tags\":[\"dd_lambda_layer:datadog-go1.18\"],\"type\":\"distribution\",\points\":[[XXXX,[1]]]}]}"}
+XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Sending payload with body {\"series\":[{\"metric\":\"hello-go.dog\",\"tags\":[\"dd_lambda_layer:datadog-goX.X.X\"],\"type\":\"distribution\",\points\":[[XXXX,[1]]]}]}"}
 END Duration: XXXX ms (init: XXXX ms) Memory Used: XXXX MB
