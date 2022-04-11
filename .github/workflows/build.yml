@@ -13,13 +13,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.17.6'
-
-      - name: Install Golint
-        run: go mod download golang.org/x/lint
-
-      - name: Lint
-        run: find /home/runner/go/pkg/mod/golang.org -name "golint" -exec {} \;
+          go-version: '1.7'
 
   unit-test:
     runs-on: ubuntu-latest
@@ -31,10 +25,10 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.17.6'
+          go-version: '1.7'
 
       - name: Run tests
-        run: go mod tidy && go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+        run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload code coverage report
         run: bash <(curl -s https://codecov.io/bash)
@@ -54,7 +48,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.17.6'
+          go-version: '1.7'
 
       - name: Cache Node modules
         id: cache-node-modules

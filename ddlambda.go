@@ -230,6 +230,9 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 		ShouldRetryOnFailure: false,
 	}
 
+	requestId := "test lint"
+	fmt.Println(requestId)
+
 	if cfg != nil {
 		mc.BatchInterval = cfg.BatchInterval
 		mc.ShouldRetryOnFailure = cfg.ShouldRetryOnFailure
