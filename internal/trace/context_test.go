@@ -51,7 +51,8 @@ func loadRawJSON(t *testing.T, filename string) *json.RawMessage {
 		return nil
 	}
 	msg := json.RawMessage{}
-	msg.UnmarshalJSON(bytes)
+	err = msg.UnmarshalJSON(bytes)
+	assert.NoError(t, err)
 	return &msg
 }
 func TestGetDatadogTraceContextForTraceMetadataNonProxyEvent(t *testing.T) {

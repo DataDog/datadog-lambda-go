@@ -111,7 +111,6 @@ func TestGetEnhancedMetricsTags(t *testing.T) {
 }
 
 func TestGetEnhancedMetricsTagsWithAlias(t *testing.T) {
-
 	ctx := context.WithValue(context.Background(), "cold_start", false)
 
 	lambdacontext.MemoryLimitInMB = 256
