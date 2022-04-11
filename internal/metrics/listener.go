@@ -45,7 +45,7 @@ type (
 		ShouldUseLogForwarder       bool
 		BatchInterval               time.Duration
 		EnhancedMetrics             bool
-		HttpClientTimeout           time.Duration
+		HTTPClientTimeout           time.Duration
 		CircuitBreakerInterval      time.Duration
 		CircuitBreakerTimeout       time.Duration
 		CircuitBreakerTotalFailures uint32
@@ -67,10 +67,10 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 		apiKey:            config.APIKey,
 		decrypter:         MakeKMSDecrypter(),
 		kmsAPIKey:         config.KMSAPIKey,
-		httpClientTimeout: config.HttpClientTimeout,
+		httpClientTimeout: config.HTTPClientTimeout,
 	})
-	if config.HttpClientTimeout <= 0 {
-		config.HttpClientTimeout = defaultHttpClientTimeout
+	if config.HTTPClientTimeout <= 0 {
+		config.HTTPClientTimeout = defaultHttpClientTimeout
 	}
 	if config.CircuitBreakerInterval <= 0 {
 		config.CircuitBreakerInterval = defaultCircuitBreakerInterval

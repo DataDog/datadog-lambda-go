@@ -53,8 +53,8 @@ type (
 		DDTraceEnabled bool
 		// MergeXrayTraces will cause Datadog traces to be merged with traces from AWS X-Ray.
 		MergeXrayTraces bool
-		// HttpClientTimeout specifies a time limit for requests to the API. It defaults to 5s.
-		HttpClientTimeout time.Duration
+		// HTTPClientTimeout specifies a time limit for requests to the API. It defaults to 5s.
+		HTTPClientTimeout time.Duration
 		// CircuitBreakerInterval is the cyclic period of the closed state
 		// for the CircuitBreaker to clear the internal Counts.
 		// default: 30s
@@ -237,7 +237,7 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 		mc.KMSAPIKey = cfg.KMSAPIKey
 		mc.Site = cfg.Site
 		mc.ShouldUseLogForwarder = cfg.ShouldUseLogForwarder
-		mc.HttpClientTimeout = cfg.HttpClientTimeout
+		mc.HTTPClientTimeout = cfg.HTTPClientTimeout
 	}
 
 	if mc.Site == "" {
