@@ -19,7 +19,7 @@ jobs:
         run: go mod download golang.org/x/lint
 
       - name: Lint
-        run: golint
+        run: find / -name "golint"
 
   unit-test:
     runs-on: ubuntu-latest
