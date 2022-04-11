@@ -214,11 +214,10 @@ func (l *Listener) submitEnhancedMetrics(metricName string, ctx context.Context)
 }
 
 func getColdStartValueFromContext(ctx context.Context) bool {
-	fmt.Println("HERE")
 	if v, ok := ctx.Value(contextColdStartKey{}).(bool); ok {
 		return v
 	}
-	return false
+	return true
 }
 
 func getEnhancedMetricsTags(ctx context.Context) []string {

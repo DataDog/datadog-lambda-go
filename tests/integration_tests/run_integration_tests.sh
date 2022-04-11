@@ -73,7 +73,7 @@ for input_event_file in "${input_event_files[@]}"; do
         # Return value snapshot file format is snapshots/return_values/{handler}_{runtime}_{input-event}
         snapshot_path="$integration_tests_dir/snapshots/return_values/${function_name}_${input_event_name}.json"
 
-        return_value=$(sls invoke --stage $run_id -f $function_name --path "$integration_tests_dir/input_events/$input_event_file" --api-key=$DD_API_KEY)
+        return_value=$(DD_API_KEY='$DD_API_KEY' sls invoke --stage $run_id -f $function_name --path "$integration_tests_dir/input_events/$input_event_file")
         sls_invoke_exit_code=$?
         if [ $sls_invoke_exit_code -ne 0 ]; then
             return_value="Invocation failed"
@@ -154,7 +154,7 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             # Normalize execution ID in logs prefix
             perl -p -e $'s/[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\-[0-9a-z]+\t/XXXX-XXXX-XXXX-XXXX-XXXX\t/' |
             # Normalize layer version tag
-            perl -p -e "s/(dd_lambda_layer:datadog-go)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
+            perl -p -e "s/(dd_lambda_layer:datadog-go)[0-9]+\.[0-9]+/\1X\.X/g" |
             # Normalize package version tag
             perl -p -e "s/(datadog_lambda:v)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
             # Normalize golang version tag

@@ -3,10 +3,10 @@ XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Will use the API"}
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Merge X-Ray Traces is off, using trace context from Datadog only"}
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Could not convert TraceContext to a SpanContext (most likely TraceContext was empty)"}
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: sending metric via log forwarder"}
-{"m":"aws.lambda.enhanced.invocations","v":1,"e":XXXX,"t":["functionname:integration-tests-go-XXXX-error","region:sa-east-1","account_id:XXXX","memorysize:128","cold_start:true","datadog_lambda:vX.X.X","resource:integration-tests-go-XXXX-error","dd_lambda_layer:datadog-goX.X.X"]}
+{"m":"aws.lambda.enhanced.invocations","v":1,"e":XXXX,"t":["functionname:integration-tests-go-XXXX-error","region:sa-east-1","account_id:XXXX","memorysize:128","cold_start:true","datadog_lambda:vX.X.X","resource:integration-tests-go-XXXX-error","dd_lambda_layer:datadog-goX.X"]}
 {"traces": [[{"trace_id":"XXXX","span_id":"XXXX","parent_id":"XXXX","name":"aws.lambda","resource":"integration-tests-go-XXXX-error","error":1,"meta":{"XXXX": "XXXX"},"metrics":{"XXXX": "XXXX"},"start":XXXX,"duration":XXXX,"service":"aws.lambda"}]]}
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: sending metric via log forwarder"}
-{"m":"aws.lambda.enhanced.errors","v":1,"e":XXXX,"t":["functionname:integration-tests-go-XXXX-error","region:sa-east-1","account_id:XXXX","memorysize:128","cold_start:true","datadog_lambda:vX.X.X","resource:integration-tests-go-XXXX-error","dd_lambda_layer:datadog-goX.X.X"]}
+{"m":"aws.lambda.enhanced.errors","v":1,"e":XXXX,"t":["functionname:integration-tests-go-XXXX-error","region:sa-east-1","account_id:XXXX","memorysize:128","cold_start:true","datadog_lambda:vX.X.X","resource:integration-tests-go-XXXX-error","dd_lambda_layer:datadog-goX.X"]}
 something went wrong: errorString
 null
 END RequestId: XXXX
