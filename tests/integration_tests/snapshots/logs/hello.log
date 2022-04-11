@@ -14,7 +14,7 @@ XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: sending metric via
     "cold_start:true",
     "datadog_lambda:vX.X.X",
     "resource:integration-tests-go-XXXX-hello",
-    "dd_lambda_layer:datadog-go1.18"
+    "dd_lambda_layer:datadog-goX.X.X"
   ],
   "v": 1
 }
