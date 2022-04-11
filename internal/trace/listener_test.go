@@ -68,6 +68,7 @@ func TestStartFunctionExecutionSpanFromXrayWithMergeEnabled(t *testing.T) {
 	lambdacontext.FunctionName = "MockFunctionName"
 	ctx = lambdacontext.NewContext(ctx, &mockLambdaContext)
 	ctx = context.WithValue(ctx, traceContextKey, traceContextFromXray)
+	//nolint
 	ctx = context.WithValue(ctx, "cold_start", true)
 
 	mt := mocktracer.Start()
@@ -97,6 +98,7 @@ func TestStartFunctionExecutionSpanFromXrayWithMergeDisabled(t *testing.T) {
 	lambdacontext.FunctionName = "MockFunctionName"
 	ctx = lambdacontext.NewContext(ctx, &mockLambdaContext)
 	ctx = context.WithValue(ctx, traceContextKey, traceContextFromXray)
+	//nolint
 	ctx = context.WithValue(ctx, "cold_start", true)
 
 	mt := mocktracer.Start()
@@ -115,6 +117,7 @@ func TestStartFunctionExecutionSpanFromEventWithMergeEnabled(t *testing.T) {
 	lambdacontext.FunctionName = "MockFunctionName"
 	ctx = lambdacontext.NewContext(ctx, &mockLambdaContext)
 	ctx = context.WithValue(ctx, traceContextKey, traceContextFromEvent)
+	//nolint
 	ctx = context.WithValue(ctx, "cold_start", true)
 
 	mt := mocktracer.Start()
@@ -133,6 +136,7 @@ func TestStartFunctionExecutionSpanFromEventWithMergeDisabled(t *testing.T) {
 	lambdacontext.FunctionName = "MockFunctionName"
 	ctx = lambdacontext.NewContext(ctx, &mockLambdaContext)
 	ctx = context.WithValue(ctx, traceContextKey, traceContextFromEvent)
+	//nolint
 	ctx = context.WithValue(ctx, "cold_start", true)
 
 	mt := mocktracer.Start()

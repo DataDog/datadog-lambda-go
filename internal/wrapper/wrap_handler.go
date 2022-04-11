@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/aws/aws-lambda-go/lambda"
 
@@ -50,6 +51,7 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 
 	// Return custom handler, to be called once per invocation
 	return func(ctx context.Context, msg json.RawMessage) (interface{}, error) {
+		//nolint
 		ctx = context.WithValue(ctx, "cold_start", coldStart)
 		for _, listener := range listeners {
 			ctx = listener.HandlerStarted(ctx, msg)
@@ -66,6 +68,7 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 }
 
 func (h *DatadogHandler) Invoke(ctx context.Context, payload []byte) ([]byte, error) {
+	//nolint
 	ctx = context.WithValue(ctx, "cold_start", h.coldStart)
 	msg := json.RawMessage{}
 	err := msg.UnmarshalJSON(payload)
