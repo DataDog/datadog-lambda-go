@@ -38,7 +38,7 @@ const encryptionContextKey = "LambdaFunctionName"
 // MakeKMSDecrypter creates a new decrypter which uses the AWS KMS service to decrypt variables
 func MakeKMSDecrypter() Decrypter {
 	return &kmsDecrypter{
-		kmsClient: kms.New(session.New(nil)),
+		kmsClient: kms.NewSession(session.New(nil)),
 	}
 }
 

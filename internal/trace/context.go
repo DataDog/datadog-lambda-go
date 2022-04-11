@@ -55,7 +55,10 @@ func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeX
 	}
 
 	if gotDatadogTraceContext && errGettingXrayContext == nil {
-		createDummySubsegmentForXrayConverter(ctx, datadogTraceContext)
+		err := createDummySubsegmentForXrayConverter(ctx, datadogTraceContext)
+		if err != nil {
+			logger.Error(fmt.Errorf("Couldn't create segment: %v", err))
+		}
 	}
 
 	if !mergeXrayTraces {

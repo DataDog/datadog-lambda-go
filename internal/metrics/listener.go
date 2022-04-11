@@ -164,7 +164,10 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp
 	tags = append(tags, getRuntimeTag())
 
 	if l.isAgentRunning {
-		l.statsdClient.Distribution(metric, value, tags, 1)
+		err := l.statsdClient.Distribution(metric, value, tags, 1)
+		if err != nil {
+			logger.Error(fmt.Errorf("could not send metric %s", metric))
+		}
 		return
 	}
 

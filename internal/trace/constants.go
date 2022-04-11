@@ -16,9 +16,9 @@ const (
 
 const (
 	userReject = "-1"
-	autoReject = "0"
-	autoKeep   = "1"
-	userKeep   = "2"
+	// autoReject = "0"
+	// autoKeep = "1"
+	userKeep = "2"
 )
 
 const (
