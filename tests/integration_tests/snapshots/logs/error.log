@@ -43,4 +43,4 @@ XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: sending metric via
 }
 something went wrong: errorString
 null
-END Duration: XXXX ms (init: 163.20 ms) Memory Used: XXXX MB
+END Duration: XXXX ms (init: XXXX ms) Memory Used: XXXX MB
