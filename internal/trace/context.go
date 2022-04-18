@@ -55,7 +55,10 @@ func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeX
 	}
 
 	if gotDatadogTraceContext && errGettingXrayContext == nil {
-		createDummySubsegmentForXrayConverter(ctx, datadogTraceContext)
+		err := createDummySubsegmentForXrayConverter(ctx, datadogTraceContext)
+		if err != nil {
+			logger.Error(fmt.Errorf("Couldn't create segment: %v", err))
+		}
 	}
 
 	if !mergeXrayTraces {
@@ -232,11 +235,7 @@ func convertHexIDToUint64(hexNumber string) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("couldn't convert hex to uint64: %v", err)
 	}
-
-	var id uint64
-	id = binary.BigEndian.Uint64(ba) // TODO: Verify that this is correct
-
-	return id, nil
+	return binary.BigEndian.Uint64(ba), nil // TODO: Verify that this is correct
 }
 
 // Converts an X-Ray entity ID (hex) to a Datadog parent id (uint64).

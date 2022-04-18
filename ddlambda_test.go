@@ -18,11 +18,12 @@ import (
 
 func TestInvokeDryRun(t *testing.T) {
 	called := false
-	InvokeDryRun(func(ctx context.Context) {
+	_, err := InvokeDryRun(func(ctx context.Context) {
 		called = true
 		globalCtx := GetContext()
 		assert.Equal(t, globalCtx, ctx)
 	}, nil)
+	assert.NoError(t, err)
 	assert.True(t, called)
 }
 
@@ -38,11 +39,12 @@ func TestMetricsSubmitWithWrapper(t *testing.T) {
 	}))
 	defer server.Close()
 
-	InvokeDryRun(func(ctx context.Context) {
+	_, err := InvokeDryRun(func(ctx context.Context) {
 		Metric("my-metric", 100, "my:tag")
 	}, &Config{
 		APIKey: "abc-123",
 		Site:   server.URL,
 	})
+	assert.NoError(t, err)
 	assert.True(t, called)
 }

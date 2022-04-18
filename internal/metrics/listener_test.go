@@ -98,6 +98,7 @@ func TestAddDistributionMetricWithForceLogForwarder(t *testing.T) {
 }
 
 func TestGetEnhancedMetricsTags(t *testing.T) {
+	//nolint
 	ctx := context.WithValue(context.Background(), "cold_start", false)
 
 	lambdacontext.MemoryLimitInMB = 256
@@ -111,6 +112,7 @@ func TestGetEnhancedMetricsTags(t *testing.T) {
 }
 
 func TestGetEnhancedMetricsTagsWithAlias(t *testing.T) {
+	//nolint
 	ctx := context.WithValue(context.Background(), "cold_start", false)
 
 	lambdacontext.MemoryLimitInMB = 256
@@ -125,6 +127,7 @@ func TestGetEnhancedMetricsTagsWithAlias(t *testing.T) {
 }
 
 func TestGetEnhancedMetricsTagsNoLambdaContext(t *testing.T) {
+	//nolint
 	ctx := context.WithValue(context.Background(), "cold_start", true)
 	tags := getEnhancedMetricsTags(ctx)
 
@@ -146,6 +149,7 @@ func TestSubmitEnhancedMetrics(t *testing.T) {
 		},
 		&extension.ExtensionManager{},
 	)
+	//nolint
 	ctx := context.WithValue(context.Background(), "cold_start", false)
 
 	output := captureOutput(func() {
@@ -174,6 +178,7 @@ func TestDoNotSubmitEnhancedMetrics(t *testing.T) {
 		},
 		&extension.ExtensionManager{},
 	)
+	//nolint
 	ctx := context.WithValue(context.Background(), "cold_start", true)
 
 	output := captureOutput(func() {
@@ -202,7 +207,7 @@ func TestSubmitEnhancedMetricsOnlyErrors(t *testing.T) {
 		},
 		&extension.ExtensionManager{},
 	)
-
+	//nolint
 	ctx := context.WithValue(context.Background(), "cold_start", true)
 
 	output := captureOutput(func() {

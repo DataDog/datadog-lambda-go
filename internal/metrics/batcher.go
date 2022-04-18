@@ -56,9 +56,7 @@ func (b *Batcher) ToAPIMetrics() []APIMetric {
 
 	for _, metric := range b.metrics {
 		values := metric.ToAPIMetric(interval)
-		for _, val := range values {
-			ar = append(ar, val)
-		}
+		ar = append(ar, values...)
 	}
 	return ar
 }

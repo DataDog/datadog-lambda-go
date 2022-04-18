@@ -12,12 +12,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"reflect"
 	"testing"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/stretchr/testify/assert"
 )
 
 type (
@@ -77,7 +78,8 @@ func loadRawJSON(t *testing.T, filename string) *json.RawMessage {
 		return nil
 	}
 	msg := json.RawMessage{}
-	msg.UnmarshalJSON(bytes)
+	err = msg.UnmarshalJSON(bytes)
+	assert.NoError(t, err)
 	return &msg
 }
 

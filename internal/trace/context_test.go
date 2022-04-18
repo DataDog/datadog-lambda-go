@@ -41,6 +41,7 @@ func mockLambdaXRayTraceContext(ctx context.Context, traceID, parentID string, s
 		AdditionalData:   make(TraceContext),
 	}
 	headerString := traceHeader.String()
+	//nolint
 	return context.WithValue(ctx, xray.LambdaTraceHeaderKey, headerString)
 }
 
@@ -51,7 +52,8 @@ func loadRawJSON(t *testing.T, filename string) *json.RawMessage {
 		return nil
 	}
 	msg := json.RawMessage{}
-	msg.UnmarshalJSON(bytes)
+	err = msg.UnmarshalJSON(bytes)
+	assert.NoError(t, err)
 	return &msg
 }
 func TestGetDatadogTraceContextForTraceMetadataNonProxyEvent(t *testing.T) {

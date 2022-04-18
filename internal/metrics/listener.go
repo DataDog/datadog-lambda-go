@@ -45,7 +45,7 @@ type (
 		ShouldUseLogForwarder       bool
 		BatchInterval               time.Duration
 		EnhancedMetrics             bool
-		HttpClientTimeout           time.Duration
+		HTTPClientTimeout           time.Duration
 		CircuitBreakerInterval      time.Duration
 		CircuitBreakerTimeout       time.Duration
 		CircuitBreakerTotalFailures uint32
@@ -67,10 +67,10 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 		apiKey:            config.APIKey,
 		decrypter:         MakeKMSDecrypter(),
 		kmsAPIKey:         config.KMSAPIKey,
-		httpClientTimeout: config.HttpClientTimeout,
+		httpClientTimeout: config.HTTPClientTimeout,
 	})
-	if config.HttpClientTimeout <= 0 {
-		config.HttpClientTimeout = defaultHttpClientTimeout
+	if config.HTTPClientTimeout <= 0 {
+		config.HTTPClientTimeout = defaultHttpClientTimeout
 	}
 	if config.CircuitBreakerInterval <= 0 {
 		config.CircuitBreakerInterval = defaultCircuitBreakerInterval
@@ -164,7 +164,10 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp
 	tags = append(tags, getRuntimeTag())
 
 	if l.isAgentRunning {
-		l.statsdClient.Distribution(metric, value, tags, 1)
+		err := l.statsdClient.Distribution(metric, value, tags, 1)
+		if err != nil {
+			logger.Error(fmt.Errorf("could not send metric %s", metric))
+		}
 		return
 	}
 

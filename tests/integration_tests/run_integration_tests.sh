@@ -73,7 +73,7 @@ for input_event_file in "${input_event_files[@]}"; do
         # Return value snapshot file format is snapshots/return_values/{handler}_{runtime}_{input-event}
         snapshot_path="$integration_tests_dir/snapshots/return_values/${function_name}_${input_event_name}.json"
 
-        return_value=$(sls invoke --stage $run_id -f $function_name --path "$integration_tests_dir/input_events/$input_event_file" --api-key=$DD_API_KEY)
+        return_value=$(DD_API_KEY=$DD_API_KEY sls invoke --stage $run_id -f $function_name --path "$integration_tests_dir/input_events/$input_event_file")
         sls_invoke_exit_code=$?
         if [ $sls_invoke_exit_code -ne 0 ]; then
             return_value="Invocation failed"
@@ -135,12 +135,13 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
     # Replace invocation-specific data like timestamps and IDs with XXXX to normalize logs across executions
     logs=$(
         echo "$raw_logs" |
+            node parse-json.js |
             # Remove serverless cli errors
             sed '/Serverless: Recoverable error occurred/d' |
             # Remove dd-trace-go logs
             sed '/Datadog Tracer/d' |
             # Normalize Lambda runtime report logs
-            perl -p -e 's/(RequestId|TraceId|SegmentId|Duration|Memory Used|"e"):( )?[a-z0-9\.\-]+/\1:\2XXXX/g' |
+            perl -p -e 's/(RequestId|TraceId|init|SegmentId|Duration|Memory Used|"e"):( )?[a-z0-9\.\-]+/\1:\2XXXX/g' |
             # Normalize DD APM headers and AWS account ID
             perl -p -e "s/(Current span ID:|Current trace ID:|account_id:) ?[0-9]+/\1XXXX/g" |
             # Strip API key from logged requests
@@ -160,7 +161,7 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             # Normalize golang version tag
             perl -p -e "s/(go)[0-9]+\.[0-9]+\.[0-9]+/\1X\.X\.X/g" |
             # Normalize data in logged traces
-            perl -p -e 's/"(span_id|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn|runtime-id)":("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
+            perl -p -e 's/"(span_id|apiid|runtime-id|record_ids|parent_id|trace_id|start|duration|tcp\.local\.address|tcp\.local\.port|dns\.address|request_id|function_arn|x-datadog-trace-id|x-datadog-parent-id|datadog_lambda|dd_trace)":\ ("?)[a-zA-Z0-9\.:\-]+("?)/"\1":\2XXXX\3/g' |
             # Remove metrics and metas in logged traces (their order is inconsistent)
             perl -p -e 's/"(meta|metrics)":{(.*?)}/"\1":{"XXXX": "XXXX"}/g' |
             # Strip out run ID (from function name, resource, etc.)
