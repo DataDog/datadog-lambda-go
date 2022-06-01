@@ -167,6 +167,8 @@ func TestListener_buildTraceStartOptions(t *testing.T) {
 		customServiceName := "my-service"
 
 		os.Setenv("DD_SERVICE", customServiceName)
+		defer os.Unsetenv("DD_SERVICE")
+
 		os.Unsetenv("DD_ENV")
 
 		listener := Listener{extensionManager: &extension.ExtensionManager{}}
@@ -181,6 +183,7 @@ func TestListener_buildTraceStartOptions(t *testing.T) {
 
 		os.Unsetenv("DD_SERVICE")
 		os.Setenv("DD_ENV", customEnvName)
+		defer os.Unsetenv("DD_ENV")
 
 		listener := Listener{extensionManager: &extension.ExtensionManager{}}
 
@@ -194,7 +197,10 @@ func TestListener_buildTraceStartOptions(t *testing.T) {
 		customServiceName := "my-service"
 
 		os.Setenv("DD_SERVICE", customServiceName)
+		defer os.Unsetenv("DD_SERVICE")
+
 		os.Setenv("DD_ENV", customEnvName)
+		defer os.Unsetenv("DD_ENV")
 
 		listener := Listener{extensionManager: &extension.ExtensionManager{}}
 
