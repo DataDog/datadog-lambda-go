@@ -10,8 +10,10 @@ package trace
 
 import (
 	"context"
+	"os"
 	"testing"
 
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
@@ -147,4 +149,57 @@ func TestStartFunctionExecutionSpanFromEventWithMergeDisabled(t *testing.T) {
 	finishedSpan := mt.FinishedSpans()[0]
 
 	assert.Equal(t, nil, finishedSpan.Tag("_dd.parent_source"))
+}
+
+func TestListener_buildTraceStartOptions(t *testing.T) {
+	t.Run("when the DD_SERVICE neither the DD_ENV are present", func(t *testing.T) {
+		os.Unsetenv("DD_SERVICE")
+		os.Unsetenv("DD_ENV")
+
+		listener := Listener{extensionManager: &extension.ExtensionManager{}}
+
+		got := listener.buildTraceStartOptions()
+
+		assert.Equal(t, len(got), 3)
+	})
+
+	t.Run("when the DD_SERVICE only is present", func(t *testing.T) {
+		customServiceName := "my-service"
+
+		os.Setenv("DD_SERVICE", customServiceName)
+		os.Unsetenv("DD_ENV")
+
+		listener := Listener{extensionManager: &extension.ExtensionManager{}}
+
+		got := listener.buildTraceStartOptions()
+
+		assert.Equal(t, len(got), 3)
+	})
+
+	t.Run("when the DD_ENV only is present", func(t *testing.T) {
+		customEnvName := "my-env"
+
+		os.Unsetenv("DD_SERVICE")
+		os.Setenv("DD_ENV", customEnvName)
+
+		listener := Listener{extensionManager: &extension.ExtensionManager{}}
+
+		got := listener.buildTraceStartOptions()
+
+		assert.Equal(t, len(got), 4)
+	})
+
+	t.Run("when the DD_ENV and DD_SERVICE are present", func(t *testing.T) {
+		customEnvName := "my-env"
+		customServiceName := "my-service"
+
+		os.Setenv("DD_SERVICE", customServiceName)
+		os.Setenv("DD_ENV", customEnvName)
+
+		listener := Listener{extensionManager: &extension.ExtensionManager{}}
+
+		got := listener.buildTraceStartOptions()
+
+		assert.Equal(t, len(got), 4)
+	})
 }

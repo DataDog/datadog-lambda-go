@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
@@ -64,11 +65,8 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces, l.traceContextExtractor)
 
 	if !tracerInitialized {
-		tracer.Start(
-			tracer.WithService("aws.lambda"),
-			tracer.WithLambdaMode(!l.extensionManager.IsExtensionRunning()),
-			tracer.WithGlobalTag("_dd.origin", "lambda"),
-		)
+		tracer.Start(l.buildTraceStartOptions()...)
+
 		tracerInitialized = true
 	}
 
@@ -143,4 +141,24 @@ func separateVersionFromFunctionArn(functionArn string) (arnWithoutVersion strin
 		functionVersion = arnSegments[7]
 	}
 	return arnWithoutVersion, functionVersion
+}
+
+func (l *Listener) buildTraceStartOptions() []tracer.StartOption {
+	tracerStartOptions := []tracer.StartOption{
+		tracer.WithLambdaMode(!l.extensionManager.IsExtensionRunning()),
+		tracer.WithGlobalTag("_dd.origin", "lambda"),
+	}
+
+	ddService := os.Getenv("DD_SERVICE")
+	if ddService == "" {
+		ddService = "aws.lambdas"
+	}
+	tracerStartOptions = append(tracerStartOptions, tracer.WithService(ddService))
+
+	ddEnv := os.Getenv("DD_ENV")
+	if ddEnv != "" {
+		tracerStartOptions = append(tracerStartOptions, tracer.WithService(ddEnv))
+	}
+
+	return tracerStartOptions
 }
