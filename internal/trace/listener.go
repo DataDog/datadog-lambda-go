@@ -157,7 +157,7 @@ func (l *Listener) buildTraceStartOptions() []tracer.StartOption {
 
 	ddEnv := os.Getenv("DD_ENV")
 	if ddEnv != "" {
-		tracerStartOptions = append(tracerStartOptions, tracer.WithService(ddEnv))
+		tracerStartOptions = append(tracerStartOptions, tracer.WithEnv(ddEnv))
 	}
 
 	return tracerStartOptions
