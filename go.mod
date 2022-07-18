@@ -10,7 +10,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/sony/gobreaker v0.5.0
 	github.com/stretchr/testify v1.7.0
-	gopkg.in/DataDog/dd-trace-go.v1 v1.37.1
+	gopkg.in/DataDog/dd-trace-go.v1 v1.40.0
 )
 
 require (
