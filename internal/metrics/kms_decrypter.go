@@ -51,10 +51,6 @@ func (kd *kmsDecrypter) Decrypt(ciphertext string) (string, error) {
 	return decryptKMS(kd.kmsClient, ciphertext)
 }
 
-func defaultDecryptOpt(opt *kms.Options) {
-	opt.EndpointResolver = kms.NewDefaultEndpointResolver()
-}
-
 // decryptKMS decodes and deciphers the base64-encoded ciphertext given as a parameter using KMS.
 // For this to work properly, the Lambda function must have the appropriate IAM permissions.
 func decryptKMS(kmsClient *kms.Client, ciphertext string) (string, error) {
@@ -72,7 +68,7 @@ func decryptKMS(kmsClient *kms.Client, ciphertext string) (string, error) {
 	params := &kms.DecryptInput{
 		CiphertextBlob: decodedBytes,
 	}
-	response, err := kmsClient.Decrypt(context.TODO(), params, defaultDecryptOpt)
+	response, err := kmsClient.Decrypt(context.TODO(), params)
 
 	if err != nil {
 		logger.Debug("Failed to decrypt ciphertext without encryption context, retrying with encryption context")
@@ -83,7 +79,7 @@ func decryptKMS(kmsClient *kms.Client, ciphertext string) (string, error) {
 				encryptionContextKey: functionName,
 			},
 		}
-		response, err = kmsClient.Decrypt(context.TODO(), params, defaultDecryptOpt)
+		response, err = kmsClient.Decrypt(context.TODO(), params)
 		if err != nil {
 			return "", fmt.Errorf("failed to decrypt ciphertext with kms: %v", err)
 		}
