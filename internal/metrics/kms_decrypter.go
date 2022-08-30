@@ -72,6 +72,7 @@ func decryptKMS(kmsClient *kms.Client, ciphertext string) (string, error) {
 
 	if err != nil {
 		logger.Debug("Failed to decrypt ciphertext without encryption context, retrying with encryption context")
+		fmt.Printf("===ERROR===: %v", err)
 		// Try with encryption context, in case API key was encrypted using the AWS Console
 		params = &kms.DecryptInput{
 			CiphertextBlob: decodedBytes,
