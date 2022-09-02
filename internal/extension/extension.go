@@ -89,11 +89,11 @@ func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Con
 	body := bytes.NewBuffer(content)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
 	// For the Lambda context, we need to put each k:v into the request headers
-	fmt.Printf("Context: %v", lambdaContext)
+	logger.Debug(fmt.Sprintf("Context: %v", lambdaContext))
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-		fmt.Printf("NICE: %v", response)
+		logger.Debug(fmt.Sprintf("NICE: %v", response))
 	} else {
-		fmt.Printf("BAD")
+		logger.Debug("BAD")
 	}
 }
 
