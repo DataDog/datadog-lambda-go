@@ -63,6 +63,11 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces, l.traceContextExtractor)
 
+	// Do things with the extension
+	if l.extensionManager.IsExtensionRunning() {
+		l.extensionManager.SendStartInvocationRequest(ctx, msg)
+	}
+
 	if !tracerInitialized {
 		tracer.Start(
 			tracer.WithService("aws.lambda"),

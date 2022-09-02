@@ -9,6 +9,9 @@
 package extension
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -23,8 +26,10 @@ const (
 	// want to let it having some time for its cold start so we should not set this too low.
 	timeout = 3000 * time.Millisecond
 
-	helloUrl = "http://localhost:8124/lambda/hello"
-	flushUrl = "http://localhost:8124/lambda/flush"
+	helloUrl           = "http://localhost:8124/lambda/hello"
+	flushUrl           = "http://localhost:8124/lambda/flush"
+	startInvocationUrl = "http://localhost:8124/lambda/start-invocation"
+	endInvocationUrl   = "http://localhost:8124/lambda/end-invocation"
 
 	extensionPath = "/opt/extensions/datadog-agent"
 )
@@ -33,6 +38,8 @@ type ExtensionManager struct {
 	helloRoute         string
 	flushRoute         string
 	extensionPath      string
+	startInvocationUrl string
+	endInvocationUrl   string
 	httpClient         HTTPClient
 	isExtensionRunning bool
 }
@@ -43,10 +50,12 @@ type HTTPClient interface {
 
 func BuildExtensionManager() *ExtensionManager {
 	em := &ExtensionManager{
-		helloRoute:    helloUrl,
-		flushRoute:    flushUrl,
-		extensionPath: extensionPath,
-		httpClient:    &http.Client{Timeout: timeout},
+		helloRoute:         helloUrl,
+		flushRoute:         flushUrl,
+		startInvocationUrl: startInvocationUrl,
+		endInvocationUrl:   endInvocationUrl,
+		extensionPath:      extensionPath,
+		httpClient:         &http.Client{Timeout: timeout},
 	}
 	em.checkAgentRunning()
 	return em
@@ -65,6 +74,26 @@ func (em *ExtensionManager) checkAgentRunning() {
 			logger.Debug("Will use the API since the Serverless Agent was detected but the hello route was unreachable")
 			em.isExtensionRunning = false
 		}
+	}
+}
+
+// func (em *ExtensionManager) BuildStartInvocationRequest() {
+
+// }
+
+func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Context, eventPayload json.RawMessage) {
+	content, err := json.Marshal(eventPayload)
+	if err != nil {
+		logger.Debug("Uhoh")
+	}
+	body := bytes.NewBuffer(content)
+	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
+	// For the Lambda context, we need to put each k:v into the request headers
+	fmt.Printf("Context: %v", lambdaContext)
+	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
+		fmt.Printf("NICE: %v", response)
+	} else {
+		fmt.Printf("BAD")
 	}
 }
 
