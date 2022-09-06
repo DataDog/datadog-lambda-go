@@ -79,9 +79,6 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	}
 
 	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
-	rootTraceContext, _ := ctx.Value(traceContextKey).(TraceContext)
-	logger.Debug(fmt.Sprintf("StartInvoke TraceCtx: %v", rootTraceContext))
-
 	// Add the span to the context so the user can create child spans
 	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
 
@@ -96,9 +93,6 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 		// Do things with the extension
 		if l.extensionManager.IsExtensionRunning() {
 			logger.Debug("Try to send request to end invocation endpoint")
-
-			rootTraceContext, _ := ctx.Value(traceContextKey).(TraceContext)
-			logger.Debug(fmt.Sprintf("EndInvoke TraceCtx: %v", rootTraceContext))
 
 			l.extensionManager.SendEndInvocationRequest(ctx, err)
 		}
