@@ -97,6 +97,22 @@ func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Con
 	}
 }
 
+func (em *ExtensionManager) SendEndInvocationRequest(lambdaContext context.Context, err error) {
+	content, err := json.Marshal(err)
+	if err != nil {
+		logger.Debug("Uhoh")
+	}
+	body := bytes.NewBuffer(content)
+	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
+	// For the Lambda context, we need to put each k:v into the request headers
+	logger.Debug(fmt.Sprintf("Context: %v", lambdaContext))
+	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
+		logger.Debug(fmt.Sprintf("NICE: %v", response))
+	} else {
+		logger.Debug("BAD")
+	}
+}
+
 func (em *ExtensionManager) IsExtensionRunning() bool {
 	return em.isExtensionRunning
 }

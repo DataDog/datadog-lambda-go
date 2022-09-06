@@ -65,6 +65,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	// Do things with the extension
 	if l.extensionManager.IsExtensionRunning() {
+		logger.Debug("Try to send request to start invocation endpoint")
 		l.extensionManager.SendStartInvocationRequest(ctx, msg)
 	}
 
@@ -89,6 +90,12 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish(tracer.WithError(err))
+
+		// Do things with the extension
+		if l.extensionManager.IsExtensionRunning() {
+			logger.Debug("Try to send request to end invocation endpoint")
+			l.extensionManager.SendEndInvocationRequest(ctx, err)
+		}
 	}
 	tracer.Flush()
 }
