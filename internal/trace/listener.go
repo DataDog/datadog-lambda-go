@@ -66,6 +66,10 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	// Do things with the extension
 	if l.extensionManager.IsExtensionRunning() {
 		logger.Debug("Try to send request to start invocation endpoint")
+
+		rootTraceContext, _ := ctx.Value(traceContextKey).(TraceContext)
+		logger.Debug(fmt.Sprintf("TraceCtx: %v", rootTraceContext))
+
 		l.extensionManager.SendStartInvocationRequest(ctx, msg)
 	}
 
