@@ -88,9 +88,8 @@ func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Con
 	logger.Debug(fmt.Sprintf("Context: %v", lambdaContext))
 
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-		logger.Debug(fmt.Sprintf("NICE: %v", response))
-	} else {
-		logger.Debug("BAD")
+		logger.Debug(fmt.Sprintf("Response Header: %v", response.Header))
+		logger.Debug(fmt.Sprintf("Response Body: %v", response.Body))
 	}
 }
 
@@ -104,9 +103,8 @@ func (em *ExtensionManager) SendEndInvocationRequest(lambdaContext context.Conte
 	// For the Lambda context, we need to put each k:v into the request headers
 	logger.Debug(fmt.Sprintf("Context: %v", lambdaContext))
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-		logger.Debug(fmt.Sprintf("NICE: %v", response))
-	} else {
-		logger.Debug("BAD")
+		logger.Debug(fmt.Sprintf("Response Header: %v", response.Header))
+		logger.Debug(fmt.Sprintf("Response Body: %v", response.Body))
 	}
 }
 
