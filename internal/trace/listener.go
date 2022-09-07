@@ -93,6 +93,8 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 		// Do things with the extension
 		if l.extensionManager.IsExtensionRunning() {
 			logger.Debug("Try to send request to end invocation endpoint")
+			errEvent, _ := json.Marshal(err)
+			ctx, _ = contextWithRootTraceContext(ctx, errEvent, l.mergeXrayTraces, l.traceContextExtractor)
 
 			l.extensionManager.SendEndInvocationRequest(ctx, err)
 		}
