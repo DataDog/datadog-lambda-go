@@ -78,11 +78,11 @@ func (em *ExtensionManager) checkAgentRunning() {
 }
 
 func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Context, eventPayload json.RawMessage) {
-	content, err := json.Marshal(eventPayload)
-	if err != nil {
-		logger.Debug("Uhoh")
-	}
-	body := bytes.NewBuffer(content)
+	// content, err := json.Marshal(eventPayload)
+	// if err != nil {
+	// 	logger.Debug("Uhoh")
+	// }
+	body := bytes.NewBuffer(eventPayload)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
 	// For the Lambda context, we need to put each k:v into the request headers
 	logger.Debug(fmt.Sprintf("Context: %v", lambdaContext))

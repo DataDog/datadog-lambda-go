@@ -77,9 +77,6 @@ func contextWithRootTraceContext(ctx context.Context, ev json.RawMessage, mergeX
 	mergedTraceContext[samplingPriorityHeader] = datadogTraceContext[samplingPriorityHeader]
 	mergedTraceContext[parentIDHeader] = xrayTraceContext[parentIDHeader]
 
-	rootTraceContext, _ := ctx.Value(traceContextKey).(TraceContext)
-	logger.Debug(fmt.Sprintf("TraceCtx: %v", rootTraceContext))
-
 	return context.WithValue(ctx, traceContextKey, mergedTraceContext), nil
 }
 
