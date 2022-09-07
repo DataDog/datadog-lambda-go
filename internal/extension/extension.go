@@ -88,7 +88,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Con
 	}
 }
 
-func (em *ExtensionManager) SendEndInvocationRequest(lambdaContext context.Context, err error) {
+func (em *ExtensionManager) SendEndInvocationRequest(headers map[string]string, err error) {
 	content, err := json.Marshal(err)
 	if err != nil {
 		logger.Debug("Uhoh")
@@ -99,10 +99,12 @@ func (em *ExtensionManager) SendEndInvocationRequest(lambdaContext context.Conte
 	// We should try to extract any trace context from the lambda context if available
 
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
-	// req.Header = map[string][]string{}
+	for k, v := range headers {
+		req.Header[k] = append(req.Header[k], v)
+	}
 
 	// For the Lambda context, we need to put each k:v into the request headers
-	logger.Debug(fmt.Sprintf("Context: %v", lambdaContext))
+	logger.Debug(fmt.Sprintf("Request: %v", req))
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
 		logger.Debug(fmt.Sprintf("Response: %v", response))
 	}
