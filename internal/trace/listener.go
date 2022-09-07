@@ -93,12 +93,8 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 		// Do things with the extension
 		if l.extensionManager.IsExtensionRunning() {
 			logger.Debug("Try to send request to end invocation endpoint")
-			errEvent, _ := json.Marshal(err)
-			ctx, ctxTraceErr := contextWithRootTraceContext(ctx, errEvent, l.mergeXrayTraces, l.traceContextExtractor)
-			if ctxTraceErr != nil {
-				logger.Debug(fmt.Sprintf("Error trace context: %v", ctxTraceErr))
-			}
-
+			traceCtx := ConvertCurrentXrayTraceContext(ctx)
+			logger.Debug(fmt.Sprintf("Trace Context: %v", traceCtx))
 			l.extensionManager.SendEndInvocationRequest(ctx, err)
 		}
 	}
