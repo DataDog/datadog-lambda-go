@@ -121,7 +121,7 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 	if err == nil {
 		parentSpanContext = convertedSpanContext
 	}
-	logger.Debug(fmt.Sprintf("convertedSpanContext.TraceID(): %v", convertedSpanContext.TraceID()))
+	logger.Debug(fmt.Sprintf("convertedSpanContext.TraceID(): %d", convertedSpanContext.TraceID()))
 
 	span := tracer.StartSpan(
 		"aws.lambda", // This operation name will be replaced with the value of the service tag by the Forwarder
