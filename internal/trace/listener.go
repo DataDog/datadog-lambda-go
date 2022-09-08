@@ -98,7 +98,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 		// l.extensionManager.SendEndInvocationRequest(traceCtx, err)
 		l.extensionManager.SendEndInvocationRequest(ctx, err)
 	}
-	// tracer.Flush()
+	tracer.Flush()
 }
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
