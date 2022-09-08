@@ -86,6 +86,9 @@ func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Con
 	// For the Lambda context, we need to put each k:v into the request headers
 	logger.Debug(fmt.Sprintf("Context: %v", lambdaContext))
 
+	// TODO: send dummy x-datadog headers
+	req.Header = map[string][]string{"x-datadog-trace-id": {"0"}}
+
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
 		logger.Debug(fmt.Sprintf("Response: %v", response))
 	}
