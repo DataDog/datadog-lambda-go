@@ -58,6 +58,7 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 		}
 		CurrentContext = ctx
 		result, err := callHandler(ctx, msg, handler)
+		logger.Debug(fmt.Sprintf("Handler response: %v", result))
 		for _, listener := range listeners {
 			listener.HandlerFinished(ctx, err)
 		}
