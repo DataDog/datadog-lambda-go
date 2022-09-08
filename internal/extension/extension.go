@@ -66,14 +66,17 @@ func (em *ExtensionManager) checkAgentRunning() {
 		logger.Debug("Will use the API")
 		em.isExtensionRunning = false
 	} else {
-		req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
-		if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-			logger.Debug("Will use the Serverless Agent")
-			em.isExtensionRunning = true
-		} else {
-			logger.Debug("Will use the API since the Serverless Agent was detected but the hello route was unreachable")
-			em.isExtensionRunning = false
-		}
+		// The hello route marks in the extension that a lambda library is active. This prevents certain trace features in the extension
+		em.isExtensionRunning = true
+
+		// req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
+		// if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
+		// 	logger.Debug("Will use the Serverless Agent")
+		// 	em.isExtensionRunning = true
+		// } else {
+		// 	logger.Debug("Will use the API since the Serverless Agent was detected but the hello route was unreachable")
+		// 	em.isExtensionRunning = false
+		// }
 	}
 }
 
