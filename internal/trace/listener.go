@@ -69,37 +69,38 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		l.extensionManager.SendStartInvocationRequest(ctx, msg)
 	}
 
-	if !tracerInitialized {
-		tracer.Start(
-			tracer.WithService("aws.lambda"),
-			tracer.WithLambdaMode(!l.extensionManager.IsExtensionRunning()),
-			tracer.WithGlobalTag("_dd.origin", "lambda"),
-		)
-		tracerInitialized = true
-	}
+	// if !tracerInitialized {
+	// 	tracer.Start(
+	// 		tracer.WithService("aws.lambda"),
+	// 		tracer.WithLambdaMode(!l.extensionManager.IsExtensionRunning()),
+	// 		tracer.WithGlobalTag("_dd.origin", "lambda"),
+	// 	)
+	// 	tracerInitialized = true
+	// }
 
-	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
+	// functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
+
 	// Add the span to the context so the user can create child spans
-	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
+	// ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
 
 	return ctx
 }
 
 // HandlerFinished ends the function execution span and stops the tracer
 func (l *Listener) HandlerFinished(ctx context.Context, err error) {
-	if functionExecutionSpan != nil {
-		functionExecutionSpan.Finish(tracer.WithError(err))
+	// if functionExecutionSpan != nil {
+	// 	functionExecutionSpan.Finish(tracer.WithError(err))
 
-		// Do things with the extension
-		if l.extensionManager.IsExtensionRunning() {
-			logger.Debug("Try to send request to end invocation endpoint")
-			l.extensionManager.SendEndInvocationRequest(ctx, err)
-			// traceCtx := ConvertCurrentXrayTraceContext(ctx)
-			// logger.Debug(fmt.Sprintf("Trace Context: %v", traceCtx))
-			// l.extensionManager.SendEndInvocationRequest(traceCtx, err)
-		}
+	// }
+	// Do things with the extension
+	if l.extensionManager.IsExtensionRunning() {
+		logger.Debug("Try to send request to end invocation endpoint")
+		l.extensionManager.SendEndInvocationRequest(ctx, err)
+		// traceCtx := ConvertCurrentXrayTraceContext(ctx)
+		// logger.Debug(fmt.Sprintf("Trace Context: %v", traceCtx))
+		// l.extensionManager.SendEndInvocationRequest(traceCtx, err)
 	}
-	tracer.Flush()
+	// tracer.Flush()
 }
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
