@@ -87,10 +87,11 @@ func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Con
 	logger.Debug(fmt.Sprintf("Context: %v", lambdaContext))
 
 	// TODO: send dummy x-datadog headers
-	req.Header = map[string][]string{"x-datadog-trace-id": {"0"}}
+	// req.Header = map[string][]string{"x-datadog-trace-id": {"0"}}
 
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-		logger.Debug(fmt.Sprintf("Response: %v", response))
+		logger.Debug(fmt.Sprintf("Response Body: %v", response.Body))
+		logger.Debug(fmt.Sprintf("Response Header: %v", response.Header))
 	}
 }
 
@@ -109,11 +110,15 @@ func (em *ExtensionManager) SendEndInvocationRequest(traceCtx map[string]string,
 
 	// Add trace context as headers
 	for k, v := range traceCtx {
+		if k == "x-datadog-sampling-priority" {
+			req.Header[k] = append(req.Header[k], "1")
+			logger.Debug("override sampling priority")
+			continue
+		}
 		req.Header[k] = append(req.Header[k], v)
 	}
 
 	// For the Lambda context, we need to put each k:v into the request headers
-	logger.Debug(fmt.Sprintf("Request Body: %v", req.Body))
 	logger.Debug(fmt.Sprintf("Request Header: %v", req.Header))
 
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
