@@ -91,20 +91,17 @@ func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Con
 	}
 }
 
-func (em *ExtensionManager) SendEndInvocationRequest(headers map[string]string, err error) {
+func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, err error) {
 	content, err := json.Marshal(err)
 	if err != nil {
 		logger.Debug("Uhoh")
 	}
 
-	// body := bytes.NewBuffer([]byte(lambdaContext))
-	body := bytes.NewBuffer([]byte(content))
-	// We should try to extract any trace context from the lambda context if available
+	body := bytes.NewBuffer(content)
+	// body := bytes.NewBuffer([]byte(content))
 
+	// We should try to extract any trace context from the lambda context if available
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
-	for k, v := range headers {
-		req.Header[k] = append(req.Header[k], v)
-	}
 
 	// For the Lambda context, we need to put each k:v into the request headers
 	logger.Debug(fmt.Sprintf("Request: %v", req))
