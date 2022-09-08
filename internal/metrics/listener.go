@@ -143,9 +143,10 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 			}
 		}
 		// send a message to the Agent to flush the metrics
-		if err := l.extensionManager.Flush(); err != nil {
-			logger.Error(fmt.Errorf("error while flushing the metrics: %s", err))
-		}
+		// DONT FLUSH
+		// if err := l.extensionManager.Flush(); err != nil {
+		// 	logger.Error(fmt.Errorf("error while flushing the metrics: %s", err))
+		// }
 	} else {
 		// use the api
 		if l.processor != nil {
