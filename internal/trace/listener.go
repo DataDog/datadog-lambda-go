@@ -65,7 +65,6 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	// Do things with the extension
 	if l.extensionManager.IsExtensionRunning() {
-		logger.Debug("Try to send request to start invocation endpoint")
 		l.extensionManager.SendStartInvocationRequest(ctx, msg)
 	}
 
@@ -94,11 +93,10 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	// }
 	// Do things with the extension
 	if l.extensionManager.IsExtensionRunning() {
-		logger.Debug("Try to send request to end invocation endpoint")
-		l.extensionManager.SendEndInvocationRequest(ctx, err)
-		// traceCtx := ConvertCurrentXrayTraceContext(ctx)
-		// logger.Debug(fmt.Sprintf("Trace Context: %v", traceCtx))
-		// l.extensionManager.SendEndInvocationRequest(traceCtx, err)
+		traceCtx := ConvertCurrentXrayTraceContext(ctx)
+		logger.Debug(fmt.Sprintf("Trace Context: %v", traceCtx))
+		l.extensionManager.SendEndInvocationRequest(traceCtx, err)
+		// l.extensionManager.SendEndInvocationRequest(ctx, err)
 	}
 	// tracer.Flush()
 }

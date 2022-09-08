@@ -91,11 +91,15 @@ func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Con
 	}
 }
 
-func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, err error) {
-	content, err := json.Marshal(err)
+func (em *ExtensionManager) SendEndInvocationRequest(traceCtx map[string]string, err error) {
+	content, err := json.Marshal(traceCtx)
 	if err != nil {
 		logger.Debug("Uhoh")
 	}
+	// content, err := json.Marshal(err)
+	// if err != nil {
+	// 	logger.Debug("Uhoh")
+	// }
 
 	body := bytes.NewBuffer(content)
 	// body := bytes.NewBuffer([]byte(content))
