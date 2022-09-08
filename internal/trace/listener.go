@@ -95,8 +95,8 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if l.extensionManager.IsExtensionRunning() {
 		traceCtx := ConvertCurrentXrayTraceContext(ctx)
 		logger.Debug(fmt.Sprintf("Trace Context: %v", traceCtx))
-		// l.extensionManager.SendEndInvocationRequest(traceCtx, err)
-		l.extensionManager.SendEndInvocationRequest(ctx, err)
+		l.extensionManager.SendEndInvocationRequest(traceCtx, err)
+		// l.extensionManager.SendEndInvocationRequest(ctx, err)
 	}
 	tracer.Flush()
 }
