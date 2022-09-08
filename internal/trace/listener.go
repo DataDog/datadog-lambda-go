@@ -63,11 +63,6 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces, l.traceContextExtractor)
 
-	// Do things with the extension
-	if l.extensionManager.IsExtensionRunning() {
-		l.extensionManager.SendStartInvocationRequest(ctx, msg)
-	}
-
 	if !tracerInitialized {
 		tracer.Start(
 			tracer.WithService("aws.lambda"),
@@ -81,6 +76,11 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	// Add the span to the context so the user can create child spans
 	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
+
+	// Do things with the extension after the execution span is created
+	if l.extensionManager.IsExtensionRunning() {
+		l.extensionManager.SendStartInvocationRequest(ctx, msg)
+	}
 
 	return ctx
 }
