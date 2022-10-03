@@ -140,7 +140,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 		logger.Debug("NO DD TRACE HEADERS FOUND -- CREATE ONE FROM SPAN")
 		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], fmt.Sprint(functionExecutionSpan.Context().TraceID()))
 		req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], fmt.Sprint(functionExecutionSpan.Context().SpanID()))
-		// req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], "1")
+		req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], "1")
 	}
 
 	// For the Lambda context, we need to put each k:v into the request headers
