@@ -72,14 +72,14 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		tracerInitialized = true
 	}
 
-	// functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
+	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
 
 	// Add the span to the context so the user can create child spans
-	// ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
+	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
 
 	// Do things with the extension after the execution span is created
 	if l.extensionManager.IsExtensionRunning() {
-		l.extensionManager.SendStartInvocationRequest(ctx, msg)
+		ctx = l.extensionManager.SendStartInvocationRequest(ctx, msg)
 	}
 
 	return ctx
@@ -87,16 +87,13 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 // HandlerFinished ends the function execution span and stops the tracer
 func (l *Listener) HandlerFinished(ctx context.Context, err error) {
-	// if functionExecutionSpan != nil {
-	// 	functionExecutionSpan.Finish(tracer.WithError(err))
-	// }
+	if functionExecutionSpan != nil {
+		functionExecutionSpan.Finish(tracer.WithError(err))
+	}
 
 	// Do things with the extension
 	if l.extensionManager.IsExtensionRunning() {
-		traceCtx := ConvertCurrentXrayTraceContext(ctx)
-		logger.Debug(fmt.Sprintf("Trace Context: %v", traceCtx))
-		l.extensionManager.SendEndInvocationRequest(traceCtx, err)
-		// l.extensionManager.SendEndInvocationRequest(ctx, err)
+		l.extensionManager.SendEndInvocationRequest(ctx, err)
 	}
 	tracer.Flush()
 }

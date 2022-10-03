@@ -20,6 +20,14 @@ import (
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 )
 
+type ddTraceContext string
+
+const (
+	DdTraceId          ddTraceContext = "x-datadog-trace-id"
+	DdParentId         ddTraceContext = "x-datadog-parent-id"
+	DdSamplingPriority ddTraceContext = "x-datadog-sampling-priority"
+)
+
 const (
 	// We don't want call to the Serverless Agent to block indefinitely for any reasons,
 	// so here's a configuration of the timeout when calling the Serverless Agent. We also
@@ -80,11 +88,11 @@ func (em *ExtensionManager) checkAgentRunning() {
 	}
 }
 
-func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Context, eventPayload json.RawMessage) {
+func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, eventPayload json.RawMessage) context.Context {
 	body := bytes.NewBuffer(eventPayload)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
 	// For the Lambda context, we need to put each k:v into the request headers
-	logger.Debug(fmt.Sprintf("Context: %v", lambdaContext))
+	logger.Debug(fmt.Sprintf("Context: %v", ctx))
 
 	// TODO: send dummy x-datadog headers
 	// req.Header = map[string][]string{"x-datadog-trace-id": {"0"}}
@@ -92,30 +100,46 @@ func (em *ExtensionManager) SendStartInvocationRequest(lambdaContext context.Con
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
 		logger.Debug(fmt.Sprintf("Response Body: %v", response.Body))
 		logger.Debug(fmt.Sprintf("Response Header: %v", response.Header))
+
+		// propagate dd-trace context from extension response if found in response headers
+		traceId := response.Header.Values("x-datadog-trace-id")
+		if len(traceId) > 0 {
+			logger.Debug("Found x-datadog-trace-id header in response")
+			ctx = context.WithValue(ctx, DdTraceId, traceId[0])
+		}
+		parentId := response.Header.Values("x-datadog-parent-id")
+		if len(parentId) > 0 {
+			ctx = context.WithValue(ctx, DdParentId, parentId[0])
+		}
+		samplingPriority := response.Header.Values("x-datadog-sampling-priority")
+		if len(samplingPriority) > 0 {
+			ctx = context.WithValue(ctx, DdSamplingPriority, samplingPriority[0])
+		}
 	}
+	return ctx
 }
 
-func (em *ExtensionManager) SendEndInvocationRequest(traceCtx map[string]string, err error) {
-	content, _ := json.Marshal(err)
-	// content, err := json.Marshal(err)
-	// if err != nil {
-	// 	logger.Debug("Uhoh")
-	// }
-
+func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, err error) {
+	content, err := json.Marshal(err)
+	if err != nil {
+		logger.Debug("Bad!")
+	}
 	body := bytes.NewBuffer(content)
-	// body := bytes.NewBuffer([]byte(content))
 
-	// We should try to extract any trace context from the lambda context if available
+	// Build the request
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
 
-	// Add trace context as headers
-	for k, v := range traceCtx {
-		if k == "x-datadog-sampling-priority" {
-			req.Header[k] = append(req.Header[k], "1")
-			logger.Debug("override sampling priority")
-			continue
-		}
-		req.Header[k] = append(req.Header[k], v)
+	// Try to extract DD trace context  and add to headers
+	traceId, ok := ctx.Value(DdTraceId).(string)
+	parentId, ok := ctx.Value(DdParentId).(string)
+	samplingPriority, ok := ctx.Value(DdSamplingPriority).(string)
+	if ok {
+		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], traceId)
+		req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], parentId)
+		req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], samplingPriority)
+	} else {
+		// Create our own dd trace context and add as headers
+		logger.Debug("NO DD TRACE HEADERS FOUND")
 	}
 
 	// For the Lambda context, we need to put each k:v into the request headers
