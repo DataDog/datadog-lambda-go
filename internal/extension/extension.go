@@ -143,7 +143,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 		req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], "1")
 	}
 
-	// For the Lambda context, we need to put each k:v into the request headers
+	// Request Headers
 	logger.Debug(fmt.Sprintf("Request Header: %v", req.Header))
 
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {

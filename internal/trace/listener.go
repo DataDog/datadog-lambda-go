@@ -88,17 +88,15 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 // HandlerFinished ends the function execution span and stops the tracer
 func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if functionExecutionSpan != nil {
+		functionExecutionSpan.Finish(tracer.WithError(err))
 
 		// Do things with the extension
 		if l.extensionManager.IsExtensionRunning() {
 			l.extensionManager.SendEndInvocationRequest(ctx, functionExecutionSpan, err)
-			return
 		}
-
-		functionExecutionSpan.Finish(tracer.WithError(err))
 	}
 
-	tracer.Flush()
+	// tracer.Flush()
 }
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
