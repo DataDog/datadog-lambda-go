@@ -131,8 +131,8 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, err er
 
 	// Try to extract DD trace context  and add to headers
 	traceId, ok := ctx.Value(DdTraceId).(string)
-	parentId, ok := ctx.Value(DdParentId).(string)
-	samplingPriority, ok := ctx.Value(DdSamplingPriority).(string)
+	parentId, _ := ctx.Value(DdParentId).(string)
+	samplingPriority, _ := ctx.Value(DdSamplingPriority).(string)
 	if ok {
 		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], traceId)
 		req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], parentId)
