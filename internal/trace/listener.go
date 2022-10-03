@@ -89,12 +89,13 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish(tracer.WithError(err))
+
+		// Do things with the extension
+		if l.extensionManager.IsExtensionRunning() {
+			l.extensionManager.SendEndInvocationRequest(ctx, functionExecutionSpan, err)
+		}
 	}
 
-	// Do things with the extension
-	if l.extensionManager.IsExtensionRunning() {
-		l.extensionManager.SendEndInvocationRequest(ctx, err)
-	}
 	tracer.Flush()
 }
 

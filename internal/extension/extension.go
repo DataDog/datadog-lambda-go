@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 )
 
 type ddTraceContext string
@@ -94,9 +95,6 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 	// For the Lambda context, we need to put each k:v into the request headers
 	logger.Debug(fmt.Sprintf("Context: %v", ctx))
 
-	// TODO: send dummy x-datadog headers
-	// req.Header = map[string][]string{"x-datadog-trace-id": {"0"}}
-
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
 		logger.Debug(fmt.Sprintf("Response Body: %v", response.Body))
 		logger.Debug(fmt.Sprintf("Response Header: %v", response.Header))
@@ -119,7 +117,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 	return ctx
 }
 
-func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, err error) {
+func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functionExecutionSpan ddtrace.Span, err error) {
 	content, err := json.Marshal(err)
 	if err != nil {
 		logger.Debug("Bad!")
@@ -139,7 +137,10 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, err er
 		req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], samplingPriority)
 	} else {
 		// Create our own dd trace context and add as headers
-		logger.Debug("NO DD TRACE HEADERS FOUND")
+		logger.Debug("NO DD TRACE HEADERS FOUND -- CREATE ONE FROM SPAN")
+		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], fmt.Sprint(functionExecutionSpan.Context().TraceID()))
+		req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], fmt.Sprint(functionExecutionSpan.Context().SpanID()))
+		// req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], "1")
 	}
 
 	// For the Lambda context, we need to put each k:v into the request headers
