@@ -126,6 +126,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
 
 	// Try to extract DD trace context  and add to headers
+	// TEST TEST TEST
 	traceId, ok := ctx.Value(DdTraceId).(string)
 	parentId, _ := ctx.Value(DdParentId).(string)
 	spanId, _ := ctx.Value(DdSpanId).(string)
@@ -139,9 +140,9 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 		// Create our own dd trace context and add as headers
 		logger.Debug("NO DD TRACE HEADERS FOUND -- CREATE ONE FROM SPAN")
 		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], fmt.Sprint(functionExecutionSpan.Context().TraceID()))
-		req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], fmt.Sprint(0)) // force 0
 		req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], fmt.Sprint(functionExecutionSpan.Context().SpanID()))
-		req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], "1")
+		// TEST FORCE
+		// req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], "1")
 	}
 
 	// Request Headers

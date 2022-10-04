@@ -92,6 +92,8 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 
 		// Do things with the extension
 		if l.extensionManager.IsExtensionRunning() {
+			// We mark this so the extension knows to drop this dummy span
+			functionExecutionSpan.SetOperationName("dd-tracer-serverless-span")
 			l.extensionManager.SendEndInvocationRequest(ctx, functionExecutionSpan, err)
 		}
 	}
