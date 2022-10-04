@@ -26,6 +26,7 @@ type ddTraceContext string
 const (
 	DdTraceId          ddTraceContext = "x-datadog-trace-id"
 	DdParentId         ddTraceContext = "x-datadog-parent-id"
+	DdSpanId           ddTraceContext = "x-datadog-span-id"
 	DdSamplingPriority ddTraceContext = "x-datadog-sampling-priority"
 )
 
@@ -118,10 +119,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 }
 
 func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functionExecutionSpan ddtrace.Span, err error) {
-	content, err := json.Marshal(err)
-	if err != nil {
-		logger.Debug("Bad!")
-	}
+	content, _ := json.Marshal("{}")
 	body := bytes.NewBuffer(content)
 
 	// Build the request
@@ -130,16 +128,19 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	// Try to extract DD trace context  and add to headers
 	traceId, ok := ctx.Value(DdTraceId).(string)
 	parentId, _ := ctx.Value(DdParentId).(string)
+	spanId, _ := ctx.Value(DdSpanId).(string)
 	samplingPriority, _ := ctx.Value(DdSamplingPriority).(string)
 	if ok {
 		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], traceId)
 		req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], parentId)
+		req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], spanId)
 		req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], samplingPriority)
 	} else {
 		// Create our own dd trace context and add as headers
 		logger.Debug("NO DD TRACE HEADERS FOUND -- CREATE ONE FROM SPAN")
 		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], fmt.Sprint(functionExecutionSpan.Context().TraceID()))
-		req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], fmt.Sprint(functionExecutionSpan.Context().SpanID()))
+		req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], fmt.Sprint(0)) // force 0
+		req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], fmt.Sprint(functionExecutionSpan.Context().SpanID()))
 		req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], "1")
 	}
 
