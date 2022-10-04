@@ -120,17 +120,17 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isExt
 		parentSpanContext = convertedSpanContext
 	}
 
-	operationName := "aws.lambda"
+	resourceName := lambdacontext.FunctionName
 	if isExtensionRunning {
 		// We set this to be dropped by the extension
-		operationName = "dd-tracer-serverless-span"
+		resourceName = "dd-tracer-serverless-span"
 	}
 
 	span := tracer.StartSpan(
-		operationName, // This operation name will be replaced with the value of the service tag by the Forwarder
+		"aws.lambda", // This operation name will be replaced with the value of the service tag by the Forwarder
 		tracer.SpanType("serverless"),
 		tracer.ChildOf(parentSpanContext),
-		tracer.ResourceName(lambdacontext.FunctionName),
+		tracer.ResourceName(resourceName),
 		tracer.Tag("cold_start", ctx.Value("cold_start")),
 		tracer.Tag("function_arn", functionArn),
 		tracer.Tag("function_version", functionVersion),
