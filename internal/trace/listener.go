@@ -72,7 +72,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		tracerInitialized = true
 	}
 
-	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
+	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces, l.extensionManager.IsExtensionRunning())
 
 	// Add the span to the context so the user can create child spans
 	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
@@ -92,8 +92,6 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 
 		// Do things with the extension
 		if l.extensionManager.IsExtensionRunning() {
-			// We mark this so the extension knows to drop this dummy span
-			functionExecutionSpan.SetOperationName("dd-tracer-serverless-span")
 			l.extensionManager.SendEndInvocationRequest(ctx, functionExecutionSpan, err)
 		}
 	}
@@ -103,7 +101,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
 // and returns the span so that it can be finished when the function execution is complete
-func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) tracer.Span {
+func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isExtensionRunning bool) tracer.Span {
 	// Extract information from context
 	lambdaCtx, _ := lambdacontext.FromContext(ctx)
 	rootTraceContext, ok := ctx.Value(traceContextKey).(TraceContext)
@@ -122,8 +120,14 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 		parentSpanContext = convertedSpanContext
 	}
 
+	operationName := "aws.lambda"
+	if isExtensionRunning {
+		// We set this to be dropped by the extension
+		operationName = "dd-tracer-serverless-span"
+	}
+
 	span := tracer.StartSpan(
-		"aws.lambda", // This operation name will be replaced with the value of the service tag by the Forwarder
+		operationName, // This operation name will be replaced with the value of the service tag by the Forwarder
 		tracer.SpanType("serverless"),
 		tracer.ChildOf(parentSpanContext),
 		tracer.ResourceName(lambdacontext.FunctionName),
