@@ -129,7 +129,10 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 		req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], fmt.Sprint(functionExecutionSpan.Context().SpanID()))
 	}
 
-	em.httpClient.Do(req)
+	response, err := em.httpClient.Do(req)
+	if response.StatusCode != 200 || err != nil {
+		logger.Debug("Unable to send end invocation request to the extension")
+	}
 }
 
 func (em *ExtensionManager) IsExtensionRunning() bool {
