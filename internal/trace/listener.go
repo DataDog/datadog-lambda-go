@@ -77,7 +77,6 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	// Add the span to the context so the user can create child spans
 	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
 
-	// Do things with the extension after the execution span is created
 	if l.extensionManager.IsExtensionRunning() {
 		ctx = l.extensionManager.SendStartInvocationRequest(ctx, msg)
 	}
@@ -90,7 +89,6 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish(tracer.WithError(err))
 
-		// Do things with the extension
 		if l.extensionManager.IsExtensionRunning() {
 			l.extensionManager.SendEndInvocationRequest(ctx, functionExecutionSpan, err)
 		}
@@ -122,7 +120,6 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isExt
 
 	resourceName := lambdacontext.FunctionName
 	if isExtensionRunning {
-		// We set this to be dropped by the extension
 		resourceName = "dd-tracer-serverless-span"
 	}
 

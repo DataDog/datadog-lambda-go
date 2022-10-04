@@ -76,41 +76,26 @@ func (em *ExtensionManager) checkAgentRunning() {
 		logger.Debug("Will use the API")
 		em.isExtensionRunning = false
 	} else {
-		// The hello route marks in the extension that a lambda library is active. This prevents certain trace features in the extension
+		logger.Debug("Will use the Serverless Agent")
 		em.isExtensionRunning = true
-
-		// req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
-		// if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-		// 	logger.Debug("Will use the Serverless Agent")
-		// 	em.isExtensionRunning = true
-		// } else {
-		// 	logger.Debug("Will use the API since the Serverless Agent was detected but the hello route was unreachable")
-		// 	em.isExtensionRunning = false
-		// }
 	}
 }
 
 func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, eventPayload json.RawMessage) context.Context {
 	body := bytes.NewBuffer(eventPayload)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
-	// For the Lambda context, we need to put each k:v into the request headers
-	logger.Debug(fmt.Sprintf("Context: %v", ctx))
 
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-		logger.Debug(fmt.Sprintf("Response Body: %v", response.Body))
-		logger.Debug(fmt.Sprintf("Response Header: %v", response.Header))
-
-		// propagate dd-trace context from extension response if found in response headers
-		traceId := response.Header.Values("x-datadog-trace-id")
+		// Propagate dd-trace context from the extension response if found in the response headers
+		traceId := response.Header.Values(string(DdTraceId))
 		if len(traceId) > 0 {
-			logger.Debug("Found x-datadog-trace-id header in response")
 			ctx = context.WithValue(ctx, DdTraceId, traceId[0])
 		}
-		parentId := response.Header.Values("x-datadog-parent-id")
+		parentId := response.Header.Values(string(DdParentId))
 		if len(parentId) > 0 {
 			ctx = context.WithValue(ctx, DdParentId, parentId[0])
 		}
-		samplingPriority := response.Header.Values("x-datadog-sampling-priority")
+		samplingPriority := response.Header.Values(string(DdSamplingPriority))
 		if len(samplingPriority) > 0 {
 			ctx = context.WithValue(ctx, DdSamplingPriority, samplingPriority[0])
 		}
@@ -119,39 +104,32 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 }
 
 func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functionExecutionSpan ddtrace.Span, err error) {
+	// TODO handle response properly
 	content, _ := json.Marshal("{}")
 	body := bytes.NewBuffer(content)
 
 	// Build the request
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
 
-	// Try to extract DD trace context  and add to headers
-	// TEST TEST TEST
+	// Try to extract DD trace context and add to the request headers
 	traceId, ok := ctx.Value(DdTraceId).(string)
 	parentId, _ := ctx.Value(DdParentId).(string)
 	spanId, _ := ctx.Value(DdSpanId).(string)
 	samplingPriority, _ := ctx.Value(DdSamplingPriority).(string)
+
+	// Add the dd trace context to the request headers
 	if ok {
 		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], traceId)
+		// TODO Make this better
 		req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], parentId)
 		req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], spanId)
 		req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], samplingPriority)
 	} else {
-		// Create our own dd trace context and add as headers
-		logger.Debug("NO DD TRACE HEADERS FOUND -- CREATE ONE FROM SPAN")
 		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], fmt.Sprint(functionExecutionSpan.Context().TraceID()))
 		req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], fmt.Sprint(functionExecutionSpan.Context().SpanID()))
-		// TEST FORCE
-		// req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], "1")
 	}
 
-	// Request Headers
-	logger.Debug(fmt.Sprintf("Request Header: %v", req.Header))
-
-	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-		logger.Debug(fmt.Sprintf("Response Body: %v", response.Body))
-		logger.Debug(fmt.Sprintf("Response Header: %v", response.Header))
-	}
+	em.httpClient.Do(req)
 }
 
 func (em *ExtensionManager) IsExtensionRunning() bool {
