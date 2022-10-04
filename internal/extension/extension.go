@@ -105,7 +105,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 
 func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functionExecutionSpan ddtrace.Span, err error) {
 	// TODO handle response properly
-	content, _ := json.Marshal("{}")
+	content, _ := json.Marshal(err)
 	body := bytes.NewBuffer(content)
 
 	// Build the request
