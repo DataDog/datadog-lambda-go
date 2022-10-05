@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/aws/aws-lambda-go/lambda"
 
@@ -83,6 +84,8 @@ func (h *DatadogHandler) Invoke(ctx context.Context, payload []byte) ([]byte, er
 	CurrentContext = ctx
 	result, err := h.handler.Invoke(ctx, payload)
 	for _, listener := range h.listeners {
+		ctx = context.WithValue(ctx, extension.DdLambdaResponse, result)
+		logger.Debug(fmt.Sprintf("SETTING THE RESULT: %s", result))
 		listener.HandlerFinished(ctx, err)
 	}
 	h.coldStart = false

@@ -112,6 +112,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	lambdaResponse, ok := ctx.Value(DdLambdaResponse).([]byte)
 	content, _ := json.Marshal(lambdaResponse)
 	if !ok {
+		logger.Debug("RESPONSE IS NOT OKAY")
 		content, _ = json.Marshal("{}")
 	}
 	body := bytes.NewBuffer(content)
