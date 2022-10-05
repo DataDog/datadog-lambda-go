@@ -28,6 +28,10 @@ const (
 	DdParentId         ddTraceContext = "x-datadog-parent-id"
 	DdSpanId           ddTraceContext = "x-datadog-span-id"
 	DdSamplingPriority ddTraceContext = "x-datadog-sampling-priority"
+	DdInvocationError  ddTraceContext = "x-datadog-invocation-error"
+
+	DdSeverlessSpan  ddTraceContext = "dd-tracer-serverless-span"
+	DdLambdaResponse ddTraceContext = "dd-response"
 )
 
 const (
@@ -104,26 +108,35 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 }
 
 func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functionExecutionSpan ddtrace.Span, err error) {
-	// TODO handle response properly
-	content, _ := json.Marshal(err)
+	// Handle Lambda response
+	lambdaResponse, ok := ctx.Value(DdLambdaResponse).([]byte)
+	content, _ := json.Marshal(lambdaResponse)
+	if !ok {
+		content, _ = json.Marshal("{}")
+	}
 	body := bytes.NewBuffer(content)
 
 	// Build the request
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
 
-	// Try to extract DD trace context and add to the request headers
-	traceId, ok := ctx.Value(DdTraceId).(string)
-	parentId, _ := ctx.Value(DdParentId).(string)
-	spanId, _ := ctx.Value(DdSpanId).(string)
-	samplingPriority, _ := ctx.Value(DdSamplingPriority).(string)
+	// Mark the invocation as an error if any
+	if err != nil {
+		req.Header[string(DdInvocationError)] = append(req.Header[string(DdInvocationError)], "true")
+	}
 
-	// Add the dd trace context to the request headers
+	// Extract the DD trace context and pass them to the extension via request headers
+	traceId, ok := ctx.Value(DdTraceId).(string)
 	if ok {
 		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], traceId)
-		// TODO Make this better
-		req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], parentId)
-		req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], spanId)
-		req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], samplingPriority)
+		if parentId, ok := ctx.Value(DdParentId).(string); ok {
+			req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], parentId)
+		}
+		if spanId, ok := ctx.Value(DdSpanId).(string); ok {
+			req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], spanId)
+		}
+		if samplingPriority, ok := ctx.Value(DdSamplingPriority).(string); ok {
+			req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], samplingPriority)
+		}
 	} else {
 		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], fmt.Sprint(functionExecutionSpan.Context().TraceID()))
 		req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], fmt.Sprint(functionExecutionSpan.Context().SpanID()))
@@ -131,7 +144,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 
 	response, err := em.httpClient.Do(req)
 	if response.StatusCode != 200 || err != nil {
-		logger.Debug("Unable to send end invocation request to the extension")
+		logger.Debug("Unable to make a request to the extension's end invocation endpoint")
 	}
 }
 

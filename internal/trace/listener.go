@@ -120,7 +120,8 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isExt
 
 	resourceName := lambdacontext.FunctionName
 	if isExtensionRunning {
-		resourceName = "dd-tracer-serverless-span"
+		// The extension will drop this span, prioritizing the execution span the extension creates
+		resourceName = string(extension.DdSeverlessSpan)
 	}
 
 	span := tracer.StartSpan(
