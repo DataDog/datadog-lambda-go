@@ -109,7 +109,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 
 func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functionExecutionSpan ddtrace.Span, err error) {
 	// Handle Lambda response
-	lambdaResponse, ok := ctx.Value(DdLambdaResponse).(interface{})
+	lambdaResponse, ok := ctx.Value(DdLambdaResponse).(string)
 	content, _ := json.Marshal(lambdaResponse)
 	if !ok {
 		logger.Debug("RESPONSE IS NOT OKAY")
