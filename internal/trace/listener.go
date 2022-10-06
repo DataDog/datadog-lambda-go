@@ -25,17 +25,19 @@ import (
 type (
 	// Listener creates a function execution span and injects it into the context
 	Listener struct {
-		ddTraceEnabled        bool
-		mergeXrayTraces       bool
-		extensionManager      *extension.ExtensionManager
-		traceContextExtractor ContextExtractor
+		ddTraceEnabled           bool
+		mergeXrayTraces          bool
+		universalInstrumentation bool
+		extensionManager         *extension.ExtensionManager
+		traceContextExtractor    ContextExtractor
 	}
 
 	// Config gives options for how the Listener should work
 	Config struct {
-		DDTraceEnabled        bool
-		MergeXrayTraces       bool
-		TraceContextExtractor ContextExtractor
+		DDTraceEnabled           bool
+		MergeXrayTraces          bool
+		UniversalInstrumentation bool
+		TraceContextExtractor    ContextExtractor
 	}
 )
 
@@ -48,10 +50,11 @@ var tracerInitialized = false
 func MakeListener(config Config, extensionManager *extension.ExtensionManager) Listener {
 
 	return Listener{
-		ddTraceEnabled:        config.DDTraceEnabled,
-		mergeXrayTraces:       config.MergeXrayTraces,
-		extensionManager:      extensionManager,
-		traceContextExtractor: config.TraceContextExtractor,
+		ddTraceEnabled:           config.DDTraceEnabled,
+		mergeXrayTraces:          config.MergeXrayTraces,
+		universalInstrumentation: config.UniversalInstrumentation,
+		extensionManager:         extensionManager,
+		traceContextExtractor:    config.TraceContextExtractor,
 	}
 }
 
