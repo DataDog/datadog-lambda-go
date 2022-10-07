@@ -75,12 +75,13 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		tracerInitialized = true
 	}
 
-	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces, l.extensionManager.IsExtensionRunning())
+	isDdServerlessSpan := l.universalInstrumentation && l.extensionManager.IsExtensionRunning()
+	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces, isDdServerlessSpan)
 
 	// Add the span to the context so the user can create child spans
 	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
 
-	if l.extensionManager.IsExtensionRunning() {
+	if l.universalInstrumentation && l.extensionManager.IsExtensionRunning() {
 		ctx = l.extensionManager.SendStartInvocationRequest(ctx, msg)
 	}
 
@@ -92,7 +93,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish(tracer.WithError(err))
 
-		if l.extensionManager.IsExtensionRunning() {
+		if l.universalInstrumentation && l.extensionManager.IsExtensionRunning() {
 			l.extensionManager.SendEndInvocationRequest(ctx, functionExecutionSpan, err)
 		}
 	}
@@ -102,7 +103,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
 // and returns the span so that it can be finished when the function execution is complete
-func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isExtensionRunning bool) tracer.Span {
+func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdServerlessSpan bool) tracer.Span {
 	// Extract information from context
 	lambdaCtx, _ := lambdacontext.FromContext(ctx)
 	rootTraceContext, ok := ctx.Value(traceContextKey).(TraceContext)
@@ -122,7 +123,7 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isExt
 	}
 
 	resourceName := lambdacontext.FunctionName
-	if isExtensionRunning {
+	if isDdServerlessSpan {
 		// The extension will drop this span, prioritizing the execution span the extension creates
 		resourceName = string(extension.DdSeverlessSpan)
 	}
