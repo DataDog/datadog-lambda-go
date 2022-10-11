@@ -91,17 +91,17 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
 		// Propagate dd-trace context from the extension response if found in the response headers
-		traceId := response.Header.Values(string(DdTraceId))
-		if len(traceId) > 0 {
-			ctx = context.WithValue(ctx, DdTraceId, traceId[0])
+		traceId := response.Header.Get(string(DdTraceId))
+		if traceId != "" {
+			ctx = context.WithValue(ctx, DdTraceId, traceId)
 		}
-		parentId := response.Header.Values(string(DdParentId))
-		if len(parentId) > 0 {
-			ctx = context.WithValue(ctx, DdParentId, parentId[0])
+		parentId := response.Header.Get(string(DdParentId))
+		if parentId != "" {
+			ctx = context.WithValue(ctx, DdParentId, parentId)
 		}
-		samplingPriority := response.Header.Values(string(DdSamplingPriority))
-		if len(samplingPriority) > 0 {
-			ctx = context.WithValue(ctx, DdSamplingPriority, samplingPriority[0])
+		samplingPriority := response.Header.Get(string(DdSamplingPriority))
+		if samplingPriority != "" {
+			ctx = context.WithValue(ctx, DdSamplingPriority, samplingPriority)
 		}
 	}
 	return ctx
