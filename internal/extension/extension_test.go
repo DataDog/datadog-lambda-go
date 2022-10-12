@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type ClientErrorMock struct {
@@ -28,6 +29,7 @@ type ClientSuccess202Mock struct {
 }
 
 type ClientSuccessStartInvoke struct {
+	headers http.Header
 }
 
 type ClientSuccessEndInvoke struct {
@@ -52,16 +54,11 @@ func (c *ClientSuccess202Mock) Do(req *http.Request) (*http.Response, error) {
 }
 
 func (c *ClientSuccessStartInvoke) Do(req *http.Request) (*http.Response, error) {
-	header := http.Header{}
-	header.Set(string(DdTraceId), mockTraceId)
-	header.Set(string(DdParentId), mockParentId)
-	header.Set(string(DdSamplingPriority), mockSamplingPriority)
-	return &http.Response{StatusCode: 200, Status: "KO", Header: header}, nil
+	return &http.Response{StatusCode: 200, Status: "KO", Header: c.headers}, nil
 }
 
 func (c *ClientSuccessEndInvoke) Do(req *http.Request) (*http.Response, error) {
-	header := map[string][]string{}
-	return &http.Response{StatusCode: 200, Status: "KO", Header: header}, nil
+	return &http.Response{StatusCode: 200, Status: "KO"}, nil
 }
 
 func TestBuildExtensionManager(t *testing.T) {
@@ -125,14 +122,36 @@ func TestFlushSuccess(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestExtensionStartInvokeWithTraceContext(t *testing.T) {
+func TestExtensionStartInvoke(t *testing.T) {
 	em := &ExtensionManager{
 		startInvocationUrl: startInvocationUrl,
 		httpClient:         &ClientSuccessStartInvoke{},
 	}
 	ctx := em.SendStartInvocationRequest(context.TODO(), []byte{})
+	traceId := ctx.Value(DdTraceId)
+	parentId := ctx.Value(DdParentId)
+	samplingPriority := ctx.Value(DdSamplingPriority)
+	err := em.Flush()
 
-	// Ensure that we pull the DD trace context if this is a distributed trace
+	assert.Nil(t, err)
+	assert.Nil(t, traceId)
+	assert.Nil(t, parentId)
+	assert.Nil(t, samplingPriority)
+}
+
+func TestExtensionStartInvokeWithTraceContext(t *testing.T) {
+	headers := http.Header{}
+	headers.Set(string(DdTraceId), mockTraceId)
+	headers.Set(string(DdParentId), mockParentId)
+	headers.Set(string(DdSamplingPriority), mockSamplingPriority)
+
+	em := &ExtensionManager{
+		startInvocationUrl: startInvocationUrl,
+		httpClient: &ClientSuccessStartInvoke{
+			headers: headers,
+		},
+	}
+	ctx := em.SendStartInvocationRequest(context.TODO(), []byte{})
 	traceId := ctx.Value(DdTraceId)
 	parentId := ctx.Value(DdParentId)
 	samplingPriority := ctx.Value(DdSamplingPriority)
@@ -142,4 +161,16 @@ func TestExtensionStartInvokeWithTraceContext(t *testing.T) {
 	assert.Equal(t, mockTraceId, traceId)
 	assert.Equal(t, mockParentId, parentId)
 	assert.Equal(t, mockSamplingPriority, samplingPriority)
+}
+
+func TestExtensionEndInvocation(t *testing.T) {
+	em := &ExtensionManager{
+		endInvocationUrl: endInvocationUrl,
+		httpClient:       &ClientSuccessEndInvoke{},
+	}
+	span := tracer.StartSpan("aws.lambda")
+	em.SendEndInvocationRequest(context.TODO(), span, nil)
+	err := em.Flush()
+
+	assert.Nil(t, err)
 }

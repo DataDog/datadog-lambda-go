@@ -112,7 +112,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	lambdaResponse := ctx.Value(DdLambdaResponse)
 	content, responseErr := json.Marshal(lambdaResponse)
 	if responseErr != nil {
-		content, _ = json.Marshal("{}")
+		content = []byte("{}")
 	}
 	body := bytes.NewBuffer(content)
 
@@ -121,25 +121,25 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 
 	// Mark the invocation as an error if any
 	if err != nil {
-		req.Header[string(DdInvocationError)] = append(req.Header[string(DdInvocationError)], "true")
+		req.Header.Set(string(DdInvocationError), "true")
 	}
 
 	// Extract the DD trace context and pass them to the extension via request headers
 	traceId, ok := ctx.Value(DdTraceId).(string)
 	if ok {
-		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], traceId)
+		req.Header.Set(string(DdTraceId), traceId)
 		if parentId, ok := ctx.Value(DdParentId).(string); ok {
-			req.Header[string(DdParentId)] = append(req.Header[string(DdParentId)], parentId)
+			req.Header.Set(string(DdParentId), parentId)
 		}
 		if spanId, ok := ctx.Value(DdSpanId).(string); ok {
-			req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], spanId)
+			req.Header.Set(string(DdSpanId), spanId)
 		}
 		if samplingPriority, ok := ctx.Value(DdSamplingPriority).(string); ok {
-			req.Header[string(DdSamplingPriority)] = append(req.Header[string(DdSamplingPriority)], samplingPriority)
+			req.Header.Set(string(DdSamplingPriority), samplingPriority)
 		}
 	} else {
-		req.Header[string(DdTraceId)] = append(req.Header[string(DdTraceId)], fmt.Sprint(functionExecutionSpan.Context().TraceID()))
-		req.Header[string(DdSpanId)] = append(req.Header[string(DdSpanId)], fmt.Sprint(functionExecutionSpan.Context().SpanID()))
+		req.Header.Set(string(DdTraceId), fmt.Sprint(functionExecutionSpan.Context().TraceID()))
+		req.Header.Set(string(DdSpanId), fmt.Sprint(functionExecutionSpan.Context().SpanID()))
 	}
 
 	response, err := em.httpClient.Do(req)
