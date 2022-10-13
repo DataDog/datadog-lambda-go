@@ -9,12 +9,14 @@
 package extension
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"testing"
 
+	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -59,6 +61,14 @@ func (c *ClientSuccessStartInvoke) Do(req *http.Request) (*http.Response, error)
 
 func (c *ClientSuccessEndInvoke) Do(req *http.Request) (*http.Response, error) {
 	return &http.Response{StatusCode: 200, Status: "KO"}, nil
+}
+
+func captureLog(f func()) string {
+	var buf bytes.Buffer
+	logger.SetOutput(&buf)
+	f()
+	logger.SetOutput(os.Stdout)
+	return buf.String()
 }
 
 func TestBuildExtensionManager(t *testing.T) {
@@ -169,8 +179,20 @@ func TestExtensionEndInvocation(t *testing.T) {
 		httpClient:       &ClientSuccessEndInvoke{},
 	}
 	span := tracer.StartSpan("aws.lambda")
-	em.SendEndInvocationRequest(context.TODO(), span, nil)
-	err := em.Flush()
+	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, nil) })
+	span.Finish()
 
-	assert.Nil(t, err)
+	assert.Equal(t, "", logOutput)
+}
+
+func TestExtensionEndInvocationError(t *testing.T) {
+	em := &ExtensionManager{
+		endInvocationUrl: endInvocationUrl,
+		httpClient:       &ClientErrorMock{},
+	}
+	span := tracer.StartSpan("aws.lambda")
+	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, nil) })
+	span.Finish()
+
+	assert.Contains(t, logOutput, "could not send end invocation payload to the extension")
 }

@@ -115,8 +115,6 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 		content = []byte("{}")
 	}
 	body := bytes.NewBuffer(content)
-
-	// Build the request
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
 
 	// Mark the invocation as an error if any
@@ -142,9 +140,9 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 		req.Header.Set(string(DdSpanId), fmt.Sprint(functionExecutionSpan.Context().SpanID()))
 	}
 
-	response, err := em.httpClient.Do(req)
-	if response.StatusCode != 200 || err != nil {
-		logger.Debug("Unable to make a request to the extension's end invocation endpoint")
+	resp, err := em.httpClient.Do(req)
+	if err != nil || (resp.StatusCode >= 200 && resp.StatusCode <= 299) {
+		logger.Error(fmt.Errorf("could not send end invocation payload to the extension"))
 	}
 }
 
