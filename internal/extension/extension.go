@@ -142,7 +142,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 
 	resp, err := em.httpClient.Do(req)
 	if err != nil || (resp.StatusCode >= 200 && resp.StatusCode <= 299) {
-		logger.Error(fmt.Errorf("could not send end invocation payload to the extension"))
+		logger.Error(fmt.Errorf("could not send end invocation payload to the extension: %v", err))
 	}
 }
 
