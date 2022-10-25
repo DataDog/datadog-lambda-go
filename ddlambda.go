@@ -220,12 +220,14 @@ func initializeListeners(cfg *Config) []wrapper.HandlerListener {
 	if strings.EqualFold(logLevel, "debug") || (cfg != nil && cfg.DebugLogging) {
 		logger.SetLogLevel(logger.LevelDebug)
 	}
-	extensionManager := extension.BuildExtensionManager()
+	traceConfig := cfg.toTraceConfig()
+	extensionManager := extension.BuildExtensionManager(traceConfig.UniversalInstrumentation)
 	isExtensionRunning := extensionManager.IsExtensionRunning()
+	metricsConfig := cfg.toMetricsConfig(isExtensionRunning)
 
 	// Wrap the handler with listeners that add instrumentation for traces and metrics.
-	tl := trace.MakeListener(cfg.toTraceConfig(), extensionManager)
-	ml := metrics.MakeListener(cfg.toMetricsConfig(isExtensionRunning), extensionManager)
+	tl := trace.MakeListener(traceConfig, extensionManager)
+	ml := metrics.MakeListener(metricsConfig, extensionManager)
 	return []wrapper.HandlerListener{
 		&tl, &ml,
 	}

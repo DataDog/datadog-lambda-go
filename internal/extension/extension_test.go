@@ -72,12 +72,13 @@ func captureLog(f func()) string {
 }
 
 func TestBuildExtensionManager(t *testing.T) {
-	em := BuildExtensionManager()
+	em := BuildExtensionManager(false)
 	assert.Equal(t, "http://localhost:8124/lambda/hello", em.helloRoute)
 	assert.Equal(t, "http://localhost:8124/lambda/flush", em.flushRoute)
 	assert.Equal(t, "http://localhost:8124/lambda/start-invocation", em.startInvocationUrl)
 	assert.Equal(t, "http://localhost:8124/lambda/end-invocation", em.endInvocationUrl)
 	assert.Equal(t, "/opt/extensions/datadog-agent", em.extensionPath)
+	assert.Equal(t, false, em.isUniversalInstrumentation)
 	assert.NotNil(t, em.httpClient)
 }
 

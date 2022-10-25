@@ -15,10 +15,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 )
 
@@ -50,27 +50,29 @@ const (
 )
 
 type ExtensionManager struct {
-	helloRoute         string
-	flushRoute         string
-	extensionPath      string
-	startInvocationUrl string
-	endInvocationUrl   string
-	httpClient         HTTPClient
-	isExtensionRunning bool
+	helloRoute                 string
+	flushRoute                 string
+	extensionPath              string
+	startInvocationUrl         string
+	endInvocationUrl           string
+	httpClient                 HTTPClient
+	isExtensionRunning         bool
+	isUniversalInstrumentation bool
 }
 
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-func BuildExtensionManager() *ExtensionManager {
+func BuildExtensionManager(isUniversalInstrumentation bool) *ExtensionManager {
 	em := &ExtensionManager{
-		helloRoute:         helloUrl,
-		flushRoute:         flushUrl,
-		startInvocationUrl: startInvocationUrl,
-		endInvocationUrl:   endInvocationUrl,
-		extensionPath:      extensionPath,
-		httpClient:         &http.Client{Timeout: timeout},
+		helloRoute:                 helloUrl,
+		flushRoute:                 flushUrl,
+		startInvocationUrl:         startInvocationUrl,
+		endInvocationUrl:           endInvocationUrl,
+		extensionPath:              extensionPath,
+		httpClient:                 &http.Client{Timeout: timeout},
+		isUniversalInstrumentation: isUniversalInstrumentation,
 	}
 	em.checkAgentRunning()
 	return em
@@ -85,8 +87,7 @@ func (em *ExtensionManager) checkAgentRunning() {
 		em.isExtensionRunning = true
 
 		// Tell the extension not to create an execution span if universal instrumentation is disabled
-		isUniversalInstrumentation, _ := strconv.ParseBool(os.Getenv("DD_UNIVERSAL_INSTRUMENTATION"))
-		if !isUniversalInstrumentation {
+		if !em.isUniversalInstrumentation {
 			req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
 			if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
 				logger.Debug("Hit the extension /hello route")
