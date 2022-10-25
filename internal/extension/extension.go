@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
@@ -82,6 +83,15 @@ func (em *ExtensionManager) checkAgentRunning() {
 	} else {
 		logger.Debug("Will use the Serverless Agent")
 		em.isExtensionRunning = true
+
+		// Tell the extension not to create an execution span if universal instrumentation is disabled
+		isUniversalInstrumentation, _ := strconv.ParseBool(os.Getenv("DD_UNIVERSAL_INSTRUMENTATION"))
+		if !isUniversalInstrumentation {
+			req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
+			if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
+				logger.Debug("Hit the extension /hello route")
+			}
+		}
 	}
 }
 
