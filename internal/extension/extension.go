@@ -91,6 +91,9 @@ func (em *ExtensionManager) checkAgentRunning() {
 			req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
 			if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
 				logger.Debug("Hit the extension /hello route")
+			} else {
+				logger.Debug("Will use the API since the Serverless Agent was detected but the hello route was unreachable")
+				em.isExtensionRunning = false
 			}
 		}
 	}
