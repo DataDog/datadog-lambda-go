@@ -27,6 +27,10 @@ type (
 	kmsDecrypter struct {
 		kmsClient *kms.Client
 	}
+
+	clientDecrypter interface {
+		Decrypt(context.Context, *kms.DecryptInput, ...func(*kms.Options)) (*kms.DecryptOutput, error)
+	}
 )
 
 // functionNameEnvVar is the environment variable that stores the Lambda function name
@@ -53,7 +57,7 @@ func (kd *kmsDecrypter) Decrypt(ciphertext string) (string, error) {
 
 // decryptKMS decodes and deciphers the base64-encoded ciphertext given as a parameter using KMS.
 // For this to work properly, the Lambda function must have the appropriate IAM permissions.
-func decryptKMS(kmsClient *kms.Client, ciphertext string) (string, error) {
+func decryptKMS(kmsClient clientDecrypter, ciphertext string) (string, error) {
 	decodedBytes, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode cipher text to base64: %v", err)
