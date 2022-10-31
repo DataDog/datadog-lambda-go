@@ -41,7 +41,7 @@ const encryptionContextKey string = "LambdaFunctionName"
 
 // MakeKMSDecrypter creates a new decrypter which uses the AWS KMS service to decrypt variables
 func MakeKMSDecrypter() Decrypter {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		logger.Error(fmt.Errorf("could not create a new aws config: %v", err))
 		panic(err)
@@ -72,7 +72,8 @@ func decryptKMS(kmsClient clientDecrypter, ciphertext string) (string, error) {
 	params := &kms.DecryptInput{
 		CiphertextBlob: decodedBytes,
 	}
-	response, err := kmsClient.Decrypt(context.TODO(), params)
+	ctx := context.Background()
+	response, err := kmsClient.Decrypt(ctx, params)
 
 	if err != nil {
 		logger.Debug("Failed to decrypt ciphertext without encryption context, retrying with encryption context")
@@ -83,7 +84,7 @@ func decryptKMS(kmsClient clientDecrypter, ciphertext string) (string, error) {
 				encryptionContextKey: functionName,
 			},
 		}
-		response, err = kmsClient.Decrypt(context.TODO(), params)
+		response, err = kmsClient.Decrypt(ctx, params)
 		if err != nil {
 			return "", fmt.Errorf("failed to decrypt ciphertext with kms: %v", err)
 		}
