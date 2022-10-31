@@ -25,17 +25,19 @@ import (
 type (
 	// Listener creates a function execution span and injects it into the context
 	Listener struct {
-		ddTraceEnabled        bool
-		mergeXrayTraces       bool
-		extensionManager      *extension.ExtensionManager
-		traceContextExtractor ContextExtractor
+		ddTraceEnabled           bool
+		mergeXrayTraces          bool
+		universalInstrumentation bool
+		extensionManager         *extension.ExtensionManager
+		traceContextExtractor    ContextExtractor
 	}
 
 	// Config gives options for how the Listener should work
 	Config struct {
-		DDTraceEnabled        bool
-		MergeXrayTraces       bool
-		TraceContextExtractor ContextExtractor
+		DDTraceEnabled           bool
+		MergeXrayTraces          bool
+		UniversalInstrumentation bool
+		TraceContextExtractor    ContextExtractor
 	}
 )
 
@@ -48,10 +50,11 @@ var tracerInitialized = false
 func MakeListener(config Config, extensionManager *extension.ExtensionManager) Listener {
 
 	return Listener{
-		ddTraceEnabled:        config.DDTraceEnabled,
-		mergeXrayTraces:       config.MergeXrayTraces,
-		extensionManager:      extensionManager,
-		traceContextExtractor: config.TraceContextExtractor,
+		ddTraceEnabled:           config.DDTraceEnabled,
+		mergeXrayTraces:          config.MergeXrayTraces,
+		universalInstrumentation: config.UniversalInstrumentation,
+		extensionManager:         extensionManager,
+		traceContextExtractor:    config.TraceContextExtractor,
 	}
 }
 
@@ -72,10 +75,15 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		tracerInitialized = true
 	}
 
-	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces)
+	isDdServerlessSpan := l.universalInstrumentation && l.extensionManager.IsExtensionRunning()
+	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces, isDdServerlessSpan)
 
 	// Add the span to the context so the user can create child spans
 	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
+
+	if l.universalInstrumentation && l.extensionManager.IsExtensionRunning() {
+		ctx = l.extensionManager.SendStartInvocationRequest(ctx, msg)
+	}
 
 	return ctx
 }
@@ -84,13 +92,18 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish(tracer.WithError(err))
+
+		if l.universalInstrumentation && l.extensionManager.IsExtensionRunning() {
+			l.extensionManager.SendEndInvocationRequest(ctx, functionExecutionSpan, err)
+		}
 	}
+
 	tracer.Flush()
 }
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
 // and returns the span so that it can be finished when the function execution is complete
-func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) tracer.Span {
+func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdServerlessSpan bool) tracer.Span {
 	// Extract information from context
 	lambdaCtx, _ := lambdacontext.FromContext(ctx)
 	rootTraceContext, ok := ctx.Value(traceContextKey).(TraceContext)
@@ -109,11 +122,17 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool) trace
 		parentSpanContext = convertedSpanContext
 	}
 
+	resourceName := lambdacontext.FunctionName
+	if isDdServerlessSpan {
+		// The extension will drop this span, prioritizing the execution span the extension creates
+		resourceName = string(extension.DdSeverlessSpan)
+	}
+
 	span := tracer.StartSpan(
 		"aws.lambda", // This operation name will be replaced with the value of the service tag by the Forwarder
 		tracer.SpanType("serverless"),
 		tracer.ChildOf(parentSpanContext),
-		tracer.ResourceName(lambdacontext.FunctionName),
+		tracer.ResourceName(resourceName),
 		tracer.Tag("cold_start", ctx.Value("cold_start")),
 		tracer.Tag("function_arn", functionArn),
 		tracer.Tag("function_version", functionVersion),
