@@ -8,14 +8,14 @@
 package metrics
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"os"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/kms"
-	"github.com/aws/aws-sdk-go/service/kms/kmsiface"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 )
 
 type (
@@ -25,25 +25,29 @@ type (
 	}
 
 	kmsDecrypter struct {
-		kmsClient *kms.KMS
+		kmsClient *kms.Client
+	}
+
+	clientDecrypter interface {
+		Decrypt(context.Context, *kms.DecryptInput, ...func(*kms.Options)) (*kms.DecryptOutput, error)
 	}
 )
 
 // functionNameEnvVar is the environment variable that stores the Lambda function name
-const functionNameEnvVar = "AWS_LAMBDA_FUNCTION_NAME"
+const functionNameEnvVar string = "AWS_LAMBDA_FUNCTION_NAME"
 
 // encryptionContextKey is the key added to the encryption context by the Lambda console UI
-const encryptionContextKey = "LambdaFunctionName"
+const encryptionContextKey string = "LambdaFunctionName"
 
 // MakeKMSDecrypter creates a new decrypter which uses the AWS KMS service to decrypt variables
 func MakeKMSDecrypter() Decrypter {
-	sess, err := session.NewSession(nil)
+	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
-		logger.Error(fmt.Errorf("could not create a new aws-sdk session: %v", err))
+		logger.Error(fmt.Errorf("could not create a new aws config: %v", err))
 		panic(err)
 	}
 	return &kmsDecrypter{
-		kmsClient: kms.New(sess),
+		kmsClient: kms.NewFromConfig(cfg),
 	}
 }
 
@@ -53,7 +57,7 @@ func (kd *kmsDecrypter) Decrypt(ciphertext string) (string, error) {
 
 // decryptKMS decodes and deciphers the base64-encoded ciphertext given as a parameter using KMS.
 // For this to work properly, the Lambda function must have the appropriate IAM permissions.
-func decryptKMS(kmsClient kmsiface.KMSAPI, ciphertext string) (string, error) {
+func decryptKMS(kmsClient clientDecrypter, ciphertext string) (string, error) {
 	decodedBytes, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode cipher text to base64: %v", err)
@@ -68,18 +72,19 @@ func decryptKMS(kmsClient kmsiface.KMSAPI, ciphertext string) (string, error) {
 	params := &kms.DecryptInput{
 		CiphertextBlob: decodedBytes,
 	}
-	response, err := kmsClient.Decrypt(params)
+	ctx := context.Background()
+	response, err := kmsClient.Decrypt(ctx, params)
 
 	if err != nil {
 		logger.Debug("Failed to decrypt ciphertext without encryption context, retrying with encryption context")
 		// Try with encryption context, in case API key was encrypted using the AWS Console
 		params = &kms.DecryptInput{
 			CiphertextBlob: decodedBytes,
-			EncryptionContext: map[string]*string{
-				encryptionContextKey: &functionName,
+			EncryptionContext: map[string]string{
+				encryptionContextKey: functionName,
 			},
 		}
-		response, err = kmsClient.Decrypt(params)
+		response, err = kmsClient.Decrypt(ctx, params)
 		if err != nil {
 			return "", fmt.Errorf("failed to decrypt ciphertext with kms: %v", err)
 		}
