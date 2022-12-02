@@ -89,6 +89,8 @@ const (
 	DatadogTraceEnabledEnvVar = "DD_TRACE_ENABLED"
 	// MergeXrayTracesEnvVar is the environment variable that enables the merging of X-Ray and Datadog traces.
 	MergeXrayTracesEnvVar = "DD_MERGE_XRAY_TRACES"
+	// UniversalInstrumentation is the environment variable that enables universal instrumentation with the DD Extension
+	UniversalInstrumentation = "DD_UNIVERSAL_INSTRUMENTATION"
 
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
@@ -183,8 +185,9 @@ func InvokeDryRun(callback func(ctx context.Context), cfg *Config) (interface{},
 
 func (cfg *Config) toTraceConfig() trace.Config {
 	traceConfig := trace.Config{
-		DDTraceEnabled:  false,
-		MergeXrayTraces: false,
+		DDTraceEnabled:           false,
+		MergeXrayTraces:          false,
+		UniversalInstrumentation: false,
 	}
 
 	if cfg != nil {
@@ -205,6 +208,10 @@ func (cfg *Config) toTraceConfig() trace.Config {
 		traceConfig.MergeXrayTraces, _ = strconv.ParseBool(os.Getenv(MergeXrayTracesEnvVar))
 	}
 
+	if !traceConfig.UniversalInstrumentation {
+		traceConfig.UniversalInstrumentation, _ = strconv.ParseBool(os.Getenv(UniversalInstrumentation))
+	}
+
 	return traceConfig
 }
 
@@ -213,12 +220,14 @@ func initializeListeners(cfg *Config) []wrapper.HandlerListener {
 	if strings.EqualFold(logLevel, "debug") || (cfg != nil && cfg.DebugLogging) {
 		logger.SetLogLevel(logger.LevelDebug)
 	}
-	extensionManager := extension.BuildExtensionManager()
+	traceConfig := cfg.toTraceConfig()
+	extensionManager := extension.BuildExtensionManager(traceConfig.UniversalInstrumentation)
 	isExtensionRunning := extensionManager.IsExtensionRunning()
+	metricsConfig := cfg.toMetricsConfig(isExtensionRunning)
 
 	// Wrap the handler with listeners that add instrumentation for traces and metrics.
-	tl := trace.MakeListener(cfg.toTraceConfig(), extensionManager)
-	ml := metrics.MakeListener(cfg.toMetricsConfig(isExtensionRunning), extensionManager)
+	tl := trace.MakeListener(traceConfig, extensionManager)
+	ml := metrics.MakeListener(metricsConfig, extensionManager)
 	return []wrapper.HandlerListener{
 		&tl, &ml,
 	}

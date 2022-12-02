@@ -1,5 +1,5 @@
-START
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Will use the API"}
+START
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Merge X-Ray Traces is off, using trace context from Datadog only"}
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Could not convert TraceContext to a SpanContext (most likely TraceContext was empty)"}
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: sending metric via log forwarder"}

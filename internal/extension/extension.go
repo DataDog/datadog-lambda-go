@@ -9,12 +9,30 @@
 package extension
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
+)
+
+type ddTraceContext string
+
+const (
+	DdTraceId          ddTraceContext = "x-datadog-trace-id"
+	DdParentId         ddTraceContext = "x-datadog-parent-id"
+	DdSpanId           ddTraceContext = "x-datadog-span-id"
+	DdSamplingPriority ddTraceContext = "x-datadog-sampling-priority"
+	DdInvocationError  ddTraceContext = "x-datadog-invocation-error"
+
+	DdSeverlessSpan  ddTraceContext = "dd-tracer-serverless-span"
+	DdLambdaResponse ddTraceContext = "dd-response"
 )
 
 const (
@@ -23,30 +41,38 @@ const (
 	// want to let it having some time for its cold start so we should not set this too low.
 	timeout = 3000 * time.Millisecond
 
-	helloUrl = "http://localhost:8124/lambda/hello"
-	flushUrl = "http://localhost:8124/lambda/flush"
+	helloUrl           = "http://localhost:8124/lambda/hello"
+	flushUrl           = "http://localhost:8124/lambda/flush"
+	startInvocationUrl = "http://localhost:8124/lambda/start-invocation"
+	endInvocationUrl   = "http://localhost:8124/lambda/end-invocation"
 
 	extensionPath = "/opt/extensions/datadog-agent"
 )
 
 type ExtensionManager struct {
-	helloRoute         string
-	flushRoute         string
-	extensionPath      string
-	httpClient         HTTPClient
-	isExtensionRunning bool
+	helloRoute                 string
+	flushRoute                 string
+	extensionPath              string
+	startInvocationUrl         string
+	endInvocationUrl           string
+	httpClient                 HTTPClient
+	isExtensionRunning         bool
+	isUniversalInstrumentation bool
 }
 
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-func BuildExtensionManager() *ExtensionManager {
+func BuildExtensionManager(isUniversalInstrumentation bool) *ExtensionManager {
 	em := &ExtensionManager{
-		helloRoute:    helloUrl,
-		flushRoute:    flushUrl,
-		extensionPath: extensionPath,
-		httpClient:    &http.Client{Timeout: timeout},
+		helloRoute:                 helloUrl,
+		flushRoute:                 flushUrl,
+		startInvocationUrl:         startInvocationUrl,
+		endInvocationUrl:           endInvocationUrl,
+		extensionPath:              extensionPath,
+		httpClient:                 &http.Client{Timeout: timeout},
+		isUniversalInstrumentation: isUniversalInstrumentation,
 	}
 	em.checkAgentRunning()
 	return em
@@ -57,14 +83,80 @@ func (em *ExtensionManager) checkAgentRunning() {
 		logger.Debug("Will use the API")
 		em.isExtensionRunning = false
 	} else {
-		req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
-		if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-			logger.Debug("Will use the Serverless Agent")
-			em.isExtensionRunning = true
-		} else {
-			logger.Debug("Will use the API since the Serverless Agent was detected but the hello route was unreachable")
-			em.isExtensionRunning = false
+		logger.Debug("Will use the Serverless Agent")
+		em.isExtensionRunning = true
+
+		// Tell the extension not to create an execution span if universal instrumentation is disabled
+		if !em.isUniversalInstrumentation {
+			req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
+			if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
+				logger.Debug("Hit the extension /hello route")
+			} else {
+				logger.Debug("Will use the API since the Serverless Agent was detected but the hello route was unreachable")
+				em.isExtensionRunning = false
+			}
 		}
+	}
+}
+
+func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, eventPayload json.RawMessage) context.Context {
+	body := bytes.NewBuffer(eventPayload)
+	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
+
+	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
+		// Propagate dd-trace context from the extension response if found in the response headers
+		traceId := response.Header.Get(string(DdTraceId))
+		if traceId != "" {
+			ctx = context.WithValue(ctx, DdTraceId, traceId)
+		}
+		parentId := response.Header.Get(string(DdParentId))
+		if parentId != "" {
+			ctx = context.WithValue(ctx, DdParentId, parentId)
+		}
+		samplingPriority := response.Header.Get(string(DdSamplingPriority))
+		if samplingPriority != "" {
+			ctx = context.WithValue(ctx, DdSamplingPriority, samplingPriority)
+		}
+	}
+	return ctx
+}
+
+func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functionExecutionSpan ddtrace.Span, err error) {
+	// Handle Lambda response
+	lambdaResponse := ctx.Value(DdLambdaResponse)
+	content, responseErr := json.Marshal(lambdaResponse)
+	if responseErr != nil {
+		content = []byte("{}")
+	}
+	body := bytes.NewBuffer(content)
+	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
+
+	// Mark the invocation as an error if any
+	if err != nil {
+		req.Header.Set(string(DdInvocationError), "true")
+	}
+
+	// Extract the DD trace context and pass them to the extension via request headers
+	traceId, ok := ctx.Value(DdTraceId).(string)
+	if ok {
+		req.Header.Set(string(DdTraceId), traceId)
+		if parentId, ok := ctx.Value(DdParentId).(string); ok {
+			req.Header.Set(string(DdParentId), parentId)
+		}
+		if spanId, ok := ctx.Value(DdSpanId).(string); ok {
+			req.Header.Set(string(DdSpanId), spanId)
+		}
+		if samplingPriority, ok := ctx.Value(DdSamplingPriority).(string); ok {
+			req.Header.Set(string(DdSamplingPriority), samplingPriority)
+		}
+	} else {
+		req.Header.Set(string(DdTraceId), fmt.Sprint(functionExecutionSpan.Context().TraceID()))
+		req.Header.Set(string(DdSpanId), fmt.Sprint(functionExecutionSpan.Context().SpanID()))
+	}
+
+	resp, err := em.httpClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		logger.Error(fmt.Errorf("could not send end invocation payload to the extension: %v", err))
 	}
 }
 

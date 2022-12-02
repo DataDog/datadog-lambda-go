@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/aws/aws-lambda-go/lambda"
 
@@ -59,6 +60,7 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 		CurrentContext = ctx
 		result, err := callHandler(ctx, msg, handler)
 		for _, listener := range listeners {
+			ctx = context.WithValue(ctx, extension.DdLambdaResponse, result)
 			listener.HandlerFinished(ctx, err)
 		}
 		coldStart = false
