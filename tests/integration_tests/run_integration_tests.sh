@@ -167,7 +167,9 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             # Strip out run ID (from function name, resource, etc.)
             perl -p -e "s/$run_id/XXXX/g" |
             # Normalize data in logged metrics
-            perl -p -e 's/"(points\\\":\[\[)([0-9]+)/\1XXXX/g'
+            perl -p -e 's/"(points\\\":\[\[)([0-9]+)/\1XXXX/g' |
+            # Remove INIT_START log
+            perl -p -e "s/INIT_START.*//g"
     )
 
     if [ ! -f $function_snapshot_path ]; then
