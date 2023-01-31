@@ -40,8 +40,8 @@ if [ -n "$UPDATE_SNAPSHOTS" ]; then
 fi
 
 echo "Building Go binaries"
-GOOS=linux go build -ldflags="-s -w" -o bin/hello hello/main.go
-GOOS=linux go build -ldflags="-s -w" -o bin/error error/main.go
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/hello hello/main.go
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/error error/main.go
 
 # Generate a random 8-character ID to avoid collisions with other runs
 run_id=$(xxd -l 4 -c 4 -p < /dev/random)
