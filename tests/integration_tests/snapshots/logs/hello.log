@@ -1,3 +1,4 @@
+
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Will use the API"}
 START
 XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: Merge X-Ray Traces is off, using trace context from Datadog only"}
