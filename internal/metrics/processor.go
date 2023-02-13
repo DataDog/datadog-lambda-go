@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/sony/gobreaker"
 )
 
