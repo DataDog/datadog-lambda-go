@@ -1,6 +1,6 @@
 module github.com/DataDog/datadog-lambda-go/tests/integration_tests/bin/hello
 
-go 1.17
+go 1.18
 
 require (
 	github.com/DataDog/datadog-lambda-go v0.7.0
