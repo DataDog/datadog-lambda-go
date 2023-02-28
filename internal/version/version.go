@@ -3,9 +3,9 @@ package version
 
 // DDLambdaVersion is the current version number of this library (datadog-lambda-go).
 // It is automatically updated by the release script.
-const DDLambdaVersion = "1.8.0"
+const DDLambdaVersion = "1.9.0"
 
 // DDTraceVersion is the version of dd-trace-go required by this libary.
 // This should match the version number specified in go.mod.
 // It is automatically updated by the release script
-const DDTraceVersion = "1.41.0"
+const DDTraceVersion = "1.48.0"
