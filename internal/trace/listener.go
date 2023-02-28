@@ -71,6 +71,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 			tracer.WithService("aws.lambda"),
 			tracer.WithLambdaMode(!l.extensionManager.IsExtensionRunning()),
 			tracer.WithGlobalTag("_dd.origin", "lambda"),
+			tracer.WithSendRetries(2),
 		)
 		tracerInitialized = true
 	}
