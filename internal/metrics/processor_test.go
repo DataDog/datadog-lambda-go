@@ -68,7 +68,7 @@ func TestProcessorBatches(t *testing.T) {
 	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	nowUnix := float64(mts.now.Unix())
 
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, math.MaxUint32)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, math.MaxUint32, 2000, false)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -114,7 +114,7 @@ func TestProcessorBatchesPerTick(t *testing.T) {
 	secondTimeUnix := float64(secondTime.Unix())
 	mts.now = firstTime
 
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, math.MaxUint32)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, math.MaxUint32, 2000, false)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -189,7 +189,7 @@ func TestProcessorPerformsRetry(t *testing.T) {
 	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 
 	shouldRetry := true
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, shouldRetry, time.Hour*1000, time.Hour*1000, math.MaxUint32)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, shouldRetry, time.Hour*1000, time.Hour*1000, math.MaxUint32, 2000, false)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -214,7 +214,7 @@ func TestProcessorCancelsWithContext(t *testing.T) {
 
 	shouldRetry := true
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	processor := MakeProcessor(ctx, &mc, &mts, 1000, shouldRetry, time.Hour*1000, time.Hour*1000, math.MaxUint32)
+	processor := MakeProcessor(ctx, &mc, &mts, 1000, shouldRetry, time.Hour*1000, time.Hour*1000, math.MaxUint32, 2000, false)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -240,7 +240,7 @@ func TestProcessorBatchesWithOpeningCircuitBreaker(t *testing.T) {
 
 	// Will open the circuit breaker at number of total failures > 1
 	circuitBreakerTotalFailures := uint32(1)
-	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, circuitBreakerTotalFailures)
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, circuitBreakerTotalFailures, 2000, false)
 
 	d1 := Distribution{
 		Name:   "metric-1",
@@ -256,4 +256,44 @@ func TestProcessorBatchesWithOpeningCircuitBreaker(t *testing.T) {
 
 	// It should have retried 3 times, but circuit breaker opened at the second time
 	assert.Equal(t, 1, mc.sendMetricsCalledCount)
+}
+
+func TestProcessorBatchesDropMetricsAtCapacity(t *testing.T) {
+	mc := makeMockClient()
+	mts := makeMockTimeService()
+
+	mts.now, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+	nowUnix := float64(mts.now.Unix())
+
+	processor := MakeProcessor(context.Background(), &mc, &mts, 1000, false, time.Hour*1000, time.Hour*1000, math.MaxUint32, 1, true)
+
+	d1 := Distribution{
+		Name:   "metric-1",
+		Tags:   []string{"a", "b", "c"},
+		Values: []MetricValue{{Timestamp: mts.now, Value: 1}, {Timestamp: mts.now, Value: 2}, {Timestamp: mts.now, Value: 3}},
+	}
+	d2 := Distribution{
+		Name:   "metric-1",
+		Tags:   []string{"a", "b", "c"},
+		Values: []MetricValue{{Timestamp: mts.now, Value: 4}, {Timestamp: mts.now, Value: 5}, {Timestamp: mts.now, Value: 6}},
+	}
+
+	processor.AddMetric(&d1)
+	processor.AddMetric(&d2)
+
+	processor.StartProcessing()
+	processor.FinishProcessing()
+
+	firstBatch := <-mc.batches
+
+	assert.Equal(t, []APIMetric{{
+		Name:       "metric-1",
+		Tags:       []string{"a", "b", "c"},
+		MetricType: DistributionType,
+		Points: []interface{}{
+			[]interface{}{nowUnix, []interface{}{float64(1)}},
+			[]interface{}{nowUnix, []interface{}{float64(2)}},
+			[]interface{}{nowUnix, []interface{}{float64(3)}},
+		},
+	}}, firstBatch)
 }
