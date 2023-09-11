@@ -109,7 +109,10 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 		if traceId != "" {
 			ctx = context.WithValue(ctx, DdTraceId, traceId)
 		}
-		parentId := response.Header.Get(string(DdParentId))
+		parentId := traceId
+		if pid := response.Header.Get(string(DdParentId)); pid != "" {
+			parentId = pid
+		}
 		if parentId != "" {
 			ctx = context.WithValue(ctx, DdParentId, parentId)
 		}
