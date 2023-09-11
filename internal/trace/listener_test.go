@@ -75,7 +75,7 @@ func TestStartFunctionExecutionSpanFromXrayWithMergeEnabled(t *testing.T) {
 	mt := mocktracer.Start()
 	defer mt.Stop()
 
-	span := startFunctionExecutionSpan(ctx, true, false)
+	span, _ := startFunctionExecutionSpan(ctx, true, false)
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
 
@@ -105,7 +105,7 @@ func TestStartFunctionExecutionSpanFromXrayWithMergeDisabled(t *testing.T) {
 	mt := mocktracer.Start()
 	defer mt.Stop()
 
-	span := startFunctionExecutionSpan(ctx, false, false)
+	span, _ := startFunctionExecutionSpan(ctx, false, false)
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
 
@@ -124,7 +124,7 @@ func TestStartFunctionExecutionSpanFromEventWithMergeEnabled(t *testing.T) {
 	mt := mocktracer.Start()
 	defer mt.Stop()
 
-	span := startFunctionExecutionSpan(ctx, true, false)
+	span, _ := startFunctionExecutionSpan(ctx, true, false)
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
 
@@ -143,7 +143,7 @@ func TestStartFunctionExecutionSpanFromEventWithMergeDisabled(t *testing.T) {
 	mt := mocktracer.Start()
 	defer mt.Stop()
 
-	span := startFunctionExecutionSpan(ctx, false, false)
+	span, _ := startFunctionExecutionSpan(ctx, false, false)
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
 
@@ -162,7 +162,7 @@ func TestStartFunctionExecutionSpanWithExtension(t *testing.T) {
 	mt := mocktracer.Start()
 	defer mt.Stop()
 
-	span := startFunctionExecutionSpan(ctx, false, true)
+	span, _ := startFunctionExecutionSpan(ctx, false, true)
 	span.Finish()
 	finishedSpan := mt.FinishedSpans()[0]
 

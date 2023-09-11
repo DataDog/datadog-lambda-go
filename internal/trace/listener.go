@@ -81,7 +81,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	}
 
 	isDdServerlessSpan := l.universalInstrumentation && l.extensionManager.IsExtensionRunning()
-	functionExecutionSpan = startFunctionExecutionSpan(ctx, l.mergeXrayTraces, isDdServerlessSpan)
+	functionExecutionSpan, ctx = startFunctionExecutionSpan(ctx, l.mergeXrayTraces, isDdServerlessSpan)
 
 	// Add the span to the context so the user can create child spans
 	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
@@ -104,7 +104,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
 // and returns the span so that it can be finished when the function execution is complete
-func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdServerlessSpan bool) tracer.Span {
+func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdServerlessSpan bool) (tracer.Span, context.Context) {
 	// Extract information from context
 	lambdaCtx, _ := lambdacontext.FromContext(ctx)
 	rootTraceContext, ok := ctx.Value(traceContextKey).(TraceContext)
@@ -149,7 +149,9 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdS
 		span.SetTag("_dd.parent_source", "xray")
 	}
 
-	return span
+	ctx = context.WithValue(ctx, extension.DdSpanId, fmt.Sprint(span.Context().SpanID()))
+
+	return span, ctx
 }
 
 func separateVersionFromFunctionArn(functionArn string) (arnWithoutVersion string, functionVersion string) {
