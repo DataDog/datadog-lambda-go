@@ -64,6 +64,10 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		return ctx
 	}
 
+	if l.universalInstrumentation && l.extensionManager.IsExtensionRunning() {
+		ctx = l.extensionManager.SendStartInvocationRequest(ctx, msg)
+	}
+
 	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces, l.traceContextExtractor)
 
 	if !tracerInitialized {
@@ -81,10 +85,6 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 
 	// Add the span to the context so the user can create child spans
 	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
-
-	if l.universalInstrumentation && l.extensionManager.IsExtensionRunning() {
-		ctx = l.extensionManager.SendStartInvocationRequest(ctx, msg)
-	}
 
 	return ctx
 }
