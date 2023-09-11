@@ -60,7 +60,7 @@ func TestGetDatadogTraceContextForTraceMetadataNonProxyEvent(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/apig-event-with-headers.json")
 
-	headers, ok := getTraceContext(getHeadersFromEventHeaders(ctx, *ev))
+	headers, ok := getTraceContext(ctx, getHeadersFromEventHeaders(ctx, *ev))
 	assert.True(t, ok)
 
 	expected := TraceContext{
@@ -75,7 +75,7 @@ func TestGetDatadogTraceContextForTraceMetadataWithMixedCaseHeaders(t *testing.T
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/non-proxy-with-mixed-case-headers.json")
 
-	headers, ok := getTraceContext(getHeadersFromEventHeaders(ctx, *ev))
+	headers, ok := getTraceContext(ctx, getHeadersFromEventHeaders(ctx, *ev))
 	assert.True(t, ok)
 
 	expected := TraceContext{
@@ -90,7 +90,7 @@ func TestGetDatadogTraceContextForTraceMetadataWithMissingSamplingPriority(t *te
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/non-proxy-with-missing-sampling-priority.json")
 
-	headers, ok := getTraceContext(getHeadersFromEventHeaders(ctx, *ev))
+	headers, ok := getTraceContext(ctx, getHeadersFromEventHeaders(ctx, *ev))
 	assert.True(t, ok)
 
 	expected := TraceContext{
@@ -105,7 +105,7 @@ func TestGetDatadogTraceContextForInvalidData(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/invalid.json")
 
-	_, ok := getTraceContext(getHeadersFromEventHeaders(ctx, *ev))
+	_, ok := getTraceContext(ctx, getHeadersFromEventHeaders(ctx, *ev))
 	assert.False(t, ok)
 }
 
@@ -113,7 +113,7 @@ func TestGetDatadogTraceContextForMissingData(t *testing.T) {
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
 	ev := loadRawJSON(t, "../testdata/non-proxy-no-headers.json")
 
-	_, ok := getTraceContext(getHeadersFromEventHeaders(ctx, *ev))
+	_, ok := getTraceContext(ctx, getHeadersFromEventHeaders(ctx, *ev))
 	assert.False(t, ok)
 }
 
