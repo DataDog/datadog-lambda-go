@@ -156,7 +156,7 @@ func getTraceContext(ctx context.Context, headers map[string]string) (TraceConte
 			samplingPriority = val
 		}
 	}
-	if samplingPriority == "" || samplingPriority == "-128" {
+	if samplingPriority == "" {
 		samplingPriority = "1" //sampler-keep
 	}
 
