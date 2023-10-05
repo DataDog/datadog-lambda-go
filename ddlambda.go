@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -102,6 +103,7 @@ const (
 // It returns a modified handler that can be passed directly to the lambda.StartHandler function from aws-lambda-go.
 func WrapLambdaHandlerInterface(handler lambda.Handler, cfg *Config) lambda.Handler {
 	listeners := initializeListeners(cfg)
+	applyLambdaExecWrapperConfiguration()
 	return wrapper.WrapHandlerInterfaceWithListeners(handler, listeners...)
 }
 
@@ -109,6 +111,7 @@ func WrapLambdaHandlerInterface(handler lambda.Handler, cfg *Config) lambda.Hand
 // It returns a modified handler that can be passed directly to the lambda.Start function from aws-lambda-go.
 func WrapFunction(handler interface{}, cfg *Config) interface{} {
 	listeners := initializeListeners(cfg)
+	applyLambdaExecWrapperConfiguration()
 	return wrapper.WrapHandlerWithListeners(handler, listeners...)
 }
 
@@ -288,4 +291,65 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 	}
 
 	return mc
+}
+
+// applyLambdaExecWrapperConfiguration applies environment variables set by the wrapper configured in the
+// `AWS_LAMBDA_EXEC_WRAPPER` environment variable if present. This is done here because the AWS Lambda runtimes used by
+// go applications (`go1.x` and `provided.al2`) do not honor this setting, while other runtimes do. This assumes the
+// wrapper script does nothing other than setting environment variables, and will only honor environment variables with
+// names starting with `DD_` or `AWS_LAMBDA_`. In particular, `AWS_LAMBDA_RUNTIME_API` is used to re-route the Lambda
+// control flow API through a proxy, which is used by ASM.
+//
+// See: https://docs.aws.amazon.com/lambda/latest/dg/runtimes-modify.html#runtime-wrapper.
+// See: https://github.com/DataDog/datadog-lambda-extension/blob/main/scripts/datadog_wrapper.
+func applyLambdaExecWrapperConfiguration() {
+	const AwsExecutionEnvEnvVar = "AWS_EXECUTION_ENV"
+	const AwsLambdaExecWrapperEnvVar = "AWS_LAMBDA_EXEC_WRAPPER"
+
+	// Only perform this operation if the Lambda runtime doesn't do it by itself, meaning we only do something for
+	// provided runtimes (in which `AWS_EXECUTION_ENV` is not set) and `go1.x`.
+	if env := os.Getenv(AwsExecutionEnvEnvVar); env != "" && env != "AWS_Lambda_go1.x" {
+		logger.Debug(fmt.Sprintf("Skipping applyLambdaExecWrapperConfiguration, runtime is %s", env))
+		return
+	}
+
+	script := os.Getenv(AwsLambdaExecWrapperEnvVar)
+	if script == "" {
+		// Nothing to do
+		return
+	}
+
+	cmd := exec.Command("env", "-u", AwsLambdaExecWrapperEnvVar, script, "sh", "-c", "env")
+	logger.Debug(fmt.Sprintf("[%s] Command: %s", AwsLambdaExecWrapperEnvVar, cmd.String()))
+
+	if stdout, err := cmd.Output(); err != nil {
+		logger.Debug(fmt.Sprintf("[%s] Failed to run: %s", AwsLambdaExecWrapperEnvVar, err))
+	} else {
+		for _, line := range strings.Split(string(stdout), "\n") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				// Forward what the wrapper script prints to the standard output...
+				fmt.Println(line)
+				continue
+			}
+			name := parts[0]
+			val := parts[1]
+
+			if os.Getenv(name) == val {
+				// Not changed, nothing to do.
+				continue
+			}
+
+			if !strings.HasPrefix(name, "DD_") && !strings.HasPrefix(name, "AWS_LAMBDA_") {
+				logger.Debug(fmt.Sprintf("[%s] Skip %s=<redacted>", AwsLambdaExecWrapperEnvVar, name))
+				continue
+			}
+
+			if err := os.Setenv(name, val); err != nil {
+				logger.Debug(fmt.Sprintf("[%s] Failed %s=%s: %s", AwsLambdaExecWrapperEnvVar, name, val, err))
+			} else {
+				logger.Debug(fmt.Sprintf("[%s] Set %s=%s", AwsLambdaExecWrapperEnvVar, name, val))
+			}
+		}
+	}
 }
