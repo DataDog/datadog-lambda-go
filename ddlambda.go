@@ -297,12 +297,12 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 // on universal instrumentation unless it was already configured by the customer, so
 // that the HTTP constext (invocation details span tags) is avaialble on AppSec traces.
 func setupAppSec() {
-	const ServerlessAppSSecEnabledEnvVar = "DD_SERVERLESS_APPSEC_ENABLED"
+	const ServerlessAppSecEnabledEnvVar = "DD_SERVERLESS_APPSEC_ENABLED"
 	const AwsLambdaRuntimeApiEnvVar = "AWS_LAMBDA_RUNTIME_API"
 	const DatadogAgentUrl = "127.0.0.1:9000"
 
 	enabled := false
-	if env := os.Getenv(ServerlessAppSSecEnabledEnvVar); env != "" {
+	if env := os.Getenv(ServerlessAppSecEnabledEnvVar); env != "" {
 		if on, err := strconv.ParseBool(env); err == nil {
 			enabled = on
 		}
