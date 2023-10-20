@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/utils/path"
+
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/metrics"
@@ -96,6 +98,16 @@ const (
 	DefaultSite = "datadoghq.com"
 	// DefaultEnhancedMetrics enables enhanced metrics by default.
 	DefaultEnhancedMetrics = true
+
+	// serverlessAppSecEnabledEnvVar is the environment variable used to activate Serverless ASM through the use of an
+	// AWS Lambda runtime API proxy.
+	serverlessAppSecEnabledEnvVar = "DD_SERVERLESS_APPSEC_ENABLED"
+	// awsLambdaRuntimeApiEnvVar is the environment variable used to redirect AWS Lambda runtime API calls to the proxy.
+	awsLambdaRuntimeApiEnvVar = "AWS_LAMBDA_RUNTIME_API"
+	// datadogAgentUrl is the URL of the agent and proxy started by the Datadog lambda extension.
+	datadogAgentUrl = "127.0.0.1:9000"
+	// ddExtensionFilePath is the path on disk of the datadog lambda extension.
+	ddExtensionFilePath = "/opt/extensions/datadog-agent"
 )
 
 // WrapLambdaHandlerInterface is used to instrument your lambda functions.
@@ -295,14 +307,10 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 // setupAppSec checks if DD_SERVERLESS_APPSEC_ENABLED is set (to true) and when that
 // is the case, redirects `AWS_LAMBDA_RUNTIME_API` to the agent extension, and turns
 // on universal instrumentation unless it was already configured by the customer, so
-// that the HTTP constext (invocation details span tags) is avaialble on AppSec traces.
+// that the HTTP context (invocation details span tags) is available on AppSec traces.
 func setupAppSec() {
-	const ServerlessAppSecEnabledEnvVar = "DD_SERVERLESS_APPSEC_ENABLED"
-	const AwsLambdaRuntimeApiEnvVar = "AWS_LAMBDA_RUNTIME_API"
-	const DatadogAgentUrl = "127.0.0.1:9000"
-
 	enabled := false
-	if env := os.Getenv(ServerlessAppSecEnabledEnvVar); env != "" {
+	if env := os.Getenv(serverlessAppSecEnabledEnvVar); env != "" {
 		if on, err := strconv.ParseBool(env); err == nil {
 			enabled = on
 		}
@@ -312,9 +320,22 @@ func setupAppSec() {
 		return
 	}
 
-	_ = os.Setenv(AwsLambdaRuntimeApiEnvVar, DatadogAgentUrl)
+	if present, err := path.Exists(path.CheckFollowSymlink, ddExtensionFilePath); err != nil || !present {
+		logger.Debug(fmt.Sprintf("%s is enabled, but the Datadog extension was not found at %s", serverlessAppSecEnabledEnvVar, ddExtensionFilePath))
+		return
+	}
+
+	if err := os.Setenv(awsLambdaRuntimeApiEnvVar, datadogAgentUrl); err != nil {
+		logger.Debug(fmt.Sprintf("failed to set %s=%s: %v", awsLambdaRuntimeApiEnvVar, datadogAgentUrl, err))
+	} else {
+		logger.Debug(fmt.Sprintf("successfully set %s=%s", awsLambdaRuntimeApiEnvVar, datadogAgentUrl))
+	}
 
 	if val := os.Getenv(UniversalInstrumentation); val == "" {
-		_ = os.Setenv(UniversalInstrumentation, "1")
+		if err := os.Setenv(UniversalInstrumentation, "1"); err != nil {
+			logger.Debug(fmt.Sprintf("failed to set %s=%s: %v", UniversalInstrumentation, 1, err))
+		} else {
+			logger.Debug(fmt.Sprintf("successfully set %s=%s", UniversalInstrumentation, 1))
+		}
 	}
 }
