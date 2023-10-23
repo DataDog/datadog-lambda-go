@@ -18,8 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/utils/path"
-
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/metrics"
@@ -320,7 +318,7 @@ func setupAppSec() {
 		return
 	}
 
-	if present, err := path.Exists(path.CheckFollowSymlink, ddExtensionFilePath); err != nil || !present {
+	if _, err := os.Stat(ddExtensionFilePath); os.IsNotExist(err) {
 		logger.Debug(fmt.Sprintf("%s is enabled, but the Datadog extension was not found at %s", serverlessAppSecEnabledEnvVar, ddExtensionFilePath))
 		return
 	}
@@ -333,9 +331,9 @@ func setupAppSec() {
 
 	if val := os.Getenv(UniversalInstrumentation); val == "" {
 		if err := os.Setenv(UniversalInstrumentation, "1"); err != nil {
-			logger.Debug(fmt.Sprintf("failed to set %s=%s: %v", UniversalInstrumentation, 1, err))
+			logger.Debug(fmt.Sprintf("failed to set %s=%d: %v", UniversalInstrumentation, 1, err))
 		} else {
-			logger.Debug(fmt.Sprintf("successfully set %s=%s", UniversalInstrumentation, 1))
+			logger.Debug(fmt.Sprintf("successfully set %s=%d", UniversalInstrumentation, 1))
 		}
 	}
 }
