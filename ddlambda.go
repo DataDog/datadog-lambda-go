@@ -106,6 +106,11 @@ const (
 	datadogAgentUrl = "127.0.0.1:9000"
 	// ddExtensionFilePath is the path on disk of the datadog lambda extension.
 	ddExtensionFilePath = "/opt/extensions/datadog-agent"
+
+	// awsLambdaServerPortEnvVar is the environment variable set by the go1.x Lambda Runtime to indicate which port the
+	// RCP server should listen on. This is used as a sign that a warning should be printed if customers want to enable
+	// ASM support, but did not enable the lambda.norpc build taf.
+	awsLambdaServerPortEnvVar = "_LAMBDA_SERVER_PORT"
 )
 
 // WrapLambdaHandlerInterface is used to instrument your lambda functions.
@@ -321,6 +326,12 @@ func setupAppSec() {
 	if _, err := os.Stat(ddExtensionFilePath); os.IsNotExist(err) {
 		logger.Debug(fmt.Sprintf("%s is enabled, but the Datadog extension was not found at %s", serverlessAppSecEnabledEnvVar, ddExtensionFilePath))
 		return
+	}
+
+	if awsLambdaRpcSupport {
+		if port := os.Getenv(awsLambdaServerPortEnvVar); port != "" {
+			logger.Warn(fmt.Sprintf("%s activation with the go1.x AWS Lambda runtime requires setting the `lambda.norpc` go build tag", serverlessAppSecEnabledEnvVar))
+		}
 	}
 
 	if err := os.Setenv(awsLambdaRuntimeApiEnvVar, datadogAgentUrl); err != nil {
