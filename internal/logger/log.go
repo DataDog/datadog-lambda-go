@@ -14,12 +14,12 @@ type LogLevel int
 const (
 	// LevelDebug logs all information
 	LevelDebug LogLevel = iota
-	// LevelError only logs errors
-	LevelError LogLevel = iota
+	// LevelWarn only logs warnings and errors
+	LevelWarn LogLevel = iota
 )
 
 var (
-	logLevel           = LevelError
+	logLevel           = LevelWarn
 	output   io.Writer = os.Stdout
 )
 
@@ -36,12 +36,6 @@ func SetOutput(w io.Writer) {
 
 // Error logs a structured error message to stdout
 func Error(err error) {
-
-	type logStructure struct {
-		Status  string `json:"status"`
-		Message string `json:"message"`
-	}
-
 	finalMessage := logStructure{
 		Status:  "error",
 		Message: fmt.Sprintf("datadog: %s", err.Error()),
@@ -56,12 +50,23 @@ func Debug(message string) {
 	if logLevel > LevelDebug {
 		return
 	}
-	type logStructure struct {
-		Status  string `json:"status"`
-		Message string `json:"message"`
-	}
 	finalMessage := logStructure{
 		Status:  "debug",
+		Message: fmt.Sprintf("datadog: %s", message),
+	}
+
+	result, _ := json.Marshal(finalMessage)
+
+	log.Println(string(result))
+}
+
+// Warn logs a structured log message to stdout
+func Warn(message string) {
+	if logLevel > LevelWarn {
+		return
+	}
+	finalMessage := logStructure{
+		Status:  "warning",
 		Message: fmt.Sprintf("datadog: %s", message),
 	}
 
@@ -73,4 +78,9 @@ func Debug(message string) {
 // Raw prints a raw message to the logs.
 func Raw(message string) {
 	fmt.Fprintln(output, message)
+}
+
+type logStructure struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
 }
