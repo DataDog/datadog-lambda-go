@@ -202,9 +202,9 @@ func InvokeDryRun(callback func(ctx context.Context), cfg *Config) (interface{},
 
 func (cfg *Config) toTraceConfig() trace.Config {
 	traceConfig := trace.Config{
-		DDTraceEnabled:           false,
+		DDTraceEnabled:           true,
 		MergeXrayTraces:          false,
-		UniversalInstrumentation: false,
+		UniversalInstrumentation: true,
 	}
 
 	if cfg != nil {
@@ -217,16 +217,16 @@ func (cfg *Config) toTraceConfig() trace.Config {
 		traceConfig.TraceContextExtractor = trace.DefaultTraceExtractor
 	}
 
-	if !traceConfig.DDTraceEnabled {
-		traceConfig.DDTraceEnabled, _ = strconv.ParseBool(os.Getenv(DatadogTraceEnabledEnvVar))
+	if tracingEnabled, err := strconv.ParseBool(os.Getenv(DatadogTraceEnabledEnvVar)); err == nil {
+		traceConfig.DDTraceEnabled = tracingEnabled;
 	}
 
 	if !traceConfig.MergeXrayTraces {
 		traceConfig.MergeXrayTraces, _ = strconv.ParseBool(os.Getenv(MergeXrayTracesEnvVar))
 	}
 
-	if !traceConfig.UniversalInstrumentation {
-		traceConfig.UniversalInstrumentation, _ = strconv.ParseBool(os.Getenv(UniversalInstrumentation))
+	if universalInstrumentation, err := strconv.ParseBool(os.Getenv(UniversalInstrumentation)); err == nil {
+		traceConfig.UniversalInstrumentation = universalInstrumentation
 	}
 
 	return traceConfig

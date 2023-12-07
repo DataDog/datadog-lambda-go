@@ -11,12 +11,16 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestInvokeDryRun(t *testing.T) {
+	os.Setenv(UniversalInstrumentation, "false")
+	os.Setenv(DatadogTraceEnabledEnvVar, "false")
+
 	called := false
 	_, err := InvokeDryRun(func(ctx context.Context) {
 		called = true
@@ -25,6 +29,9 @@ func TestInvokeDryRun(t *testing.T) {
 	}, nil)
 	assert.NoError(t, err)
 	assert.True(t, called)
+
+	os.Unsetenv(UniversalInstrumentation)
+	os.Unsetenv(DatadogTraceEnabledEnvVar)
 }
 
 func TestMetricsSilentFailWithoutWrapper(t *testing.T) {
