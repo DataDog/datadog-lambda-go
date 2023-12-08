@@ -17,6 +17,9 @@ import (
 )
 
 func TestInvokeDryRun(t *testing.T) {
+	t.Setenv(UniversalInstrumentation, "false")
+	t.Setenv(DatadogTraceEnabledEnvVar, "false")
+
 	called := false
 	_, err := InvokeDryRun(func(ctx context.Context) {
 		called = true
