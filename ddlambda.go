@@ -304,6 +304,10 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 		mc.EnhancedMetrics = strings.EqualFold(enhancedMetrics, "true")
 	}
 
+	if localTest := os.Getenv("DD_LOCAL_TEST"); localTest == "true" || localTest == "1" {
+		mc.LocalTest = true
+	}
+
 	return mc
 }
 
