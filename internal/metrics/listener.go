@@ -49,6 +49,7 @@ type (
 		CircuitBreakerInterval      time.Duration
 		CircuitBreakerTimeout       time.Duration
 		CircuitBreakerTotalFailures uint32
+		LocalTest                   bool
 	}
 
 	logMetric struct {
@@ -143,8 +144,10 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 			}
 		}
 		// send a message to the Agent to flush the metrics
-		if err := l.extensionManager.Flush(); err != nil {
-			logger.Error(fmt.Errorf("error while flushing the metrics: %s", err))
+		if l.config.LocalTest {
+			if err := l.extensionManager.Flush(); err != nil {
+				logger.Error(fmt.Errorf("error while flushing the metrics: %s", err))
+			}
 		}
 	} else {
 		// use the api

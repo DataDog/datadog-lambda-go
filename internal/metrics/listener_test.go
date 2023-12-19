@@ -13,6 +13,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -220,4 +222,28 @@ func TestSubmitEnhancedMetricsOnlyErrors(t *testing.T) {
 	assert.False(t, called)
 	expected := "{\"m\":\"aws.lambda.enhanced.errors\",\"v\":1,"
 	assert.True(t, strings.Contains(output, expected))
+}
+
+func TestListenerHandlerFinishedFlushes(t *testing.T) {
+	var called bool
+
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	ts.Listener.Close()
+	ts.Listener, _ = net.Listen("tcp", "127.0.0.1:8124")
+
+	ts.Start()
+	defer ts.Close()
+
+	listener := MakeListener(Config{}, extension.BuildExtensionManager(false))
+	listener.isAgentRunning = true
+	for _, localTest := range []bool{true, false} {
+		t.Run(fmt.Sprintf("%#v", localTest), func(t *testing.T) {
+			called = false
+			listener.config.LocalTest = localTest
+			listener.HandlerFinished(context.TODO(), nil)
+			assert.Equal(t, called, localTest)
+		})
+	}
 }
