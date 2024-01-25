@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
@@ -71,7 +72,12 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces, l.traceContextExtractor)
 
 	if !tracerInitialized {
+		serviceName := os.Getenv("DD_SERVICE")
+		if serviceName == "" {
+			serviceName = "aws.lambda"
+		}
 		tracer.Start(
+			tracer.WithService(serviceName),
 			tracer.WithLambdaMode(!l.extensionManager.IsExtensionRunning()),
 			tracer.WithGlobalTag("_dd.origin", "lambda"),
 			tracer.WithSendRetries(2),
