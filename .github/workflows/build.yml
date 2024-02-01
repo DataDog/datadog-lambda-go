@@ -13,8 +13,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
-    
+          go-version: '1.21'
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
 
@@ -28,7 +28,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
+          go-version: '1.21'
 
       - name: Run tests
         run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
@@ -51,7 +51,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
+          go-version: '1.21'
 
       - name: Cache Node modules
         id: cache-node-modules
