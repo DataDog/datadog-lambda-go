@@ -11,7 +11,7 @@ package trace
 import (
 	"context"
 	"encoding/json"
-	"io"
+	"os"
 	"testing"
 
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
@@ -59,7 +59,7 @@ func mockTraceContext(traceID, parentID, samplingPriority string) context.Contex
 }
 
 func loadRawJSON(t *testing.T, filename string) *json.RawMessage {
-	bytes, err := io.ReadFile(filename)
+	bytes, err := os.ReadFile(filename)
 	if err != nil {
 		assert.Fail(t, "Couldn't find JSON file")
 		return nil
