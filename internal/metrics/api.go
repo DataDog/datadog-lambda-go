@@ -13,7 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -107,7 +107,7 @@ func (cl *APIClient) SendMetrics(metrics []APIMetric) error {
 		if resp.StatusCode == 403 {
 			logger.Debug(fmt.Sprintf("authorization failed with api key of length %d characters", len(cl.apiKey)))
 		}
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		bodyBytes, err := io.ReadAll(resp.Body)
 		body := ""
 		if err == nil {
 			body = string(bodyBytes)

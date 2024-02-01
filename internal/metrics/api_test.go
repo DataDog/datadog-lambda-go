@@ -10,7 +10,7 @@ package metrics
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -47,7 +47,7 @@ func TestSendMetricsSuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusCreated)
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		s := string(body)
 
 		assert.Equal(t, "/distribution_points?api_key=12345", r.URL.String())
@@ -82,7 +82,7 @@ func TestSendMetricsBadRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusForbidden)
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		s := string(body)
 
 		assert.Equal(t, "/distribution_points?api_key=12345", r.URL.String())
