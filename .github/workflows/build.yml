@@ -37,7 +37,7 @@ jobs:
         run: bash <(curl -s https://codecov.io/bash)
 
   integration-test:
-    runs-on: ubuntu-latest
+    runs-on: amazon/aws-lambda-provided:al2
 
     steps:
       - name: Checkout
