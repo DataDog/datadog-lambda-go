@@ -42,6 +42,6 @@ XXXX-XX-XX XX:XX:XX.XXX {"status":"debug","message":"datadog: sending metric via
   ],
   "v": 1
 }
-something went wrong: errorString
+XXXX-XX-XX XX:XX:XX.XXX {"errorMessage":"something went wrong","errorType":"errorString"}
 null
 END Duration: XXXX ms (init: XXXX ms) Memory Used: XXXX MB
