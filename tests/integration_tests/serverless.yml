@@ -2,10 +2,7 @@
 service: integration-tests-go
 
 package:
-  exclude:
-    - ./**
-  include:
-    - ./bin/**
+  individually: true # <- package each function individually, to prevent file name conflicts
 
 provider:
   name: aws
@@ -29,9 +26,12 @@ provider:
 
 functions:
   hello:
-    runtime: go1.x
-    handler: bin/hello
-
+    runtime: provided.al2
+    handler: bootstrap
+    package:
+      artifact: build/hello.zip
   error:
-    runtime: go1.x
-    handler: bin/error
+    runtime: provided.al2
+    handler: bootstrap
+    package:
+      artifact: build/error.zip
