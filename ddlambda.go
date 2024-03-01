@@ -91,6 +91,8 @@ const (
 	MergeXrayTracesEnvVar = "DD_MERGE_XRAY_TRACES"
 	// UniversalInstrumentation is the environment variable that enables universal instrumentation with the DD Extension
 	UniversalInstrumentation = "DD_UNIVERSAL_INSTRUMENTATION"
+	// Initialize otel tracer provider if enabled
+	OtelTracerEnabled = "DD_TRACE_OTEL_ENABLED"
 
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
@@ -205,6 +207,7 @@ func (cfg *Config) toTraceConfig() trace.Config {
 		DDTraceEnabled:           true,
 		MergeXrayTraces:          false,
 		UniversalInstrumentation: true,
+		OtelTracerEnabled:        false,
 	}
 
 	if cfg != nil {
@@ -219,6 +222,12 @@ func (cfg *Config) toTraceConfig() trace.Config {
 
 	if tracingEnabled, err := strconv.ParseBool(os.Getenv(DatadogTraceEnabledEnvVar)); err == nil {
 		traceConfig.DDTraceEnabled = tracingEnabled;
+		// Only read the OTEL env var if DD tracing is disabled
+		if tracingEnabled {
+			if otelTracerEnabled, err := strconv.ParseBool(os.Getenv(OtelTracerEnabled)); err == nil {
+				traceConfig.OtelTracerEnabled = otelTracerEnabled
+			}
+		}
 	}
 
 	if !traceConfig.MergeXrayTraces {
