@@ -19,7 +19,9 @@ import (
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/version"
 	"github.com/aws/aws-lambda-go/lambdacontext"
+	"go.opentelemetry.io/otel"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
+	ddotel "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentelemetry"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -29,6 +31,7 @@ type (
 		ddTraceEnabled           bool
 		mergeXrayTraces          bool
 		universalInstrumentation bool
+		otelTracerEnabled 		 bool
 		extensionManager         *extension.ExtensionManager
 		traceContextExtractor    ContextExtractor
 	}
@@ -38,6 +41,7 @@ type (
 		DDTraceEnabled           bool
 		MergeXrayTraces          bool
 		UniversalInstrumentation bool
+		OtelTracerEnabled 		 bool
 		TraceContextExtractor    ContextExtractor
 	}
 )
@@ -54,6 +58,7 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 		ddTraceEnabled:           config.DDTraceEnabled,
 		mergeXrayTraces:          config.MergeXrayTraces,
 		universalInstrumentation: config.UniversalInstrumentation,
+		otelTracerEnabled:		  config.OtelTracerEnabled,
 		extensionManager:         extensionManager,
 		traceContextExtractor:    config.TraceContextExtractor,
 	}
@@ -76,12 +81,23 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		if serviceName == "" {
 			serviceName = "aws.lambda"
 		}
-		tracer.Start(
+		extensionNotRunning := !l.extensionManager.IsExtensionRunning()
+		opts := []tracer.StartOption{
 			tracer.WithService(serviceName),
-			tracer.WithLambdaMode(!l.extensionManager.IsExtensionRunning()),
-			tracer.WithGlobalTag("_dd.origin", "lambda"),
+			tracer.WithLambdaMode(extensionNotRunning),
+			tracer.WithGlobalTag("_dd.origin","lambda"),
 			tracer.WithSendRetries(2),
-		)
+		}
+		if l.otelTracerEnabled {
+			provider := ddotel.NewTracerProvider(
+				opts...,
+			)
+			otel.SetTracerProvider(provider)
+		} else {
+			tracer.Start(
+				opts...,
+			)
+		}
 		tracerInitialized = true
 	}
 
