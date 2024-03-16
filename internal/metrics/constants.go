@@ -18,6 +18,7 @@ const (
 	defaultCircuitBreakerInterval      = time.Second * 30
 	defaultCircuitBreakerTimeout       = time.Second * 60
 	defaultCircuitBreakerTotalFailures = 4
+	defaultMetricsChannelCapacity      = 2000
 )
 
 // MetricType enumerates all the available metric types

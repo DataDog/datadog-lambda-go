@@ -10,6 +10,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -18,6 +19,9 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/sony/gobreaker"
 )
+
+// ErrMetricsChannelAtCapacity reports that the processors metricsChan is at capacity and unable receive more metrics.
+var ErrMetricsChannelAtCapacity = errors.New("channel is at capacity, metrics will be dropped")
 
 type (
 	// Processor is used to batch metrics on a background thread, and send them on to a client periodically.
@@ -33,36 +37,38 @@ type (
 	}
 
 	processor struct {
-		context           context.Context
-		metricsChan       chan Metric
-		timeService       TimeService
-		waitGroup         sync.WaitGroup
-		batchInterval     time.Duration
-		client            Client
-		batcher           *Batcher
-		shouldRetryOnFail bool
-		isProcessing      bool
-		breaker           *gobreaker.CircuitBreaker
+		context               context.Context
+		metricsChan           chan Metric
+		dropMetricsAtCapacity bool
+		timeService           TimeService
+		waitGroup             sync.WaitGroup
+		batchInterval         time.Duration
+		client                Client
+		batcher               *Batcher
+		shouldRetryOnFail     bool
+		isProcessing          bool
+		breaker               *gobreaker.CircuitBreaker
 	}
 )
 
 // MakeProcessor creates a new metrics context
-func MakeProcessor(ctx context.Context, client Client, timeService TimeService, batchInterval time.Duration, shouldRetryOnFail bool, circuitBreakerInterval time.Duration, circuitBreakerTimeout time.Duration, circuitBreakerTotalFailures uint32) Processor {
+func MakeProcessor(ctx context.Context, client Client, timeService TimeService, batchInterval time.Duration, shouldRetryOnFail bool, circuitBreakerInterval time.Duration, circuitBreakerTimeout time.Duration, circuitBreakerTotalFailures uint32, metricsChanCapacity uint32, dropMetricsAtCapacity bool) Processor {
 	batcher := MakeBatcher(batchInterval)
 
 	breaker := MakeCircuitBreaker(circuitBreakerInterval, circuitBreakerTimeout, circuitBreakerTotalFailures)
 
 	return &processor{
-		context:           ctx,
-		metricsChan:       make(chan Metric, 2000),
-		batchInterval:     batchInterval,
-		waitGroup:         sync.WaitGroup{},
-		client:            client,
-		batcher:           batcher,
-		shouldRetryOnFail: shouldRetryOnFail,
-		timeService:       timeService,
-		isProcessing:      false,
-		breaker:           breaker,
+		context:               ctx,
+		metricsChan:           make(chan Metric, metricsChanCapacity),
+		dropMetricsAtCapacity: dropMetricsAtCapacity,
+		batchInterval:         batchInterval,
+		waitGroup:             sync.WaitGroup{},
+		client:                client,
+		batcher:               batcher,
+		shouldRetryOnFail:     shouldRetryOnFail,
+		timeService:           timeService,
+		isProcessing:          false,
+		breaker:               breaker,
 	}
 }
 
@@ -83,7 +89,16 @@ func MakeCircuitBreaker(circuitBreakerInterval time.Duration, circuitBreakerTime
 func (p *processor) AddMetric(metric Metric) {
 	// We use a large buffer in the metrics channel, to make this operation non-blocking.
 	// However, if the channel does fill up, this will become a blocking operation.
-	p.metricsChan <- metric
+	// Set DropMetricsAtCapacity to true in order to drop the metric instead of blocking.
+	if p.dropMetricsAtCapacity {
+		select {
+		case p.metricsChan <- metric:
+		default:
+			logger.Error(ErrMetricsChannelAtCapacity)
+		}
+	} else {
+		p.metricsChan <- metric
+	}
 }
 
 func (p *processor) StartProcessing() {
