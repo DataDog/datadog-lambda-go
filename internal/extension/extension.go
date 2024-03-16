@@ -25,11 +25,12 @@ import (
 type ddTraceContext string
 
 const (
-	DdTraceId          ddTraceContext = "x-datadog-trace-id"
-	DdParentId         ddTraceContext = "x-datadog-parent-id"
-	DdSpanId           ddTraceContext = "x-datadog-span-id"
-	DdSamplingPriority ddTraceContext = "x-datadog-sampling-priority"
-	DdInvocationError  ddTraceContext = "x-datadog-invocation-error"
+	DdTraceId            ddTraceContext = "x-datadog-trace-id"
+	DdParentId           ddTraceContext = "x-datadog-parent-id"
+	DdSpanId             ddTraceContext = "x-datadog-span-id"
+	DdSamplingPriority   ddTraceContext = "x-datadog-sampling-priority"
+	DdInvocationError    ddTraceContext = "x-datadog-invocation-error"
+	DdInvocationErrorMsg ddTraceContext = "x-datadog-invocation-error-msg"
 
 	DdSeverlessSpan  ddTraceContext = "dd-tracer-serverless-span"
 	DdLambdaResponse ddTraceContext = "dd-response"
@@ -109,7 +110,10 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 		if traceId != "" {
 			ctx = context.WithValue(ctx, DdTraceId, traceId)
 		}
-		parentId := response.Header.Get(string(DdParentId))
+		parentId := traceId
+		if pid := response.Header.Get(string(DdParentId)); pid != "" {
+			parentId = pid
+		}
 		if parentId != "" {
 			ctx = context.WithValue(ctx, DdParentId, parentId)
 		}
@@ -134,6 +138,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	// Mark the invocation as an error if any
 	if err != nil {
 		req.Header.Set(string(DdInvocationError), "true")
+		req.Header.Set(string(DdInvocationErrorMsg), err.Error())
 	}
 
 	// Extract the DD trace context and pass them to the extension via request headers

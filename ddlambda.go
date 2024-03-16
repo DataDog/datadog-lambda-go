@@ -98,16 +98,34 @@ const (
 	MergeXrayTracesEnvVar = "DD_MERGE_XRAY_TRACES"
 	// UniversalInstrumentation is the environment variable that enables universal instrumentation with the DD Extension
 	UniversalInstrumentation = "DD_UNIVERSAL_INSTRUMENTATION"
+	// Initialize otel tracer provider if enabled
+	OtelTracerEnabled = "DD_TRACE_OTEL_ENABLED"
 
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
 	// DefaultEnhancedMetrics enables enhanced metrics by default.
 	DefaultEnhancedMetrics = true
+
+	// serverlessAppSecEnabledEnvVar is the environment variable used to activate Serverless ASM through the use of an
+	// AWS Lambda runtime API proxy.
+	serverlessAppSecEnabledEnvVar = "DD_SERVERLESS_APPSEC_ENABLED"
+	// awsLambdaRuntimeApiEnvVar is the environment variable used to redirect AWS Lambda runtime API calls to the proxy.
+	awsLambdaRuntimeApiEnvVar = "AWS_LAMBDA_RUNTIME_API"
+	// datadogAgentUrl is the URL of the agent and proxy started by the Datadog lambda extension.
+	datadogAgentUrl = "127.0.0.1:9000"
+	// ddExtensionFilePath is the path on disk of the datadog lambda extension.
+	ddExtensionFilePath = "/opt/extensions/datadog-agent"
+
+	// awsLambdaServerPortEnvVar is the environment variable set by the go1.x Lambda Runtime to indicate which port the
+	// RCP server should listen on. This is used as a sign that a warning should be printed if customers want to enable
+	// ASM support, but did not enable the lambda.norpc build taf.
+	awsLambdaServerPortEnvVar = "_LAMBDA_SERVER_PORT"
 )
 
 // WrapLambdaHandlerInterface is used to instrument your lambda functions.
 // It returns a modified handler that can be passed directly to the lambda.StartHandler function from aws-lambda-go.
 func WrapLambdaHandlerInterface(handler lambda.Handler, cfg *Config) lambda.Handler {
+	setupAppSec()
 	listeners := initializeListeners(cfg)
 	return wrapper.WrapHandlerInterfaceWithListeners(handler, listeners...)
 }
@@ -115,6 +133,7 @@ func WrapLambdaHandlerInterface(handler lambda.Handler, cfg *Config) lambda.Hand
 // WrapFunction is used to instrument your lambda functions.
 // It returns a modified handler that can be passed directly to the lambda.Start function from aws-lambda-go.
 func WrapFunction(handler interface{}, cfg *Config) interface{} {
+	setupAppSec()
 	listeners := initializeListeners(cfg)
 	return wrapper.WrapHandlerWithListeners(handler, listeners...)
 }
@@ -192,9 +211,10 @@ func InvokeDryRun(callback func(ctx context.Context), cfg *Config) (interface{},
 
 func (cfg *Config) toTraceConfig() trace.Config {
 	traceConfig := trace.Config{
-		DDTraceEnabled:           false,
+		DDTraceEnabled:           true,
 		MergeXrayTraces:          false,
-		UniversalInstrumentation: false,
+		UniversalInstrumentation: true,
+		OtelTracerEnabled:        false,
 	}
 
 	if cfg != nil {
@@ -207,16 +227,22 @@ func (cfg *Config) toTraceConfig() trace.Config {
 		traceConfig.TraceContextExtractor = trace.DefaultTraceExtractor
 	}
 
-	if !traceConfig.DDTraceEnabled {
-		traceConfig.DDTraceEnabled, _ = strconv.ParseBool(os.Getenv(DatadogTraceEnabledEnvVar))
+	if tracingEnabled, err := strconv.ParseBool(os.Getenv(DatadogTraceEnabledEnvVar)); err == nil {
+		traceConfig.DDTraceEnabled = tracingEnabled;
+		// Only read the OTEL env var if DD tracing is disabled
+		if tracingEnabled {
+			if otelTracerEnabled, err := strconv.ParseBool(os.Getenv(OtelTracerEnabled)); err == nil {
+				traceConfig.OtelTracerEnabled = otelTracerEnabled
+			}
+		}
 	}
 
 	if !traceConfig.MergeXrayTraces {
 		traceConfig.MergeXrayTraces, _ = strconv.ParseBool(os.Getenv(MergeXrayTracesEnvVar))
 	}
 
-	if !traceConfig.UniversalInstrumentation {
-		traceConfig.UniversalInstrumentation, _ = strconv.ParseBool(os.Getenv(UniversalInstrumentation))
+	if universalInstrumentation, err := strconv.ParseBool(os.Getenv(UniversalInstrumentation)); err == nil {
+		traceConfig.UniversalInstrumentation = universalInstrumentation
 	}
 
 	return traceConfig
@@ -296,5 +322,51 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 		mc.EnhancedMetrics = strings.EqualFold(enhancedMetrics, "true")
 	}
 
+	if localTest := os.Getenv("DD_LOCAL_TEST"); localTest == "1" || strings.ToLower(localTest) == "true" {
+		mc.LocalTest = true
+	}
+
 	return mc
+}
+
+// setupAppSec checks if DD_SERVERLESS_APPSEC_ENABLED is set (to true) and when that
+// is the case, redirects `AWS_LAMBDA_RUNTIME_API` to the agent extension, and turns
+// on universal instrumentation unless it was already configured by the customer, so
+// that the HTTP context (invocation details span tags) is available on AppSec traces.
+func setupAppSec() {
+	enabled := false
+	if env := os.Getenv(serverlessAppSecEnabledEnvVar); env != "" {
+		if on, err := strconv.ParseBool(env); err == nil {
+			enabled = on
+		}
+	}
+
+	if !enabled {
+		return
+	}
+
+	if _, err := os.Stat(ddExtensionFilePath); os.IsNotExist(err) {
+		logger.Debug(fmt.Sprintf("%s is enabled, but the Datadog extension was not found at %s", serverlessAppSecEnabledEnvVar, ddExtensionFilePath))
+		return
+	}
+
+	if awsLambdaRpcSupport {
+		if port := os.Getenv(awsLambdaServerPortEnvVar); port != "" {
+			logger.Warn(fmt.Sprintf("%s activation with the go1.x AWS Lambda runtime requires setting the `lambda.norpc` go build tag", serverlessAppSecEnabledEnvVar))
+		}
+	}
+
+	if err := os.Setenv(awsLambdaRuntimeApiEnvVar, datadogAgentUrl); err != nil {
+		logger.Debug(fmt.Sprintf("failed to set %s=%s: %v", awsLambdaRuntimeApiEnvVar, datadogAgentUrl, err))
+	} else {
+		logger.Debug(fmt.Sprintf("successfully set %s=%s", awsLambdaRuntimeApiEnvVar, datadogAgentUrl))
+	}
+
+	if val := os.Getenv(UniversalInstrumentation); val == "" {
+		if err := os.Setenv(UniversalInstrumentation, "1"); err != nil {
+			logger.Debug(fmt.Sprintf("failed to set %s=%d: %v", UniversalInstrumentation, 1, err))
+		} else {
+			logger.Debug(fmt.Sprintf("successfully set %s=%d", UniversalInstrumentation, 1))
+		}
+	}
 }

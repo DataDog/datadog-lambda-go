@@ -174,6 +174,29 @@ func TestExtensionStartInvokeWithTraceContext(t *testing.T) {
 	assert.Equal(t, mockSamplingPriority, samplingPriority)
 }
 
+func TestExtensionStartInvokeWithTraceContextNoParentID(t *testing.T) {
+	headers := http.Header{}
+	headers.Set(string(DdTraceId), mockTraceId)
+	headers.Set(string(DdSamplingPriority), mockSamplingPriority)
+
+	em := &ExtensionManager{
+		startInvocationUrl: startInvocationUrl,
+		httpClient: &ClientSuccessStartInvoke{
+			headers: headers,
+		},
+	}
+	ctx := em.SendStartInvocationRequest(context.TODO(), []byte{})
+	traceId := ctx.Value(DdTraceId)
+	parentId := ctx.Value(DdParentId)
+	samplingPriority := ctx.Value(DdSamplingPriority)
+	err := em.Flush()
+
+	assert.Nil(t, err)
+	assert.Equal(t, mockTraceId, traceId)
+	assert.Equal(t, mockTraceId, parentId)
+	assert.Equal(t, mockSamplingPriority, samplingPriority)
+}
+
 func TestExtensionEndInvocation(t *testing.T) {
 	em := &ExtensionManager{
 		endInvocationUrl: endInvocationUrl,
