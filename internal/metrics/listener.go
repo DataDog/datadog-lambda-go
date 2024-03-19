@@ -51,7 +51,7 @@ type (
 		CircuitBreakerTotalFailures uint32
 		LocalTest                   bool
 		MetricsChannelCapacity      uint32
-		DropMetricsAtCapacity       bool
+		BlockMetricsAtCapacity      bool
 	}
 
 	logMetric struct {
@@ -124,7 +124,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	}
 
 	ts := MakeTimeService()
-	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure, l.config.CircuitBreakerInterval, l.config.CircuitBreakerTimeout, l.config.CircuitBreakerTotalFailures, l.config.MetricsChannelCapacity, l.config.DropMetricsAtCapacity)
+	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure, l.config.CircuitBreakerInterval, l.config.CircuitBreakerTimeout, l.config.CircuitBreakerTotalFailures, l.config.MetricsChannelCapacity, l.config.BlockMetricsAtCapacity)
 	l.processor = pr
 
 	ctx = AddListener(ctx, l)

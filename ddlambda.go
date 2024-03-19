@@ -74,10 +74,12 @@ type (
 		// MetricsChannelCapacity sets the capacity to buffer metrics if ShouldUseLogForwarder is set to false.
 		// default: 2000
 		MetricsChannelCapacity uint32
-		// DropMetricsAtCapacity controls if metrics should be dropped
-		// instead of blocking to wait for capacity on the metrics channel.
-		// default: false
-		DropMetricsAtCapacity bool
+		// BlockMetricsAtCapacity is enable blocking when adding metrics. By
+		// default, when the MetricsChannelCapacity is hit, metrics will be
+		// dropped. Enabling this can negatively effect the performance of your
+		// lambda, and should only be turned on if you can't afford to lose
+		// metrics data.
+		BlockMetricsAtCapacity bool
 	}
 )
 
@@ -281,7 +283,7 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 		mc.ShouldUseLogForwarder = cfg.ShouldUseLogForwarder
 		mc.HTTPClientTimeout = cfg.HTTPClientTimeout
 		mc.MetricsChannelCapacity = cfg.MetricsChannelCapacity
-		mc.DropMetricsAtCapacity = cfg.DropMetricsAtCapacity
+		mc.BlockMetricsAtCapacity = cfg.BlockMetricsAtCapacity
 	}
 
 	if mc.Site == "" {
