@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -134,6 +133,16 @@ func validateHandler(handler interface{}) error {
 }
 
 func callHandler(ctx context.Context, msg json.RawMessage, handler interface{}) (interface{}, error) {
+	var response interface{}
+	var errResponse error
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r)
+			response = nil
+			errResponse = fmt.Errorf("recovered from: %v", r)
+		}
+	}()
+
 	ev, err := unmarshalEventForHandler(msg, handler)
 	if err != nil {
 		return nil, err
@@ -159,9 +168,6 @@ func callHandler(ctx context.Context, msg json.RawMessage, handler interface{}) 
 
 	handlerValue := reflect.ValueOf(handler)
 	output := handlerValue.Call(args)
-
-	var response interface{}
-	var errResponse error
 
 	if len(output) > 0 {
 		// If there are any output values, the last should always be an error
