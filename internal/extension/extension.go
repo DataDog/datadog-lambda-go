@@ -11,10 +11,15 @@ package extension
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"reflect"
+	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
@@ -25,12 +30,14 @@ import (
 type ddTraceContext string
 
 const (
-	DdTraceId            ddTraceContext = "x-datadog-trace-id"
-	DdParentId           ddTraceContext = "x-datadog-parent-id"
-	DdSpanId             ddTraceContext = "x-datadog-span-id"
-	DdSamplingPriority   ddTraceContext = "x-datadog-sampling-priority"
-	DdInvocationError    ddTraceContext = "x-datadog-invocation-error"
-	DdInvocationErrorMsg ddTraceContext = "x-datadog-invocation-error-msg"
+	DdTraceId              ddTraceContext = "x-datadog-trace-id"
+	DdParentId             ddTraceContext = "x-datadog-parent-id"
+	DdSpanId               ddTraceContext = "x-datadog-span-id"
+	DdSamplingPriority     ddTraceContext = "x-datadog-sampling-priority"
+	DdInvocationError      ddTraceContext = "x-datadog-invocation-error"
+	DdInvocationErrorMsg   ddTraceContext = "x-datadog-invocation-error-msg"
+	DdInvocationErrorType  ddTraceContext = "x-datadog-invocation-error-type"
+	DdInvocationErrorStack ddTraceContext = "x-datadog-invocation-error-stack"
 
 	DdSeverlessSpan  ddTraceContext = "dd-tracer-serverless-span"
 	DdLambdaResponse ddTraceContext = "dd-response"
@@ -125,7 +132,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 	return ctx
 }
 
-func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functionExecutionSpan ddtrace.Span, err error) {
+func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functionExecutionSpan ddtrace.Span, cfg ddtrace.FinishConfig) {
 	// Handle Lambda response
 	lambdaResponse := ctx.Value(DdLambdaResponse)
 	content, responseErr := json.Marshal(lambdaResponse)
@@ -136,9 +143,11 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
 
 	// Mark the invocation as an error if any
-	if err != nil {
+	if cfg.Error != nil {
 		req.Header.Set(string(DdInvocationError), "true")
-		req.Header.Set(string(DdInvocationErrorMsg), err.Error())
+		req.Header.Set(string(DdInvocationErrorMsg), cfg.Error.Error())
+		req.Header.Set(string(DdInvocationErrorType), reflect.TypeOf(cfg.Error).String())
+		req.Header.Set(string(DdInvocationErrorStack), takeStacktrace(cfg))
 	}
 
 	// Extract the DD trace context and pass them to the extension via request headers
@@ -163,6 +172,43 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	if err != nil || resp.StatusCode != 200 {
 		logger.Error(fmt.Errorf("could not send end invocation payload to the extension: %v", err))
 	}
+}
+
+// defaultStackLength specifies the default maximum size of a stack trace.
+const defaultStackLength = 32
+
+// takeStacktrace takes a stack trace of maximum n entries, skipping the first skip entries.
+// If n is 0, up to 20 entries are retrieved.
+func takeStacktrace(opts ddtrace.FinishConfig) string {
+	if opts.StackFrames == 0 {
+		opts.StackFrames = defaultStackLength
+	}
+	var builder strings.Builder
+	pcs := make([]uintptr, opts.StackFrames)
+
+	// +3 to exclude runtime.Callers, takeStacktrace and SendEndInvocationRequest
+	numFrames := runtime.Callers(3+int(opts.SkipStackFrames), pcs)
+	if numFrames == 0 {
+		return ""
+	}
+	frames := runtime.CallersFrames(pcs[:numFrames])
+	for i := 0; ; i++ {
+		frame, more := frames.Next()
+		if i != 0 {
+			builder.WriteByte('\n')
+		}
+		builder.WriteString(frame.Function)
+		builder.WriteByte('\n')
+		builder.WriteByte('\t')
+		builder.WriteString(frame.File)
+		builder.WriteByte(':')
+		builder.WriteString(strconv.Itoa(frame.Line))
+		if !more {
+			break
+		}
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(builder.String()))
 }
 
 func (em *ExtensionManager) IsExtensionRunning() bool {
