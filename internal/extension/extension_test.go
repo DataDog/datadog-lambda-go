@@ -18,6 +18,7 @@ import (
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -203,7 +204,7 @@ func TestExtensionEndInvocation(t *testing.T) {
 		httpClient:       &ClientSuccessEndInvoke{},
 	}
 	span := tracer.StartSpan("aws.lambda")
-	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, nil) })
+	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, ddtrace.FinishConfig{}) })
 	span.Finish()
 
 	assert.Equal(t, "", logOutput)
@@ -215,7 +216,7 @@ func TestExtensionEndInvocationError(t *testing.T) {
 		httpClient:       &ClientErrorMock{},
 	}
 	span := tracer.StartSpan("aws.lambda")
-	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, nil) })
+	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, ddtrace.FinishConfig{}) })
 	span.Finish()
 
 	assert.Contains(t, logOutput, "could not send end invocation payload to the extension")

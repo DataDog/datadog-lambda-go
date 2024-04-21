@@ -31,7 +31,7 @@ type (
 		ddTraceEnabled           bool
 		mergeXrayTraces          bool
 		universalInstrumentation bool
-		otelTracerEnabled 		 bool
+		otelTracerEnabled        bool
 		extensionManager         *extension.ExtensionManager
 		traceContextExtractor    ContextExtractor
 	}
@@ -41,7 +41,7 @@ type (
 		DDTraceEnabled           bool
 		MergeXrayTraces          bool
 		UniversalInstrumentation bool
-		OtelTracerEnabled 		 bool
+		OtelTracerEnabled        bool
 		TraceContextExtractor    ContextExtractor
 	}
 )
@@ -58,7 +58,7 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 		ddTraceEnabled:           config.DDTraceEnabled,
 		mergeXrayTraces:          config.MergeXrayTraces,
 		universalInstrumentation: config.UniversalInstrumentation,
-		otelTracerEnabled:		  config.OtelTracerEnabled,
+		otelTracerEnabled:        config.OtelTracerEnabled,
 		extensionManager:         extensionManager,
 		traceContextExtractor:    config.TraceContextExtractor,
 	}
@@ -85,7 +85,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		opts := []tracer.StartOption{
 			tracer.WithService(serviceName),
 			tracer.WithLambdaMode(extensionNotRunning),
-			tracer.WithGlobalTag("_dd.origin","lambda"),
+			tracer.WithGlobalTag("_dd.origin", "lambda"),
 			tracer.WithSendRetries(2),
 		}
 		if l.otelTracerEnabled {
@@ -115,8 +115,10 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish(tracer.WithError(err))
 
+		finishConfig := ddtrace.FinishConfig{Error: err}
+
 		if l.universalInstrumentation && l.extensionManager.IsExtensionRunning() {
-			l.extensionManager.SendEndInvocationRequest(ctx, functionExecutionSpan, err)
+			l.extensionManager.SendEndInvocationRequest(ctx, functionExecutionSpan, finishConfig)
 		}
 	}
 
