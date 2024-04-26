@@ -11,6 +11,7 @@ package extension
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -203,7 +205,7 @@ func TestExtensionEndInvocation(t *testing.T) {
 		httpClient:       &ClientSuccessEndInvoke{},
 	}
 	span := tracer.StartSpan("aws.lambda")
-	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, nil) })
+	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, ddtrace.FinishConfig{}) })
 	span.Finish()
 
 	assert.Equal(t, "", logOutput)
@@ -215,8 +217,51 @@ func TestExtensionEndInvocationError(t *testing.T) {
 		httpClient:       &ClientErrorMock{},
 	}
 	span := tracer.StartSpan("aws.lambda")
-	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, nil) })
+	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, ddtrace.FinishConfig{}) })
 	span.Finish()
 
 	assert.Contains(t, logOutput, "could not send end invocation payload to the extension")
+}
+
+type capturingClient struct {
+	hdr http.Header
+}
+
+func (c capturingClient) Do(req *http.Request) (*http.Response, error) {
+	for k, v := range req.Header {
+		c.hdr[k] = v
+	}
+	return &http.Response{StatusCode: 200}, nil
+}
+
+func TestExtensionEndInvocationErrorHeaders(t *testing.T) {
+	hdr := http.Header{}
+	em := &ExtensionManager{httpClient: capturingClient{hdr: hdr}}
+	span := tracer.StartSpan("aws.lambda")
+	cfg := ddtrace.FinishConfig{Error: fmt.Errorf("ooooops")}
+
+	em.SendEndInvocationRequest(context.TODO(), span, cfg)
+
+	assert.Equal(t, hdr.Get("X-Datadog-Invocation-Error"), "true")
+	assert.Equal(t, hdr.Get("X-Datadog-Invocation-Error-Msg"), "ooooops")
+	assert.Equal(t, hdr.Get("X-Datadog-Invocation-Error-Type"), "*errors.errorString")
+
+	data, err := base64.StdEncoding.DecodeString(hdr.Get("X-Datadog-Invocation-Error-Stack"))
+	assert.Nil(t, err)
+	assert.Contains(t, string(data), "github.com/DataDog/datadog-lambda-go")
+	assert.Contains(t, string(data), "TestExtensionEndInvocationErrorHeaders")
+}
+
+func TestExtensionEndInvocationErrorHeadersNilError(t *testing.T) {
+	hdr := http.Header{}
+	em := &ExtensionManager{httpClient: capturingClient{hdr: hdr}}
+	span := tracer.StartSpan("aws.lambda")
+	cfg := ddtrace.FinishConfig{Error: nil}
+
+	em.SendEndInvocationRequest(context.TODO(), span, cfg)
+
+	assert.Equal(t, hdr.Get("X-Datadog-Invocation-Error"), "")
+	assert.Equal(t, hdr.Get("X-Datadog-Invocation-Error-Msg"), "")
+	assert.Equal(t, hdr.Get("X-Datadog-Invocation-Error-Type"), "")
+	assert.Equal(t, hdr.Get("X-Datadog-Invocation-Error-Stack"), "")
 }
