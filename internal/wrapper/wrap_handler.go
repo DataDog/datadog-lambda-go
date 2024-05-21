@@ -132,9 +132,7 @@ func validateHandler(handler interface{}) error {
 	return nil
 }
 
-func callHandler(ctx context.Context, msg json.RawMessage, handler interface{}) (interface{}, error) {
-	var response interface{}
-	var errResponse error
+func callHandler(ctx context.Context, msg json.RawMessage, handler interface{}) (response interface{}, errResponse error) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r)
@@ -143,9 +141,9 @@ func callHandler(ctx context.Context, msg json.RawMessage, handler interface{}) 
 		}
 	}()
 
-	ev, err := unmarshalEventForHandler(msg, handler)
-	if err != nil {
-		return nil, err
+	ev, errResponse := unmarshalEventForHandler(msg, handler)
+	if errResponse != nil {
+		return nil, errResponse
 	}
 	handlerType := reflect.TypeOf(handler)
 
