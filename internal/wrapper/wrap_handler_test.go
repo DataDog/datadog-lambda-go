@@ -270,6 +270,22 @@ func TestWrapHandlerReturnsErrorOnly(t *testing.T) {
 	assert.Equal(t, nil, response)
 }
 
+func TestWrapHandlerReturnsErrorWhenPanic(t *testing.T) {
+	called := false
+	panicRecoverErr := errors.New("Panic: some panic")
+
+	handler := func(request mockNonProxyEvent) error {
+		called = true
+		panic("some panic")
+	}
+
+	_, response, err := runHandlerWithJSON(t, "../testdata/non-proxy-no-headers.json", handler)
+
+	assert.True(t, called)
+	assert.Equal(t, panicRecoverErr, err)
+	assert.Equal(t, nil, response)
+}
+
 func TestWrapHandlerReturnsOriginalHandlerIfInvalid(t *testing.T) {
 
 	var handler interface{} = func(arg1, arg2, arg3 int) (int, error) {

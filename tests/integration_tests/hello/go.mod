@@ -7,11 +7,11 @@ toolchain go1.21.5
 require (
 	github.com/DataDog/datadog-lambda-go v1.14.0
 	github.com/aws/aws-lambda-go v1.46.0
-	gopkg.in/DataDog/dd-trace-go.v1 v1.60.0
+	gopkg.in/DataDog/dd-trace-go.v1 v1.60.3
 )
 
 require (
-	github.com/DataDog/appsec-internal-go v1.4.0 // indirect
+	github.com/DataDog/appsec-internal-go v1.4.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/obfuscate v0.50.2 // indirect
 	github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.50.2 // indirect
 	github.com/DataDog/datadog-go/v5 v5.5.0 // indirect
@@ -67,7 +67,7 @@ require (
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240125205218-1f4bbc51befe // indirect
 	google.golang.org/grpc v1.61.0 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	inet.af/netaddr v0.0.0-20230525184311-b8eac61e914a // indirect
 )
 
