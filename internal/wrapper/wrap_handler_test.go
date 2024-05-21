@@ -272,7 +272,7 @@ func TestWrapHandlerReturnsErrorOnly(t *testing.T) {
 
 func TestWrapHandlerReturnsErrorWhenPanic(t *testing.T) {
 	called := false
-	panicRecoverErr := errors.New("recovered from: some panic")
+	panicRecoverErr := errors.New("Panic: some panic")
 
 	handler := func(request mockNonProxyEvent) error {
 		called = true

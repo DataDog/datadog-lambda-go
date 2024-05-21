@@ -135,9 +135,8 @@ func validateHandler(handler interface{}) error {
 func callHandler(ctx context.Context, msg json.RawMessage, handler interface{}) (response interface{}, errResponse error) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println(r)
 			response = nil
-			errResponse = fmt.Errorf("recovered from: %v", r)
+			errResponse = fmt.Errorf("Panic: %v", r)
 		}
 	}()
 
