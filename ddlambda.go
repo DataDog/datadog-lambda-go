@@ -71,6 +71,13 @@ type (
 		// TraceContextExtractor is the function that extracts a root/parent trace context from the Lambda event body.
 		// See trace.DefaultTraceExtractor for an example.
 		TraceContextExtractor trace.ContextExtractor
+		// MetricsChannelCapacity sets the capacity to buffer metrics if ShouldUseLogForwarder is set to false.
+		// default: 2000
+		MetricsChannelCapacity uint32
+		// DropMetricsAtCapacity controls if metrics should be dropped
+		// instead of blocking to wait for capacity on the metrics channel.
+		// default: false
+		DropMetricsAtCapacity bool
 	}
 )
 
@@ -273,6 +280,8 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 		mc.Site = cfg.Site
 		mc.ShouldUseLogForwarder = cfg.ShouldUseLogForwarder
 		mc.HTTPClientTimeout = cfg.HTTPClientTimeout
+		mc.MetricsChannelCapacity = cfg.MetricsChannelCapacity
+		mc.DropMetricsAtCapacity = cfg.DropMetricsAtCapacity
 	}
 
 	if mc.Site == "" {

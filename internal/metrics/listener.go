@@ -49,6 +49,8 @@ type (
 		CircuitBreakerInterval      time.Duration
 		CircuitBreakerTimeout       time.Duration
 		CircuitBreakerTotalFailures uint32
+		MetricsChannelCapacity      uint32
+		DropMetricsAtCapacity       bool
 		LocalTest                   bool
 	}
 
@@ -85,6 +87,9 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 	if config.BatchInterval <= 0 {
 		config.BatchInterval = defaultBatchInterval
 	}
+	if config.MetricsChannelCapacity == 0 {
+		config.MetricsChannelCapacity = defaultMetricsChannelCapacity
+	}
 
 	var statsdClient *statsd.Client
 	// immediate call to the Agent, if not a 200, fallback to API
@@ -119,7 +124,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	}
 
 	ts := MakeTimeService()
-	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure, l.config.CircuitBreakerInterval, l.config.CircuitBreakerTimeout, l.config.CircuitBreakerTotalFailures)
+	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure, l.config.CircuitBreakerInterval, l.config.CircuitBreakerTimeout, l.config.CircuitBreakerTotalFailures, l.config.MetricsChannelCapacity, l.config.DropMetricsAtCapacity)
 	l.processor = pr
 
 	ctx = AddListener(ctx, l)
