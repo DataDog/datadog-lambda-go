@@ -18,12 +18,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/lambda"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/metrics"
 	"github.com/DataDog/datadog-lambda-go/internal/trace"
 	"github.com/DataDog/datadog-lambda-go/internal/wrapper"
-	"github.com/aws/aws-lambda-go/lambda"
 )
 
 type (
@@ -71,6 +73,8 @@ type (
 		// TraceContextExtractor is the function that extracts a root/parent trace context from the Lambda event body.
 		// See trace.DefaultTraceExtractor for an example.
 		TraceContextExtractor trace.ContextExtractor
+		// TracerOptions are additional options passed to the tracer.
+		TracerOptions []tracer.StartOption
 	}
 )
 
@@ -214,6 +218,7 @@ func (cfg *Config) toTraceConfig() trace.Config {
 		traceConfig.DDTraceEnabled = cfg.DDTraceEnabled
 		traceConfig.MergeXrayTraces = cfg.MergeXrayTraces
 		traceConfig.TraceContextExtractor = cfg.TraceContextExtractor
+		traceConfig.TracerOptions = cfg.TracerOptions
 	}
 
 	if traceConfig.TraceContextExtractor == nil {

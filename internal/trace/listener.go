@@ -34,6 +34,7 @@ type (
 		otelTracerEnabled        bool
 		extensionManager         *extension.ExtensionManager
 		traceContextExtractor    ContextExtractor
+		tracerOptions            []tracer.StartOption
 	}
 
 	// Config gives options for how the Listener should work
@@ -43,6 +44,7 @@ type (
 		UniversalInstrumentation bool
 		OtelTracerEnabled        bool
 		TraceContextExtractor    ContextExtractor
+		TracerOptions            []tracer.StartOption
 	}
 )
 
@@ -61,6 +63,7 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 		otelTracerEnabled:        config.OtelTracerEnabled,
 		extensionManager:         extensionManager,
 		traceContextExtractor:    config.TraceContextExtractor,
+		tracerOptions:            config.TracerOptions,
 	}
 }
 
@@ -82,12 +85,12 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 			serviceName = "aws.lambda"
 		}
 		extensionNotRunning := !l.extensionManager.IsExtensionRunning()
-		opts := []tracer.StartOption{
+		opts := append([]tracer.StartOption{
 			tracer.WithService(serviceName),
 			tracer.WithLambdaMode(extensionNotRunning),
 			tracer.WithGlobalTag("_dd.origin", "lambda"),
 			tracer.WithSendRetries(2),
-		}
+		}, l.tracerOptions...)
 		if l.otelTracerEnabled {
 			provider := ddotel.NewTracerProvider(
 				opts...,
