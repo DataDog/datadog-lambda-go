@@ -125,6 +125,8 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 		}
 	}
 
+	logger.Debug(fmt.Sprintf(" === handler finished, span context: %s ===", ctx))
+
 	tracer.Flush()
 }
 
@@ -176,8 +178,6 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdS
 	}
 
 	ctx = context.WithValue(ctx, extension.DdSpanId, fmt.Sprint(span.Context().SpanID()))
-
-	logger.Debug(fmt.Sprintf("=== span: %s ===", span))
 
 	return span, ctx
 }
