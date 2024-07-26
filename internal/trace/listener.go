@@ -110,6 +110,8 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	// Add the span to the context so the user can create child spans
 	ctx = tracer.ContextWithSpan(ctx, functionExecutionSpan)
 
+	logger.Debug(fmt.Sprintf("=== HandlerStarted - context: %s ===", ctx))
+
 	return ctx
 }
 
