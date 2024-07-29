@@ -127,7 +127,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 		}
 	}
 
-	logger.Debug(fmt.Sprintf("=== HandlerFinished - context: %s ===", ctx))
+	logger.Debug(fmt.Sprintf("=== HandlerFinished - context: %s, functionExecutionSpan: %s ===", ctx, functionExecutionSpan))
 
 	tracer.Flush()
 }

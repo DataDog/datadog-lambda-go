@@ -172,6 +172,8 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	if err != nil || resp.StatusCode != 200 {
 		logger.Error(fmt.Errorf("could not send end invocation payload to the extension: %v", err))
 	}
+
+	logger.Debug(fmt.Sprintf("=== SendEndInvocationRequest - ctx: %s, functionExecutionSpan: %s", ctx, functionExecutionSpan))
 }
 
 // defaultStackLength specifies the default maximum size of a stack trace.
