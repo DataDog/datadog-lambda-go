@@ -276,6 +276,7 @@ func convertXRaySamplingDecision(decision header.SamplingDecision) string {
 
 // ConvertTraceContextToSpanContext converts a TraceContext object to a SpanContext that can be used by dd-trace.
 func ConvertTraceContextToSpanContext(traceCtx TraceContext) (ddtrace.SpanContext, error) {
+	logger.Debug(fmt.Sprintf("=== ConvertTraceContextToSpanContext - traceCtx: %s ===", traceCtx))
 	spanCtx, err := propagator.Extract(tracer.TextMapCarrier(traceCtx))
 
 	if err != nil {
