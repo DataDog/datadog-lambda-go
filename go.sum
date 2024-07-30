@@ -8,8 +8,8 @@ github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.50.2 h1:7jn5EOu84uph4
 github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.50.2/go.mod h1:Vc+snp0Bey4MrrJyiV2tVxxJb6BmLomPvN1RgAvjGaQ=
 github.com/DataDog/datadog-go/v5 v5.5.0 h1:G5KHeB8pWBNXT4Jtw0zAkhdxEAWSpWH00geHI6LDrKU=
 github.com/DataDog/datadog-go/v5 v5.5.0/go.mod h1:K9kcYBlxkcPP8tvvjZZKs/m1edNAUFzBbdpTUKfCsuw=
-github.com/DataDog/dd-trace-go v1.39.0-alpha.1.0.20240729200658-ed13dce55c7a h1:jDNfuIjIZ7ht07QcKHT47j4XvvIS2eu604u9C5mJlj4=
-github.com/DataDog/dd-trace-go v1.39.0-alpha.1.0.20240729200658-ed13dce55c7a/go.mod h1:YPIqwP9DSN2WYzCm2sQJAflQI+vSZji2bcxeUgOVbhw=
+github.com/DataDog/dd-trace-go v1.39.0-alpha.1.0.20240730162232-ca3a4d7b8aea h1:ETKkB/T2kTajxwv6DrJll2shqh1g2jCAXQuZRwx/I9M=
+github.com/DataDog/dd-trace-go v1.39.0-alpha.1.0.20240730162232-ca3a4d7b8aea/go.mod h1:YPIqwP9DSN2WYzCm2sQJAflQI+vSZji2bcxeUgOVbhw=
 github.com/DataDog/go-libddwaf/v3 v3.3.0 h1:jS72fuQpFgJZEdEJDmHJCPAgNTEMZoz1EUvimPUOiJ4=
 github.com/DataDog/go-libddwaf/v3 v3.3.0/go.mod h1:Bz/0JkpGf689mzbUjKJeheJINqsyyhM8p9PDuHdK2Ec=
 github.com/DataDog/go-sqllexer v0.0.10 h1:u07DuRfdlPPmOX/dclb1gcn/zaqWxUiURRRVenKILxc=
