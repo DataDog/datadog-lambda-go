@@ -17,7 +17,7 @@ require (
 	gopkg.in/DataDog/dd-trace-go.v1 v1.65.1
 )
 
-replace gopkg.in/DataDog/dd-trace-go.v1 => github.com/DataDog/dd-trace-go v1.39.0-alpha.1.0.20240930201720-0d0f80cec122
+replace gopkg.in/DataDog/dd-trace-go.v1 => github.com/DataDog/dd-trace-go v1.39.0-alpha.1.0.20240930203029-360a05a8618b
 
 require go.uber.org/atomic v1.11.0 // indirect
 
