@@ -14,7 +14,7 @@ require (
 	github.com/sony/gobreaker v0.5.0
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/otel v1.24.0
-	gopkg.in/DataDog/dd-trace-go.v1 v1.39.0-alpha.1.0.20241022184458-d0683239f9d9
+	gopkg.in/DataDog/dd-trace-go.v1 v1.39.0-alpha.1.0.20241022190438-2439d49426dc
 )
 
 require go.uber.org/atomic v1.11.0 // indirect
