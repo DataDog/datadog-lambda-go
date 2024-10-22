@@ -250,6 +250,8 @@ gopkg.in/DataDog/dd-trace-go.v1 v1.39.0-alpha.1.0.20241022190438-2439d49426dc h1
 gopkg.in/DataDog/dd-trace-go.v1 v1.39.0-alpha.1.0.20241022190438-2439d49426dc/go.mod h1:U9AOeBHNAL95JXcd/SPf4a7O5GNeF/yD13sJtli/yaU=
 gopkg.in/DataDog/dd-trace-go.v1 v1.39.0-alpha.1.0.20241022191933-fac0464813e4 h1:3ZkDikLEa8o4zcUg+baJC93/ReaQPQ6bL5HLMiIcr1A=
 gopkg.in/DataDog/dd-trace-go.v1 v1.39.0-alpha.1.0.20241022191933-fac0464813e4/go.mod h1:U9AOeBHNAL95JXcd/SPf4a7O5GNeF/yD13sJtli/yaU=
+gopkg.in/DataDog/dd-trace-go.v1 v1.39.0-alpha.1.0.20241022193441-5629291a4a53 h1:nTAPHBLlahu6fhSAT3v7XuDwCy0Mst3u/DRZfAgKvLA=
+gopkg.in/DataDog/dd-trace-go.v1 v1.39.0-alpha.1.0.20241022193441-5629291a4a53/go.mod h1:U9AOeBHNAL95JXcd/SPf4a7O5GNeF/yD13sJtli/yaU=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
