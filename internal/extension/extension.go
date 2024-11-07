@@ -164,8 +164,17 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 			req.Header.Set(string(DdSamplingPriority), samplingPriority)
 		}
 	} else {
-		req.Header.Set(string(DdTraceId), fmt.Sprint(functionExecutionSpan.Context().TraceID()))
-		req.Header.Set(string(DdSpanId), fmt.Sprint(functionExecutionSpan.Context().SpanID()))
+		spanContext := functionExecutionSpan.Context()
+		req.Header.Set(string(DdTraceId), fmt.Sprint(spanContext.TraceID()))
+		req.Header.Set(string(DdSpanId), fmt.Sprint(spanContext.SpanID()))
+
+		// Try to get sampling priority
+		// Check if the context implements SamplingPriority method
+		if pc, ok := spanContext.(interface{ SamplingPriority() (int, bool) }); ok && pc != nil {
+			if priority, ok := pc.SamplingPriority(); ok {
+				req.Header.Set(string(DdSamplingPriority), fmt.Sprint(priority))
+			}
+		}
 	}
 
 	resp, err := em.httpClient.Do(req)
