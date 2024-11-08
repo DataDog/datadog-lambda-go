@@ -223,6 +223,34 @@ func TestExtensionEndInvocationError(t *testing.T) {
 	assert.Contains(t, logOutput, "could not send end invocation payload to the extension")
 }
 
+type mockSpanContext struct {
+	ddtrace.SpanContext
+}
+
+func (m mockSpanContext) TraceID() uint64               { return 123 }
+func (m mockSpanContext) SpanID() uint64                { return 456 }
+func (m mockSpanContext) SamplingPriority() (int, bool) { return -1, true }
+
+type mockSpan struct{ ddtrace.Span }
+
+func (m mockSpan) Context() ddtrace.SpanContext { return mockSpanContext{} }
+
+func TestExtensionEndInvocationSamplingPriority(t *testing.T) {
+	headers := http.Header{}
+	em := &ExtensionManager{httpClient: capturingClient{hdr: headers}}
+	span := &mockSpan{}
+
+	// When priority in context, use that value
+	ctx := context.WithValue(context.Background(), DdTraceId, "123")
+	ctx = context.WithValue(ctx, DdSamplingPriority, "2")
+	em.SendEndInvocationRequest(ctx, span, ddtrace.FinishConfig{})
+	assert.Equal(t, "2", headers.Get("X-Datadog-Sampling-Priority"))
+
+	// When no context, get priority from span
+	em.SendEndInvocationRequest(context.Background(), span, ddtrace.FinishConfig{})
+	assert.Equal(t, "-1", headers.Get("X-Datadog-Sampling-Priority"))
+}
+
 type capturingClient struct {
 	hdr http.Header
 }
