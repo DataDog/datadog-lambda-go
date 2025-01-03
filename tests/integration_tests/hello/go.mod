@@ -6,7 +6,7 @@ toolchain go1.21.5
 
 require (
 	github.com/DataDog/datadog-lambda-go v1.14.0
-	github.com/aws/aws-lambda-go v1.46.0
+	github.com/aws/aws-lambda-go v1.47.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.65.1
 )
 
