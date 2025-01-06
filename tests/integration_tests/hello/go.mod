@@ -1,8 +1,8 @@
 module github.com/DataDog/datadog-lambda-go/tests/integration_tests/bin/hello
 
-go 1.21
+go 1.22.0
 
-toolchain go1.21.5
+toolchain go1.23.1
 
 require (
 	github.com/DataDog/datadog-lambda-go v1.14.0
@@ -65,7 +65,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/mod v0.14.0 // indirect
+	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
