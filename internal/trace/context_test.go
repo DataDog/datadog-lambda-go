@@ -15,8 +15,8 @@ import (
 	"testing"
 
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
-	"github.com/aws/aws-xray-sdk-go/header"
-	"github.com/aws/aws-xray-sdk-go/xray"
+	"github.com/aws/aws-xray-sdk-go/v2/header"
+	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/stretchr/testify/assert"
 )
 
