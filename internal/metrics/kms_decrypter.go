@@ -11,7 +11,9 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"os"
+	"strings"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -36,12 +38,21 @@ type (
 // functionNameEnvVar is the environment variable that stores the Lambda function name
 const functionNameEnvVar string = "AWS_LAMBDA_FUNCTION_NAME"
 
+// regionEnvVar is the environment variable that stores the current region
+const regionEnvVar string = "AWS_REGION"
+
 // encryptionContextKey is the key added to the encryption context by the Lambda console UI
 const encryptionContextKey string = "LambdaFunctionName"
 
 // MakeKMSDecrypter creates a new decrypter which uses the AWS KMS service to decrypt variables
 func MakeKMSDecrypter() Decrypter {
-	cfg, err := config.LoadDefaultConfig(context.Background())
+	region := os.Getenv(regionEnvVar)
+	fipsEndpoint := aws.FIPSEndpointStateUnset
+	if strings.HasPrefix(region, "us-gov-") {
+		fipsEndpoint = aws.FIPSEndpointStateEnabled
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithUseFIPSEndpoint(fipsEndpoint))
 	if err != nil {
 		logger.Error(fmt.Errorf("could not create a new aws config: %v", err))
 		panic(err)
@@ -58,6 +69,7 @@ func (kd *kmsDecrypter) Decrypt(ciphertext string) (string, error) {
 // decryptKMS decodes and deciphers the base64-encoded ciphertext given as a parameter using KMS.
 // For this to work properly, the Lambda function must have the appropriate IAM permissions.
 func decryptKMS(kmsClient clientDecrypter, ciphertext string) (string, error) {
+	fmt.Println("[library] Decrypting KMS key...")
 	decodedBytes, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode cipher text to base64: %v", err)
@@ -91,5 +103,6 @@ func decryptKMS(kmsClient clientDecrypter, ciphertext string) (string, error) {
 	}
 
 	plaintext := string(response.Plaintext)
+	fmt.Printf("[library] Decrypted KMS key: %s\n", plaintext)
 	return plaintext, nil
 }
