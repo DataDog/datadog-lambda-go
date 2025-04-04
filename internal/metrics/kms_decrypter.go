@@ -50,6 +50,7 @@ func MakeKMSDecrypter() Decrypter {
 	fipsEndpoint := aws.FIPSEndpointStateUnset
 	if strings.HasPrefix(region, "us-gov-") {
 		fipsEndpoint = aws.FIPSEndpointStateEnabled
+		logger.Debug("GovCloud region detected. Using FIPS endpoint for KMS decryption.")
 	}
 
 	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithUseFIPSEndpoint(fipsEndpoint))
