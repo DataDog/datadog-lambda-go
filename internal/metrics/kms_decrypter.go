@@ -69,7 +69,6 @@ func (kd *kmsDecrypter) Decrypt(ciphertext string) (string, error) {
 // decryptKMS decodes and deciphers the base64-encoded ciphertext given as a parameter using KMS.
 // For this to work properly, the Lambda function must have the appropriate IAM permissions.
 func decryptKMS(kmsClient clientDecrypter, ciphertext string) (string, error) {
-	fmt.Println("[library] Decrypting KMS key...")
 	decodedBytes, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode cipher text to base64: %v", err)
@@ -103,6 +102,5 @@ func decryptKMS(kmsClient clientDecrypter, ciphertext string) (string, error) {
 	}
 
 	plaintext := string(response.Plaintext)
-	fmt.Printf("[library] Decrypted KMS key: %s\n", plaintext)
 	return plaintext, nil
 }
