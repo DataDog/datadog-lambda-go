@@ -104,3 +104,102 @@ func TestToMetricConfigLocalTest(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateFipsMode(t *testing.T) {
+	// Save original environment to restore later
+	originalRegion := os.Getenv("AWS_REGION")
+	originalFipsMode := os.Getenv(FIPSModeEnvVar)
+	defer func() {
+		os.Setenv("AWS_REGION", originalRegion)
+		os.Setenv(FIPSModeEnvVar, originalFipsMode)
+	}()
+
+	testCases := []struct {
+		name           string
+		configFIPSMode *bool
+		region         string
+		fipsModeEnv    string
+		expected       bool
+	}{
+		{
+			name:           "Config explicit true",
+			configFIPSMode: boolPtr(true),
+			region:         "us-east-1",
+			fipsModeEnv:    "",
+			expected:       true,
+		},
+		{
+			name:           "Config explicit false",
+			configFIPSMode: boolPtr(false),
+			region:         "us-gov-west-1",
+			fipsModeEnv:    "",
+			expected:       false,
+		},
+		{
+			name:           "GovCloud default true",
+			configFIPSMode: nil,
+			region:         "us-gov-east-1",
+			fipsModeEnv:    "",
+			expected:       true,
+		},
+		{
+			name:           "Non-GovCloud default false",
+			configFIPSMode: nil,
+			region:         "us-east-1",
+			fipsModeEnv:    "",
+			expected:       false,
+		},
+		{
+			name:           "Env var override to true",
+			configFIPSMode: nil,
+			region:         "us-east-1",
+			fipsModeEnv:    "true",
+			expected:       true,
+		},
+		{
+			name:           "Env var override to false",
+			configFIPSMode: nil,
+			region:         "us-gov-west-1",
+			fipsModeEnv:    "false",
+			expected:       false,
+		},
+		{
+			name:           "Invalid env var in GovCloud",
+			configFIPSMode: nil,
+			region:         "us-gov-west-1",
+			fipsModeEnv:    "invalid",
+			expected:       true,
+		},
+		{
+			name:           "Invalid env var in non-GovCloud",
+			configFIPSMode: nil,
+			region:         "us-east-1",
+			fipsModeEnv:    "invalid",
+			expected:       false,
+		},
+		{
+			name:           "Config takes precedence over env and region",
+			configFIPSMode: boolPtr(true),
+			region:         "us-east-1",
+			fipsModeEnv:    "false",
+			expected:       true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv("AWS_REGION", tc.region)
+			os.Setenv(FIPSModeEnvVar, tc.fipsModeEnv)
+
+			cfg := &Config{FIPSMode: tc.configFIPSMode}
+			result := cfg.calculateFipsMode()
+
+			assert.Equal(t, tc.expected, result, "calculateFipsMode returned incorrect value")
+		})
+	}
+}
+
+// Helper function to create bool pointers
+func boolPtr(b bool) *bool {
+	return &b
+}

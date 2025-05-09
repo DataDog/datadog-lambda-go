@@ -50,6 +50,7 @@ type (
 		CircuitBreakerTimeout       time.Duration
 		CircuitBreakerTotalFailures uint32
 		LocalTest                   bool
+		FIPSMode                    bool
 	}
 
 	logMetric struct {
@@ -63,13 +64,17 @@ type (
 // MakeListener initializes a new metrics lambda listener
 func MakeListener(config Config, extensionManager *extension.ExtensionManager) Listener {
 
-	apiClient := MakeAPIClient(context.Background(), APIClientOptions{
-		baseAPIURL:        config.Site,
-		apiKey:            config.APIKey,
-		decrypter:         MakeKMSDecrypter(),
-		kmsAPIKey:         config.KMSAPIKey,
-		httpClientTimeout: config.HTTPClientTimeout,
-	})
+	var apiClient *APIClient
+	if !config.FIPSMode {
+		apiClient = MakeAPIClient(context.Background(), APIClientOptions{
+			baseAPIURL:        config.Site,
+			apiKey:            config.APIKey,
+			decrypter:         MakeKMSDecrypter(config.FIPSMode),
+			kmsAPIKey:         config.KMSAPIKey,
+			httpClientTimeout: config.HTTPClientTimeout,
+		})
+	}
+
 	if config.HTTPClientTimeout <= 0 {
 		config.HTTPClientTimeout = defaultHttpClientTimeout
 	}
@@ -109,7 +114,7 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 
 // canSendMetrics reports whether l can send metrics.
 func (l *Listener) canSendMetrics() bool {
-	return l.isAgentRunning || l.apiClient.apiKey != "" || l.config.KMSAPIKey != "" || l.config.ShouldUseLogForwarder
+	return l.isAgentRunning || l.config.ShouldUseLogForwarder || !l.config.FIPSMode || (l.apiClient != nil && (l.apiClient.apiKey != "" || l.config.KMSAPIKey != ""))
 }
 
 // HandlerStarted adds metrics service to the context
@@ -118,16 +123,20 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 		logger.Error(fmt.Errorf("datadog api key isn't set, won't be able to send metrics"))
 	}
 
-	ts := MakeTimeService()
-	pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure, l.config.CircuitBreakerInterval, l.config.CircuitBreakerTimeout, l.config.CircuitBreakerTotalFailures)
-	l.processor = pr
-
 	ctx = AddListener(ctx, l)
-	// Setting the context on the client will mean that future requests will be cancelled correctly
-	// if the lambda times out.
-	l.apiClient.context = ctx
 
-	pr.StartProcessing()
+	if !l.config.FIPSMode {
+		ts := MakeTimeService()
+		pr := MakeProcessor(ctx, l.apiClient, ts, l.config.BatchInterval, l.config.ShouldRetryOnFailure, l.config.CircuitBreakerInterval, l.config.CircuitBreakerTimeout, l.config.CircuitBreakerTotalFailures)
+		l.processor = pr
+
+		// Setting the context on the client will mean that future requests will be cancelled correctly
+		// if the lambda times out.
+		l.apiClient.context = ctx
+
+		pr.StartProcessing()
+	}
+
 	l.submitEnhancedMetrics("invocations", ctx)
 
 	return ctx
@@ -192,6 +201,12 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp
 		logger.Raw(payload)
 		return
 	}
+
+	if l.config.FIPSMode {
+		logger.Debug(fmt.Sprintf("skipping metric %s due to FIPS mode - direct API calls are disabled", metric))
+		return
+	}
+
 	m := Distribution{
 		Name:   metric,
 		Tags:   tags,

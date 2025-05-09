@@ -99,6 +99,49 @@ func TestAddDistributionMetricWithForceLogForwarder(t *testing.T) {
 	assert.False(t, called)
 }
 
+func TestAddDistributionMetricWithFIPSMode(t *testing.T) {
+	// Setup a test server to detect if any API calls are made
+	apiCallAttempted := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiCallAttempted = true
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	// Create a listener with FIPS mode enabled
+	listener := MakeListener(Config{
+		APIKey:    "12345",
+		Site:      server.URL,
+		FIPSMode:  true,
+	}, &extension.ExtensionManager{})
+
+	// Verify the API client wasn't created
+	assert.Nil(t, listener.apiClient, "API client should be nil when FIPS mode is enabled")
+
+	// Initialize the listener
+	ctx := listener.HandlerStarted(context.Background(), json.RawMessage{})
+
+	// Verify processor wasn't initialized
+	assert.Nil(t, listener.processor, "Processor should be nil when FIPS mode is enabled")
+
+	// Log calls to validate we're getting the expected log message
+	var logOutput string
+	logger.SetLogLevel(logger.LevelDebug)
+	logOutput = captureOutput(func() {
+		listener.AddDistributionMetric("fips-test-metric", 42, time.Now(), false, "tag:fips")
+	})
+
+	// Check that we logged the skipping message
+	assert.Contains(t, logOutput, "skipping metric fips-test-metric due to FIPS mode", "Expected log about skipping metric")
+	assert.Contains(t, logOutput, "direct API calls are disabled", "Expected log about disabled API calls")
+
+	// Finish the handler
+	listener.HandlerFinished(ctx, nil)
+
+	// Check that no API call was attempted
+	assert.False(t, apiCallAttempted, "No API call should be attempted when FIPS mode is enabled")
+}
+
 func TestGetEnhancedMetricsTags(t *testing.T) {
 	//nolint
 	ctx := context.WithValue(context.Background(), "cold_start", false)
