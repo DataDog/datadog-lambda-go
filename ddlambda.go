@@ -345,6 +345,8 @@ func (cfg *Config) calculateFipsMode() bool {
 	if fipsModeEnv != "" {
 		if parsedFipsMode, err := strconv.ParseBool(fipsModeEnv); err == nil {
 			fipsMode = parsedFipsMode
+		} else {
+			logger.Debug(fmt.Sprintf("could not parse %s: %s", fipsModeEnv, err))
 		}
 	}
 
