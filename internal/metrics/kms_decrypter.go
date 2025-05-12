@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"os"
-	"strings"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -38,19 +37,15 @@ type (
 // functionNameEnvVar is the environment variable that stores the Lambda function name
 const functionNameEnvVar string = "AWS_LAMBDA_FUNCTION_NAME"
 
-// regionEnvVar is the environment variable that stores the current region
-const regionEnvVar string = "AWS_REGION"
-
 // encryptionContextKey is the key added to the encryption context by the Lambda console UI
 const encryptionContextKey string = "LambdaFunctionName"
 
 // MakeKMSDecrypter creates a new decrypter which uses the AWS KMS service to decrypt variables
-func MakeKMSDecrypter() Decrypter {
-	region := os.Getenv(regionEnvVar)
+func MakeKMSDecrypter(fipsMode bool) Decrypter {
 	fipsEndpoint := aws.FIPSEndpointStateUnset
-	if strings.HasPrefix(region, "us-gov-") {
+	if fipsMode {
 		fipsEndpoint = aws.FIPSEndpointStateEnabled
-		logger.Debug("GovCloud region detected. Using FIPS endpoint for KMS decryption.")
+		logger.Debug("Using FIPS endpoint for KMS decryption.")
 	}
 
 	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithUseFIPSEndpoint(fipsEndpoint))

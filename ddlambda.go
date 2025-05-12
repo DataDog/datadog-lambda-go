@@ -70,6 +70,8 @@ type (
 		// the counter will get totally reset after CircuitBreakerInterval
 		// default: 4
 		CircuitBreakerTotalFailures uint32
+		// FIPSMode enables FIPS mode. Defaults to true in GovCloud regions and false elsewhere.
+		FIPSMode *bool
 		// TraceContextExtractor is the function that extracts a root/parent trace context from the Lambda event body.
 		// See trace.DefaultTraceExtractor for an example.
 		TraceContextExtractor trace.ContextExtractor
@@ -97,6 +99,9 @@ const (
 	UniversalInstrumentation = "DD_UNIVERSAL_INSTRUMENTATION"
 	// Initialize otel tracer provider if enabled
 	OtelTracerEnabled = "DD_TRACE_OTEL_ENABLED"
+	// FIPSModeEnvVar is the environment variable that determines whether to enable FIPS mode.
+	// Defaults to true in GovCloud regions and false otherwise.
+	FIPSModeEnvVar = "DD_LAMBDA_FIPS_MODE"
 
 	// DefaultSite to send API messages to.
 	DefaultSite = "datadoghq.com"
@@ -268,6 +273,7 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 
 	mc := metrics.Config{
 		ShouldRetryOnFailure: false,
+		FIPSMode:             cfg.calculateFipsMode(),
 	}
 
 	if cfg != nil {
@@ -323,6 +329,36 @@ func (cfg *Config) toMetricsConfig(isExtensionRunning bool) metrics.Config {
 	}
 
 	return mc
+}
+
+func (cfg *Config) calculateFipsMode() bool {
+	if cfg != nil && cfg.FIPSMode != nil {
+		return *cfg.FIPSMode
+	}
+
+	region := os.Getenv("AWS_REGION")
+	isGovCloud := strings.HasPrefix(region, "us-gov-")
+
+	fipsMode := isGovCloud
+
+	fipsModeEnv := os.Getenv(FIPSModeEnvVar)
+	if fipsModeEnv != "" {
+		if parsedFipsMode, err := strconv.ParseBool(fipsModeEnv); err == nil {
+			fipsMode = parsedFipsMode
+		} else {
+			logger.Debug(fmt.Sprintf("could not parse %s: %s", fipsModeEnv, err))
+		}
+	}
+
+	if fipsMode || isGovCloud {
+		if fipsMode {
+			logger.Debug("Go Lambda Layer FIPS mode enabled")
+		} else {
+			logger.Debug("Go Lambda Layer FIPS mode disabled")
+		}
+	}
+
+	return fipsMode
 }
 
 // setupAppSec checks if DD_SERVERLESS_APPSEC_ENABLED is set (to true) and when that
