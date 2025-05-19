@@ -232,7 +232,7 @@ func (cfg *Config) toTraceConfig() trace.Config {
 
 	if tracingEnabled, err := strconv.ParseBool(os.Getenv(DatadogTraceEnabledEnvVar)); err == nil {
 		traceConfig.DDTraceEnabled = tracingEnabled
-		// Only read the OTEL env var if DD tracing is disabled
+		// Only read the OTEL env var if DD tracing is enabled
 		if tracingEnabled {
 			if otelTracerEnabled, err := strconv.ParseBool(os.Getenv(OtelTracerEnabled)); err == nil {
 				traceConfig.OtelTracerEnabled = otelTracerEnabled
