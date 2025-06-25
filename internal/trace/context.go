@@ -27,7 +27,8 @@ import (
 
 type (
 	eventWithHeaders struct {
-		Headers map[string]string `json:"headers"`
+		Headers           map[string]string   `json:"headers"`
+		MultiValueHeaders map[string][]string `json:"multiValueHeaders"`
 	}
 
 	// TraceContext is map of headers containing a Datadog trace context.
@@ -183,6 +184,11 @@ func getHeadersFromEventHeaders(ctx context.Context, ev json.RawMessage) map[str
 	lowercaseHeaders := map[string]string{}
 	for k, v := range eh.Headers {
 		lowercaseHeaders[strings.ToLower(k)] = v
+	}
+	for k, v := range eh.MultiValueHeaders {
+		if len(v) > 0 {
+			lowercaseHeaders[strings.ToLower(k)] = v[0]
+		}
 	}
 
 	return lowercaseHeaders
