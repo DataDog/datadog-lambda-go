@@ -11,7 +11,6 @@ import (
 
 	ddlambda "github.com/DataDog/datadog-lambda-go"
 	"github.com/aws/aws-lambda-go/events"
-	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
@@ -24,7 +23,7 @@ func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (event
 	// HTTP request
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://www.datadoghq.com", nil)
 	client := http.Client{}
-	client = *httptrace.WrapClient(&client)
+	//client = *httptrace.WrapClient(&client)
 	client.Do(req)
 
 	// Metric
