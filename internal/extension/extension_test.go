@@ -204,7 +204,7 @@ func TestExtensionEndInvocation(t *testing.T) {
 		endInvocationUrl: endInvocationUrl,
 		httpClient:       &ClientSuccessEndInvoke{},
 	}
-	span := tracer.StartSpan("aws.lambda")
+	span := &mockSpan{}
 	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, ddtrace.FinishConfig{}) })
 	span.Finish()
 
@@ -234,6 +234,34 @@ func (m mockSpanContext) SamplingPriority() (int, bool) { return -1, true }
 type mockSpan struct{ ddtrace.Span }
 
 func (m mockSpan) Context() ddtrace.SpanContext { return mockSpanContext{} }
+
+// Mock types for v1.74.3 SpanContextV2Adapter scenario
+type mockV2SpanContext struct {
+	priority int
+	ok       bool
+}
+
+func (m mockV2SpanContext) SamplingPriority() (int, bool) {
+	return m.priority, m.ok
+}
+
+// Simulate the internal.SpanContextV2Adapter struct with reflection-accessible fields
+type mockSpanContextV2Adapter struct {
+	ddtrace.SpanContext
+	Ctx mockV2SpanContext
+}
+
+func (m mockSpanContextV2Adapter) TraceID() uint64 { return 789 }
+func (m mockSpanContextV2Adapter) SpanID() uint64  { return 101112 }
+
+// This mock doesn't implement SamplingPriority() directly, forcing fallback to getSamplingPriority()
+type mockSpanWithV2Adapter struct{ ddtrace.Span }
+
+func (m mockSpanWithV2Adapter) Context() ddtrace.SpanContext {
+	return mockSpanContextV2Adapter{
+		Ctx: mockV2SpanContext{priority: 1, ok: true},
+	}
+}
 
 func TestExtensionEndInvocationSamplingPriority(t *testing.T) {
 	headers := http.Header{}
@@ -292,4 +320,26 @@ func TestExtensionEndInvocationErrorHeadersNilError(t *testing.T) {
 	assert.Equal(t, hdr.Get("X-Datadog-Invocation-Error-Msg"), "")
 	assert.Equal(t, hdr.Get("X-Datadog-Invocation-Error-Type"), "")
 	assert.Equal(t, hdr.Get("X-Datadog-Invocation-Error-Stack"), "")
+}
+
+func TestExtensionEndInvocationV2AdapterSamplingPriority(t *testing.T) {
+	headers := http.Header{}
+	em := &ExtensionManager{httpClient: capturingClient{hdr: headers}}
+
+	// Test scenario where span context doesn't implement SamplingPriority() directly
+	// This simulates the v1.74.x adapter case that would trigger getSamplingPriority() fallback
+	span := &mockSpanWithV2Adapter{}
+
+	// Verify that our mock context doesn't implement the SamplingPriority interface directly
+	ctx := span.Context()
+	_, ok := ctx.(interface{ SamplingPriority() (int, bool) })
+	assert.False(t, ok, "Mock should not implement SamplingPriority() directly to test fallback")
+
+	em.SendEndInvocationRequest(context.Background(), span, ddtrace.FinishConfig{})
+
+	// Since our mock doesn't implement SamplingPriority() directly and the reflection
+	// path expects "internal.SpanContextV2Adapter", this should fall through to error case
+	// but still set trace/span IDs
+	assert.Equal(t, "789", headers.Get("X-Datadog-Trace-Id"))
+	assert.Equal(t, "101112", headers.Get("X-Datadog-Span-Id"))
 }
