@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
@@ -204,11 +205,14 @@ func TestExtensionEndInvocation(t *testing.T) {
 		endInvocationUrl: endInvocationUrl,
 		httpClient:       &ClientSuccessEndInvoke{},
 	}
-	span := &mockSpan{}
+	span := tracer.StartSpan("aws.lambda")
 	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, ddtrace.FinishConfig{}) })
 	span.Finish()
-
-	assert.Equal(t, "", logOutput)
+	// Expected because the noopSpanContext doesn't have the SamplingPriority() and we cannot use the mock for the agent
+	assert.Contains(t, logOutput, "could not get sampling priority from getSamplingPriority()")
+	// Ensure this is the only log line (one newline at the end)
+	lines := strings.Split(strings.TrimSpace(logOutput), "\n")
+	assert.Equal(t, 1, len(lines))
 }
 
 func TestExtensionEndInvocationError(t *testing.T) {
