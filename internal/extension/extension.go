@@ -110,7 +110,6 @@ func (em *ExtensionManager) checkAgentRunning() {
 func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, eventPayload json.RawMessage) context.Context {
 	body := bytes.NewBuffer(eventPayload)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
-
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
 		// Propagate dd-trace context from the extension response if found in the response headers
 		traceId := response.Header.Get(string(DdTraceId))
@@ -134,6 +133,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 
 func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functionExecutionSpan ddtrace.Span, cfg ddtrace.FinishConfig) {
 	// Handle Lambda response
+
 	lambdaResponse := ctx.Value(DdLambdaResponse)
 	content, responseErr := json.Marshal(lambdaResponse)
 	if responseErr != nil {
@@ -162,6 +162,8 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 		}
 		if samplingPriority, ok := ctx.Value(DdSamplingPriority).(string); ok {
 			req.Header.Set(string(DdSamplingPriority), samplingPriority)
+		} else {
+			logger.Error(fmt.Errorf("could not get sampling priority from DdSamplingPriority"))
 		}
 	} else {
 		spanContext := functionExecutionSpan.Context()
@@ -173,6 +175,14 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 		if pc, ok := spanContext.(interface{ SamplingPriority() (int, bool) }); ok && pc != nil {
 			if priority, ok := pc.SamplingPriority(); ok {
 				req.Header.Set(string(DdSamplingPriority), fmt.Sprint(priority))
+			} else {
+				logger.Error(fmt.Errorf("could not get sampling priority from spanContext.SamplingPriority()"))
+			}
+		} else {
+			if  priority, ok := getSamplingPriority(functionExecutionSpan) ; ok  {
+				req.Header.Set(string(DdSamplingPriority), fmt.Sprint(priority))
+			} else {
+				logger.Error(fmt.Errorf("could not get sampling priority from getSamplingPriority()"))
 			}
 		}
 	}
@@ -237,3 +247,38 @@ func (em *ExtensionManager) Flush() error {
 	}
 	return nil
 }
+
+// The SamplingPriority method is directly available in dd-trace-go <=v1.73.1 or dd-trace-go v2.
+// But for dd-trace-go v1.74.x, reflection is needed to access the SamplingPriority method because
+// the method hidden in the v2 SpanContextV2Adapter struct.
+func getSamplingPriority(span ddtrace.Span) (int, bool) {
+      // Get the span context
+      ctx := span.Context()
+
+      // Use reflection to access the underlying v2 SpanContext
+      ctxValue := reflect.ValueOf(ctx)
+      if ctxValue.Type().String() != "internal.SpanContextV2Adapter" {
+          return 0, false
+      }
+
+      // Get the Ctx field (the underlying v2.SpanContext)
+      ctxField := ctxValue.FieldByName("Ctx")
+      if !ctxField.IsValid() {
+          return 0, false
+      }
+
+      // Call SamplingPriority() on the underlying v2 SpanContext
+      method := ctxField.MethodByName("SamplingPriority")
+      if !method.IsValid() {
+          return 0, false
+      }
+
+      results := method.Call([]reflect.Value{})
+      if len(results) != 2 {
+          return 0, false
+      }
+
+      priority := int(results[0].Int())
+      ok := results[1].Bool()
+      return priority, ok
+  }
