@@ -97,9 +97,14 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 			)
 			otel.SetTracerProvider(provider)
 		} else {
-			tracer.Start(
+			err := tracer.Start(
 				opts...,
 			)
+			if err != nil {
+				logger.Error(fmt.Errorf("failed to start tracer: %v", err))
+				tracerInitialized = false
+				return ctx
+			}
 		}
 		tracerInitialized = true
 	}
@@ -158,6 +163,7 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdS
 	var childOfOpt tracer.StartSpanOption
 	if parentSpanContext != nil {
 		if psc, ok := parentSpanContext.(*tracer.SpanContext); ok {
+			//nolint:SA1019
 			childOfOpt = tracer.ChildOf(psc)
 		}
 	}

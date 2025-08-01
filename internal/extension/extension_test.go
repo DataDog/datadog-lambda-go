@@ -258,7 +258,10 @@ func (m mockSpanWithV2Adapter) Context() ddtrace.SpanContext {
 
 func TestExtensionEndInvocationSamplingPriority(t *testing.T) {
 	// Start the tracer to ensure proper sampling priority handling
-	tracer.Start()
+	err := tracer.Start()
+	if err != nil {
+		t.Fatalf("Failed to start tracer: %v", err)
+	}
 	defer tracer.Stop()
 
 	// Create a real span and set its sampling priority to -1 using ManualDrop
