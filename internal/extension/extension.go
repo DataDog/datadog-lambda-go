@@ -165,7 +165,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 		}
 	} else {
 		spanContext := functionExecutionSpan.Context()
-		req.Header.Set(string(DdTraceId), spanContext.TraceID())
+		req.Header.Set(string(DdTraceId), fmt.Sprint(spanContext.TraceIDLower()))
 		req.Header.Set(string(DdSpanId), fmt.Sprint(spanContext.SpanID()))
 
 		// Try to get sampling priority
