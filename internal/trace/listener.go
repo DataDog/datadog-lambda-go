@@ -90,6 +90,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 			tracer.WithLambdaMode(extensionNotRunning),
 			tracer.WithGlobalTag("_dd.origin", "lambda"),
 			tracer.WithSendRetries(2),
+			tracer.WithStatsComputation(strings.ToLower(os.Getenv("DD_TRACE_STATS_COMPUTATION_ENABLED")) == "true"), // dd-trace-go has it enabled by default, but in serverless environments it's done on the agent side
 		}, l.tracerOptions...)
 		if l.otelTracerEnabled {
 			provider := ddotel.NewTracerProvider(
