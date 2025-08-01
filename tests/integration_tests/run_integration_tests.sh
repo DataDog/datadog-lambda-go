@@ -40,8 +40,8 @@ if [ -n "$UPDATE_SNAPSHOTS" ]; then
 fi
 
 echo "Building Go binaries"
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o build/hello/bootstrap hello/main.go
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o build/error/bootstrap error/main.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -C hello -ldflags="-s -w" -o ../build/hello/bootstrap main.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -C error -ldflags="-s -w" -o ../build/error/bootstrap main.go
 zip -j build/hello.zip build/hello/bootstrap
 zip -j build/error.zip build/error/bootstrap
 
@@ -51,7 +51,8 @@ run_id=$(xxd -l 4 -c 4 -p < /dev/random)
 # Always remove the stack before exiting, no matter what
 function remove_stack() {
     echo "Removing functions"
-    serverless remove --stage $run_id
+    echo "Removing stack for stage $run_id"
+    # serverless remove --stage $run_id
 }
 trap remove_stack EXIT
 
@@ -144,8 +145,8 @@ for function_name in "${LAMBDA_HANDLERS[@]}"; do
             sed '/Datadog Tracer/d' |
             # Normalize Lambda runtime report logs
             perl -p -e 's/(RequestId|TraceId|init|SegmentId|Duration|Memory Used|"e"):( )?[a-z0-9\.\-]+/\1:\2XXXX/g' |
-            # Normalize DD APM headers and AWS account ID
-            perl -p -e "s/(Current span ID:|Current trace ID:|account_id:) ?[0-9]+/\1XXXX/g" |
+            # Normalize DD APM headers and AWS account ID (trace IDs are now hex strings in v2)
+            perl -p -e "s/(Current span ID:|Current trace ID:|account_id:) ?[0-9a-fA-F]+/\1XXXX/g" |
             # Strip API key from logged requests
             perl -p -e "s/(api_key=|'api_key': ')[a-z0-9\.\-]+/\1XXXX/g" |
             # Normalize ISO combined date-time

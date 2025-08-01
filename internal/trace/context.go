@@ -19,10 +19,10 @@ import (
 
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/aws/aws-xray-sdk-go/v2/header"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type (

@@ -14,9 +14,9 @@ import (
 	"testing"
 
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
 )
 
 func TestSeparateVersionFromFunctionArnWithVersion(t *testing.T) {
@@ -82,7 +82,7 @@ func TestStartFunctionExecutionSpanFromXrayWithMergeEnabled(t *testing.T) {
 
 	assert.Equal(t, "aws.lambda", finishedSpan.OperationName())
 
-	assert.Equal(t, true, finishedSpan.Tag("cold_start"))
+	assert.Equal(t, "true", finishedSpan.Tag("cold_start"))
 	// We expect the function ARN to be lowercased, and the version removed
 	assert.Equal(t, "arn:aws:lambda:us-east-1:123456789012:function:myfunction", finishedSpan.Tag("function_arn"))
 	assert.Equal(t, "11", finishedSpan.Tag("function_version"))

@@ -19,9 +19,9 @@ import (
 	"testing"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type ClientErrorMock struct {
@@ -206,7 +206,7 @@ func TestExtensionEndInvocation(t *testing.T) {
 		httpClient:       &ClientSuccessEndInvoke{},
 	}
 	span := tracer.StartSpan("aws.lambda")
-	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, ddtrace.FinishConfig{}) })
+	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, tracer.FinishConfig{}) })
 	span.Finish()
 	// Expected because the noopSpanContext doesn't have the SamplingPriority() and we cannot use the mock for the agent
 	assert.Contains(t, logOutput, "could not get sampling priority from getSamplingPriority()")
@@ -221,23 +221,12 @@ func TestExtensionEndInvocationError(t *testing.T) {
 		httpClient:       &ClientErrorMock{},
 	}
 	span := tracer.StartSpan("aws.lambda")
-	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, ddtrace.FinishConfig{}) })
+	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, tracer.FinishConfig{}) })
 	span.Finish()
 
 	assert.Contains(t, logOutput, "could not send end invocation payload to the extension")
 }
 
-type mockSpanContext struct {
-	ddtrace.SpanContext
-}
-
-func (m mockSpanContext) TraceID() uint64               { return 123 }
-func (m mockSpanContext) SpanID() uint64                { return 456 }
-func (m mockSpanContext) SamplingPriority() (int, bool) { return -1, true }
-
-type mockSpan struct{ ddtrace.Span }
-
-func (m mockSpan) Context() ddtrace.SpanContext { return mockSpanContext{} }
 
 // Mock types for v1.74.3 SpanContextV2Adapter scenario
 type mockV2SpanContext struct {
@@ -268,19 +257,29 @@ func (m mockSpanWithV2Adapter) Context() ddtrace.SpanContext {
 }
 
 func TestExtensionEndInvocationSamplingPriority(t *testing.T) {
-	headers := http.Header{}
-	em := &ExtensionManager{httpClient: capturingClient{hdr: headers}}
-	span := &mockSpan{}
+	// Start the tracer to ensure proper sampling priority handling
+	tracer.Start()
+	defer tracer.Stop()
+
+	// Create a real span and set its sampling priority to -1 using ManualDrop
+	span := tracer.StartSpan("test")
+	defer span.Finish()
 
 	// When priority in context, use that value
+	headers1 := http.Header{}
+	em1 := &ExtensionManager{httpClient: capturingClient{hdr: headers1}}
 	ctx := context.WithValue(context.Background(), DdTraceId, "123")
 	ctx = context.WithValue(ctx, DdSamplingPriority, "2")
-	em.SendEndInvocationRequest(ctx, span, ddtrace.FinishConfig{})
-	assert.Equal(t, "2", headers.Get("X-Datadog-Sampling-Priority"))
+	em1.SendEndInvocationRequest(ctx, span, tracer.FinishConfig{})
+	assert.Equal(t, "2", headers1.Get("X-Datadog-Sampling-Priority"))
 
 	// When no context, get priority from span
-	em.SendEndInvocationRequest(context.Background(), span, ddtrace.FinishConfig{})
-	assert.Equal(t, "-1", headers.Get("X-Datadog-Sampling-Priority"))
+	// Set sampling priority to -1 using ManualDrop tag
+	span.SetTag(ext.ManualDrop, true)
+	headers2 := http.Header{}
+	em2 := &ExtensionManager{httpClient: capturingClient{hdr: headers2}}
+	em2.SendEndInvocationRequest(context.Background(), span, tracer.FinishConfig{})
+	assert.Equal(t, "-1", headers2.Get("X-Datadog-Sampling-Priority"))
 }
 
 type capturingClient struct {
@@ -298,7 +297,7 @@ func TestExtensionEndInvocationErrorHeaders(t *testing.T) {
 	hdr := http.Header{}
 	em := &ExtensionManager{httpClient: capturingClient{hdr: hdr}}
 	span := tracer.StartSpan("aws.lambda")
-	cfg := ddtrace.FinishConfig{Error: fmt.Errorf("ooooops")}
+	cfg := tracer.FinishConfig{Error: fmt.Errorf("ooooops")}
 
 	em.SendEndInvocationRequest(context.TODO(), span, cfg)
 
@@ -316,7 +315,7 @@ func TestExtensionEndInvocationErrorHeadersNilError(t *testing.T) {
 	hdr := http.Header{}
 	em := &ExtensionManager{httpClient: capturingClient{hdr: hdr}}
 	span := tracer.StartSpan("aws.lambda")
-	cfg := ddtrace.FinishConfig{Error: nil}
+	cfg := tracer.FinishConfig{Error: nil}
 
 	em.SendEndInvocationRequest(context.TODO(), span, cfg)
 

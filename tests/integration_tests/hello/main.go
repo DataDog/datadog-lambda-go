@@ -10,16 +10,16 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 
 	ddlambda "github.com/DataDog/datadog-lambda-go"
+	httptrace "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/aws/aws-lambda-go/events"
-	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 func handleRequest(ctx context.Context, ev events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	currentSpan, _ := tracer.SpanFromContext(ctx)
 	currentSpanContext := currentSpan.Context()
 	fmt.Println("Current span ID: " + strconv.FormatUint(currentSpanContext.SpanID(), 10))
-	fmt.Println("Current trace ID: " + strconv.FormatUint(currentSpanContext.TraceID(), 10))
+	fmt.Println("Current trace ID: " + currentSpanContext.TraceID())
 
 	// HTTP request
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://www.datadoghq.com", nil)
