@@ -163,8 +163,7 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdS
 	var childOfOpt tracer.StartSpanOption
 	if parentSpanContext != nil {
 		if psc, ok := parentSpanContext.(*tracer.SpanContext); ok {
-			//nolint:SA1019
-			childOfOpt = tracer.ChildOf(psc)
+			childOfOpt = tracer.ChildOf(psc) //nolint:SA1019
 		}
 	}
 
