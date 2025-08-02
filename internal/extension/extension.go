@@ -171,6 +171,8 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 		// Try to get sampling priority
 		if priority, ok := spanContext.SamplingPriority(); ok {
 			req.Header.Set(string(DdSamplingPriority), fmt.Sprint(priority))
+		} else {
+			logger.Error(fmt.Errorf("could not get sampling priority from spanContext.SamplingPriority()"))
 		}
 	}
 
