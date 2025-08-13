@@ -126,6 +126,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	}
 
 	tracer.Flush()
+	tracer.Stop()
 }
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
