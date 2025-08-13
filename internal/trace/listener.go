@@ -125,7 +125,6 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 		}
 	}
 
-	tracer.Stop()
 	tracer.Flush()
 }
 
