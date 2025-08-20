@@ -111,8 +111,8 @@ func (em *ExtensionManager) checkAgentRunning() {
 func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, eventPayload json.RawMessage) context.Context {
 	body := bytes.NewBuffer(eventPayload)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
-	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
-		defer response.Body.Close()
+	response, err := em.httpClient.Do(req)
+	if err == nil && response.StatusCode == 200 {
 		// Propagate dd-trace context from the extension response if found in the response headers
 		traceId := response.Header.Get(string(DdTraceId))
 		if traceId != "" {
@@ -131,6 +131,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 		}
 		io.Copy(io.Discard, response.Body)
 	}
+	response.Body.Close()
 	return ctx
 }
 
