@@ -144,6 +144,7 @@ func WrapFunction(handler interface{}, cfg *Config) interface{} {
 // It returns a modified handler that can be passed directly to the lambda.Start function from aws-lambda-go.
 // Deprecated: use WrapFunction instead
 func WrapHandler(handler interface{}, cfg *Config) interface{} {
+	fmt.Println("AJ custom ddlambda go v1")
 	return WrapFunction(handler, cfg)
 }
 
