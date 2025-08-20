@@ -100,9 +100,9 @@ func (em *ExtensionManager) checkAgentRunning() {
 			req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
 			response, err := em.httpClient.Do(req)
 			if response != nil {
-				defer response.Body.Close()
 				defer func() {
 					_, _ = io.Copy(io.Discard, response.Body)
+					response.Body.Close()
 				}()
 			}
 			if err == nil && response.StatusCode == 200 {
@@ -120,9 +120,9 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
 	response, err := em.httpClient.Do(req)
 	if response != nil {
-		defer response.Body.Close()
 		defer func() {
 			_, _ = io.Copy(io.Discard, response.Body)
+			response.Body.Close()
 		}()
 	}
 	if err == nil && response.StatusCode == 200 {
@@ -204,9 +204,9 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 
 	resp, err := em.httpClient.Do(req)
 	if resp != nil {
-		defer resp.Body.Close()
 		defer func() {
 			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
 		}()
 	}
 	if err != nil || resp.StatusCode != 200 {
@@ -259,9 +259,9 @@ func (em *ExtensionManager) Flush() error {
 	req, _ := http.NewRequest(http.MethodGet, em.flushRoute, nil)
 	response, err := em.httpClient.Do(req)
 	if response != nil {
-		defer response.Body.Close()
 		defer func() {
 			_, _ = io.Copy(io.Discard, response.Body)
+			response.Body.Close()
 		}()
 	}
 	if err != nil {
