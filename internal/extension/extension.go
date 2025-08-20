@@ -14,6 +14,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"reflect"
@@ -111,6 +112,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 	body := bytes.NewBuffer(eventPayload)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
 	if response, err := em.httpClient.Do(req); err == nil && response.StatusCode == 200 {
+		defer response.Body.Close()
 		// Propagate dd-trace context from the extension response if found in the response headers
 		traceId := response.Header.Get(string(DdTraceId))
 		if traceId != "" {
@@ -127,6 +129,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 		if samplingPriority != "" {
 			ctx = context.WithValue(ctx, DdSamplingPriority, samplingPriority)
 		}
+		io.Copy(io.Discard, response.Body)
 	}
 	return ctx
 }
@@ -179,7 +182,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 				logger.Error(fmt.Errorf("could not get sampling priority from spanContext.SamplingPriority()"))
 			}
 		} else {
-			if  priority, ok := getSamplingPriority(functionExecutionSpan) ; ok  {
+			if priority, ok := getSamplingPriority(functionExecutionSpan); ok {
 				req.Header.Set(string(DdSamplingPriority), fmt.Sprint(priority))
 			} else {
 				logger.Error(fmt.Errorf("could not get sampling priority from getSamplingPriority()"))
@@ -191,6 +194,8 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	if err != nil || resp.StatusCode != 200 {
 		logger.Error(fmt.Errorf("could not send end invocation payload to the extension: %v", err))
 	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
 }
 
 // defaultStackLength specifies the default maximum size of a stack trace.
@@ -252,33 +257,33 @@ func (em *ExtensionManager) Flush() error {
 // But for dd-trace-go v1.74.x, reflection is needed to access the SamplingPriority method because
 // the method hidden in the v2 SpanContextV2Adapter struct.
 func getSamplingPriority(span ddtrace.Span) (int, bool) {
-      // Get the span context
-      ctx := span.Context()
+	// Get the span context
+	ctx := span.Context()
 
-      // Use reflection to access the underlying v2 SpanContext
-      ctxValue := reflect.ValueOf(ctx)
-      if ctxValue.Type().String() != "internal.SpanContextV2Adapter" {
-          return 0, false
-      }
+	// Use reflection to access the underlying v2 SpanContext
+	ctxValue := reflect.ValueOf(ctx)
+	if ctxValue.Type().String() != "internal.SpanContextV2Adapter" {
+		return 0, false
+	}
 
-      // Get the Ctx field (the underlying v2.SpanContext)
-      ctxField := ctxValue.FieldByName("Ctx")
-      if !ctxField.IsValid() {
-          return 0, false
-      }
+	// Get the Ctx field (the underlying v2.SpanContext)
+	ctxField := ctxValue.FieldByName("Ctx")
+	if !ctxField.IsValid() {
+		return 0, false
+	}
 
-      // Call SamplingPriority() on the underlying v2 SpanContext
-      method := ctxField.MethodByName("SamplingPriority")
-      if !method.IsValid() {
-          return 0, false
-      }
+	// Call SamplingPriority() on the underlying v2 SpanContext
+	method := ctxField.MethodByName("SamplingPriority")
+	if !method.IsValid() {
+		return 0, false
+	}
 
-      results := method.Call([]reflect.Value{})
-      if len(results) != 2 {
-          return 0, false
-      }
+	results := method.Call([]reflect.Value{})
+	if len(results) != 2 {
+		return 0, false
+	}
 
-      priority := int(results[0].Int())
-      ok := results[1].Bool()
-      return priority, ok
-  }
+	priority := int(results[0].Int())
+	ok := results[1].Bool()
+	return priority, ok
+}
