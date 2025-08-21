@@ -99,7 +99,7 @@ func (em *ExtensionManager) checkAgentRunning() {
 		if !em.isUniversalInstrumentation {
 			req, _ := http.NewRequest(http.MethodGet, em.helloRoute, nil)
 			response, err := em.httpClient.Do(req)
-			if response != nil {
+			if response != nil && response.Body != nil {
 				defer func() {
 					_, _ = io.Copy(io.Discard, response.Body)
 					response.Body.Close()
@@ -119,7 +119,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 	body := bytes.NewBuffer(eventPayload)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
 	response, err := em.httpClient.Do(req)
-	if response != nil {
+	if response != nil && response.Body != nil {
 		defer func() {
 			_, _ = io.Copy(io.Discard, response.Body)
 			response.Body.Close()
@@ -203,7 +203,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	}
 
 	resp, err := em.httpClient.Do(req)
-	if resp != nil {
+	if resp != nil && resp.Body != nil {
 		defer func() {
 			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
@@ -258,7 +258,7 @@ func (em *ExtensionManager) IsExtensionRunning() bool {
 func (em *ExtensionManager) Flush() error {
 	req, _ := http.NewRequest(http.MethodGet, em.flushRoute, nil)
 	response, err := em.httpClient.Do(req)
-	if response != nil {
+	if response != nil && response.Body != nil {
 		defer func() {
 			_, _ = io.Copy(io.Discard, response.Body)
 			response.Body.Close()
