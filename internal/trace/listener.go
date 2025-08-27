@@ -80,6 +80,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces, l.traceContextExtractor)
 
 	if !tracerInitialized {
+		os.Setenv("DD_INSTRUMENTATION_TELEMETRY_ENABLED", "false") // disable instrumentation telemetry for AWS Lambdas
 		serviceName := os.Getenv("DD_SERVICE")
 		if serviceName == "" {
 			serviceName = "aws.lambda"
