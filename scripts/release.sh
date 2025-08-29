@@ -33,7 +33,7 @@ else
 fi
 
 CURRENT_DD_TRACE_VERSION="$(grep "const DDTraceVersion" internal/version/version.go | grep -o -E "[0-9]+\.[0-9]+\.[0-9]+")"
-NEW_DD_TRACE_VERSION="$(grep "dd-trace-go.v1" go.mod | grep -o -E "[0-9]+\.[0-9]+\.[0-9]+")"
+NEW_DD_TRACE_VERSION="$(grep "dd-trace-go/v2" go.mod | grep -o -E "[0-9]+\.[0-9]+\.[0-9]+")"
 if [ "$CURRENT_DD_TRACE_VERSION" != "$NEW_DD_TRACE_VERSION" ]; then
     read -p "Confirm updating dd-trace-go version from $CURRENT_DD_TRACE_VERSION to $NEW_DD_TRACE_VERSION (y/n)?" CONT
     if [ "$CONT" != "y" ]; then

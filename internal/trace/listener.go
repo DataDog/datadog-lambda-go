@@ -18,11 +18,11 @@ import (
 	"github.com/DataDog/datadog-lambda-go/internal/extension"
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/DataDog/datadog-lambda-go/internal/version"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace"
+	ddotel "github.com/DataDog/dd-trace-go/v2/ddtrace/opentelemetry"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"go.opentelemetry.io/otel"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	ddotel "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentelemetry"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 type (
@@ -49,7 +49,7 @@ type (
 )
 
 // The function execution span is the top-level span representing the current Lambda function execution
-var functionExecutionSpan ddtrace.Span
+var functionExecutionSpan *tracer.Span
 
 var tracerInitialized = false
 
@@ -80,6 +80,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 	ctx, _ = contextWithRootTraceContext(ctx, msg, l.mergeXrayTraces, l.traceContextExtractor)
 
 	if !tracerInitialized {
+		os.Setenv("DD_INSTRUMENTATION_TELEMETRY_ENABLED", "false") // disable instrumentation telemetry for AWS Lambdas
 		serviceName := os.Getenv("DD_SERVICE")
 		if serviceName == "" {
 			serviceName = "aws.lambda"
@@ -90,6 +91,7 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 			tracer.WithLambdaMode(extensionNotRunning),
 			tracer.WithGlobalTag("_dd.origin", "lambda"),
 			tracer.WithSendRetries(2),
+			tracer.WithStatsComputation(strings.ToLower(os.Getenv("DD_TRACE_STATS_COMPUTATION_ENABLED")) == "true"), // dd-trace-go has it enabled by default, but in serverless environments it's done on the agent side
 		}, l.tracerOptions...)
 		if l.otelTracerEnabled {
 			provider := ddotel.NewTracerProvider(
@@ -97,9 +99,14 @@ func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) cont
 			)
 			otel.SetTracerProvider(provider)
 		} else {
-			tracer.Start(
+			err := tracer.Start(
 				opts...,
 			)
+			if err != nil {
+				logger.Error(fmt.Errorf("failed to start tracer: %v", err))
+				tracerInitialized = false
+				return ctx
+			}
 		}
 		tracerInitialized = true
 	}
@@ -118,7 +125,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 	if functionExecutionSpan != nil {
 		functionExecutionSpan.Finish(tracer.WithError(err))
 
-		finishConfig := ddtrace.FinishConfig{Error: err}
+		finishConfig := tracer.FinishConfig{Error: err}
 
 		if l.universalInstrumentation && l.extensionManager.IsExtensionRunning() {
 			l.extensionManager.SendEndInvocationRequest(ctx, functionExecutionSpan, finishConfig)
@@ -130,7 +137,7 @@ func (l *Listener) HandlerFinished(ctx context.Context, err error) {
 
 // startFunctionExecutionSpan starts a span that represents the current Lambda function execution
 // and returns the span so that it can be finished when the function execution is complete
-func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdServerlessSpan bool) (tracer.Span, context.Context) {
+func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdServerlessSpan bool) (*tracer.Span, context.Context) {
 	// Extract information from context
 	lambdaCtx, _ := lambdacontext.FromContext(ctx)
 	rootTraceContext, ok := ctx.Value(traceContextKey).(TraceContext)
@@ -155,10 +162,18 @@ func startFunctionExecutionSpan(ctx context.Context, mergeXrayTraces bool, isDdS
 		resourceName = string(extension.DdSeverlessSpan)
 	}
 
+	var childOfOpt tracer.StartSpanOption
+	if parentSpanContext != nil {
+		if psc, ok := parentSpanContext.(*tracer.SpanContext); ok {
+			//nolint
+			childOfOpt = tracer.ChildOf(psc)
+		}
+	}
+
 	span := tracer.StartSpan(
 		"aws.lambda", // This operation name will be replaced with the value of the service tag by the Forwarder
 		tracer.SpanType("serverless"),
-		tracer.ChildOf(parentSpanContext),
+		childOfOpt,
 		tracer.ResourceName(resourceName),
 		tracer.Tag("cold_start", ctx.Value("cold_start")),
 		tracer.Tag("function_arn", functionArn),
