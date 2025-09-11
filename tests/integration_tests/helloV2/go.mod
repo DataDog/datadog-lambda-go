@@ -4,8 +4,9 @@ go 1.24.0
 
 require (
 	github.com/DataDog/datadog-lambda-go v1.14.0
+	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.2.3
+	github.com/DataDog/dd-trace-go/v2 v2.2.3
 	github.com/aws/aws-lambda-go v1.46.0
-	gopkg.in/DataDog/dd-trace-go.v1 v1.74.6
 )
 
 require (
@@ -19,8 +20,6 @@ require (
 	github.com/DataDog/datadog-agent/pkg/util/scrubber v0.67.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/version v0.67.0 // indirect
 	github.com/DataDog/datadog-go/v5 v5.6.0 // indirect
-	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.2.3 // indirect
-	github.com/DataDog/dd-trace-go/v2 v2.2.3 // indirect
 	github.com/DataDog/go-libddwaf/v4 v4.3.2 // indirect
 	github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20250721125240-fdf1ef85b633 // indirect
 	github.com/DataDog/go-sqllexer v0.1.6 // indirect
@@ -107,6 +106,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250425173222-7b384671a197 // indirect
 	google.golang.org/grpc v1.72.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
+	gopkg.in/DataDog/dd-trace-go.v1 v1.74.6 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

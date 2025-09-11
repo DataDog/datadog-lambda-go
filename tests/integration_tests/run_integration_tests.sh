@@ -13,7 +13,7 @@ export SLS_DEPRECATION_DISABLE=*
 
 # These values need to be in sync with serverless.yml, where there needs to be a function
 # defined for every handler_runtime combination
-LAMBDA_HANDLERS=("hello" "error")
+LAMBDA_HANDLERS=("hello" "helloV2" "error")
 
 LOGS_WAIT_SECONDS=20
 
@@ -41,8 +41,10 @@ fi
 
 echo "Building Go binaries"
 cd hello && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../build/hello/bootstrap && cd ..
+cd helloV2 && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../build/helloV2/bootstrap && cd ..
 cd error && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../build/error/bootstrap && cd ..
 zip -j build/hello.zip build/hello/bootstrap
+zip -j build/helloV2.zip build/helloV2/bootstrap
 zip -j build/error.zip build/error/bootstrap
 
 # Generate a random 8-character ID to avoid collisions with other runs
