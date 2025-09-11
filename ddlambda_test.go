@@ -97,7 +97,7 @@ func TestToMetricConfigLocalTest(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("%#v", tc.envs), func(t *testing.T) {
 			for k, v := range tc.envs {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 			mc := cfg.toMetricsConfig(true)
 			assert.Equal(t, tc.cval, mc.LocalTest)
@@ -110,8 +110,8 @@ func TestCalculateFipsMode(t *testing.T) {
 	originalRegion := os.Getenv("AWS_REGION")
 	originalFipsMode := os.Getenv(FIPSModeEnvVar)
 	defer func() {
-		os.Setenv("AWS_REGION", originalRegion)
-		os.Setenv(FIPSModeEnvVar, originalFipsMode)
+		_ = os.Setenv("AWS_REGION", originalRegion)
+		_ = os.Setenv(FIPSModeEnvVar, originalFipsMode)
 	}()
 
 	testCases := []struct {
@@ -188,8 +188,8 @@ func TestCalculateFipsMode(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			os.Setenv("AWS_REGION", tc.region)
-			os.Setenv(FIPSModeEnvVar, tc.fipsModeEnv)
+			_ = os.Setenv("AWS_REGION", tc.region)
+			_ = os.Setenv(FIPSModeEnvVar, tc.fipsModeEnv)
 
 			cfg := &Config{FIPSMode: tc.configFIPSMode}
 			result := cfg.calculateFipsMode()
