@@ -219,6 +219,8 @@ func (l *Listener) AddDistributionMetric(metric string, value float64, timestamp
 
 func getRuntimeTag() string {
 	v := runtime.Version()
+	v = strings.ReplaceAll(v, " ", "-")
+	v = strings.ReplaceAll(v, ",", "-")
 	return fmt.Sprintf("dd_lambda_layer:datadog-%s", v)
 }
 
