@@ -25,11 +25,16 @@ fi
 if [ -z "$1" ]; then
     echo "Must specify a desired version number"
     exit 1
-elif [[ ! $1 =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
-    echo "Must use a semantic version, e.g., 3.1.4"
-    exit 1
 else
-    NEW_VERSION=$1
+    # Remove 'v' prefix if present
+    CLEAN_VERSION=${1#v}
+
+    if [[ ! $CLEAN_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "Must use a semantic version, e.g., 3.1.4"
+        exit 1
+    else
+        NEW_VERSION=$CLEAN_VERSION
+    fi
 fi
 
 CURRENT_DD_TRACE_VERSION="$(grep "const DDTraceVersion" internal/version/version.go | grep -o -E "[0-9]+\.[0-9]+\.[0-9]+")"
