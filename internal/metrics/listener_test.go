@@ -299,6 +299,7 @@ func TestGetRuntimeTag(t *testing.T) {
 	}{
 		{"", "dd_lambda_layer:datadog-"},
 		{"go1.25.1", "dd_lambda_layer:datadog-go1.25.1"},
+		// runtime.Version() will include any values from the GOEXPERIMENT env var
 		{"go1.25.1 X:jsonv2", "dd_lambda_layer:datadog-go1.25.1-X:jsonv2"},
 		{"go1.25.1 X:fieldtrace,jsonv2", "dd_lambda_layer:datadog-go1.25.1-X:fieldtrace-jsonv2"},
 	}
