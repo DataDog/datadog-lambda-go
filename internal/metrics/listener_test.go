@@ -290,3 +290,22 @@ func TestListenerHandlerFinishedFlushes(t *testing.T) {
 		})
 	}
 }
+
+func TestGetRuntimeTag(t *testing.T) {
+	testcases := []struct {
+		runtimeVersion string
+		expect         string
+	}{
+		{"", "dd_lambda_layer:datadog-"},
+		{"go1.25.1", "dd_lambda_layer:datadog-go1.25.1"},
+		{"go1.25.1 X:jsonv2", "dd_lambda_layer:datadog-go1.25.1-X:jsonv2"},
+		{"go1.25.1 X:fieldtrace,jsonv2", "dd_lambda_layer:datadog-go1.25.1-X:fieldtrace-jsonv2"},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.runtimeVersion, func(t *testing.T) {
+			actual := getRuntimeTag(tc.runtimeVersion)
+			assert.Equal(t, actual, tc.expect)
+		})
+	}
+}
