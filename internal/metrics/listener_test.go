@@ -110,9 +110,9 @@ func TestAddDistributionMetricWithFIPSMode(t *testing.T) {
 
 	// Create a listener with FIPS mode enabled
 	listener := MakeListener(Config{
-		APIKey:    "12345",
-		Site:      server.URL,
-		FIPSMode:  true,
+		APIKey:   "12345",
+		Site:     server.URL,
+		FIPSMode: true,
 	}, &extension.ExtensionManager{})
 
 	// Verify the API client wasn't created
@@ -205,6 +205,7 @@ func TestSubmitEnhancedMetrics(t *testing.T) {
 	assert.False(t, called)
 	expected := "{\"m\":\"aws.lambda.enhanced.invocations\",\"v\":1,"
 	assert.True(t, strings.Contains(output, expected))
+	assert.True(t, strings.Contains(output, "dd_lambda_layer:datadog-go1."))
 }
 
 func TestDoNotSubmitEnhancedMetrics(t *testing.T) {
