@@ -12,6 +12,8 @@ const (
 	traceIDHeader          = "x-datadog-trace-id"
 	parentIDHeader         = "x-datadog-parent-id"
 	samplingPriorityHeader = "x-datadog-sampling-priority"
+	originHeader           = "x-datadog-origin"
+	// QUESTION missing headers found in internal/extension/extension.go. is that an issue
 )
 
 const (

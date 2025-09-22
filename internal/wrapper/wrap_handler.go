@@ -52,6 +52,8 @@ func WrapHandlerWithListeners(handler interface{}, listeners ...HandlerListener)
 
 	// Return custom handler, to be called once per invocation
 	return func(ctx context.Context, msg json.RawMessage) (interface{}, error) {
+		fmt.Printf("ctx: %+v \n", ctx)
+		fmt.Printf("msg: %s \n", string(msg))
 		//nolint
 		ctx = context.WithValue(ctx, "cold_start", coldStart)
 		for _, listener := range listeners {
@@ -147,12 +149,18 @@ func callHandler(ctx context.Context, msg json.RawMessage, handler interface{}) 
 		contextType := reflect.TypeOf((*context.Context)(nil)).Elem()
 		firstArgType := handlerType.In(0)
 		if firstArgType.Implements(contextType) {
+			logger.Debug(fmt.Sprintf("context: %#v", ev))
 			args = []reflect.Value{reflect.ValueOf(ctx)}
 		} else {
+			logger.Debug(fmt.Sprintf("event: %#v", ev))
 			args = []reflect.Value{ev.Elem()}
 
 		}
 	} else if handlerType.NumIn() == 2 {
+		logger.Debug(fmt.Sprintf("context: %#v", ev))
+
+		logger.Debug(fmt.Sprintf("event: %#v", ev))
+
 		// Or when there are two arguments, context is always first, followed by event payload.
 		args = []reflect.Value{reflect.ValueOf(ctx), ev.Elem()}
 	}
