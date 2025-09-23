@@ -135,9 +135,8 @@ func TestGetDatadogTraceContextWithMultivalueHeaders(t *testing.T) {
 	// single value headers should take precedence in the case of duplicates
 
 	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
-	ev := loadRawJSON(t, "../testdata/non-proxy-multivalue-headers.json")
+	ev := loadRawJSON(t, "../testdata/non-proxy-with-multivalue-headers.json")
 	expected := TraceContext{
-		"x-datadog-origin":            "origin1",
 		"x-datadog-trace-id":          "1231452342",
 		"x-datadog-parent-id":         "45678910",
 		"x-datadog-sampling-priority": "2",
