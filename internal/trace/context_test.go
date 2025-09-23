@@ -130,6 +130,24 @@ func TestGetDatadogTraceContextForMissingData(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestGetDatadogTraceContextWithMultivalueHeaders(t *testing.T) {
+	// test that multivalue headers are properly extracted from given context
+	// single value headers should take precedence in the case of duplicates
+
+	ctx := mockLambdaXRayTraceContext(context.Background(), mockXRayTraceID, mockXRayEntityID, true)
+	ev := loadRawJSON(t, "../testdata/non-proxy-multivalue-headers.json")
+	expected := TraceContext{
+		"x-datadog-origin":            "origin1",
+		"x-datadog-trace-id":          "1231452342",
+		"x-datadog-parent-id":         "45678910",
+		"x-datadog-sampling-priority": "2",
+	}
+
+	actual, ok := getTraceContext(ctx, getHeadersFromEventHeaders(ctx, *ev))
+	assert.True(t, ok)
+	assert.Equal(t, expected, actual)
+}
+
 func TestGetDatadogTraceContextFromContextObject(t *testing.T) {
 	testcases := []struct {
 		traceID          string
