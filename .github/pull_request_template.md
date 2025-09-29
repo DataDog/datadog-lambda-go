@@ -1,5 +1,10 @@
 <!--- Please remember to review the [contribution guidelines](https://github.com/DataDog/datadog-lambda-go/blob/main/CONTRIBUTING.md) if you have not yet done so._  --->
 
+### dd-trace-go PR
+<!---
+[WARNING!] We have migrated this repo to https://github.com/DataDog/dd-trace-go/tree/main/contrib/aws/datadog-lambda-go. This current repo will be deprecated. If you are making some fixes. Make sure the corresponding PRs for dd-trace-go are created and linked here.
+--->
+
 ### What does this PR do?
 
 <!--- A brief description of the change being made with this pull request. --->
