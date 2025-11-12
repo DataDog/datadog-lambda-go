@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 )
@@ -119,6 +120,8 @@ func (em *ExtensionManager) checkAgentRunning() {
 func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, eventPayload json.RawMessage) context.Context {
 	body := bytes.NewBuffer(eventPayload)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
+	lc, _ := lambdacontext.FromContext(ctx)
+	req.Header.Set("x-datadog-aws-request-id", lc.AwsRequestID)
 	response, err := em.httpClient.Do(req)
 	if response != nil && response.Body != nil {
 		defer func() {
@@ -157,6 +160,8 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	}
 	body := bytes.NewBuffer(content)
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
+	lc, _ := lambdacontext.FromContext(ctx)
+	req.Header.Set("x-datadog-aws-request-id", lc.AwsRequestID)
 
 	// Mark the invocation as an error if any
 	if cfg.Error != nil {
