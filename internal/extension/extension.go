@@ -44,6 +44,8 @@ const (
 
 	DdSeverlessSpan  ddTraceContext = "dd-tracer-serverless-span"
 	DdLambdaResponse ddTraceContext = "dd-response"
+
+	lambdaRuntimeAwsRequestIdHeader = "lambda-runtime-aws-request-id"
 )
 
 const (
@@ -121,7 +123,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 	body := bytes.NewBuffer(eventPayload)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
 	lc, _ := lambdacontext.FromContext(ctx)
-	req.Header.Set("x-datadog-aws-request-id", lc.AwsRequestID)
+	req.Header.Set(lambdaRuntimeAwsRequestIdHeader, lc.AwsRequestID)
 	response, err := em.httpClient.Do(req)
 	if response != nil && response.Body != nil {
 		defer func() {
@@ -161,7 +163,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	body := bytes.NewBuffer(content)
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
 	lc, _ := lambdacontext.FromContext(ctx)
-	req.Header.Set("x-datadog-aws-request-id", lc.AwsRequestID)
+	req.Header.Set(lambdaRuntimeAwsRequestIdHeader, lc.AwsRequestID)
 
 	// Mark the invocation as an error if any
 	if cfg.Error != nil {
