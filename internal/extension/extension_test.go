@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -153,6 +154,27 @@ func TestExtensionStartInvoke(t *testing.T) {
 	assert.Nil(t, samplingPriority)
 }
 
+func TestExtensionStartInvokeLambdaRequestId(t *testing.T) {
+	headers := http.Header{}
+	capturingClient := capturingClient{hdr: headers}
+
+	em := &ExtensionManager{
+		startInvocationUrl: startInvocationUrl,
+		httpClient:         capturingClient,
+	}
+
+	lc := &lambdacontext.LambdaContext{
+		AwsRequestID: "test-request-id-12345",
+	}
+	ctx := lambdacontext.NewContext(context.TODO(), lc)
+	em.SendStartInvocationRequest(ctx, []byte{})
+
+	err := em.Flush()
+
+	assert.Nil(t, err)
+	assert.Equal(t, "test-request-id-12345", headers.Get("lambda-runtime-aws-request-id"))
+}
+
 func TestExtensionStartInvokeWithTraceContext(t *testing.T) {
 	headers := http.Header{}
 	headers.Set(string(DdTraceId), mockTraceId)
@@ -213,6 +235,29 @@ func TestExtensionEndInvocation(t *testing.T) {
 	// Ensure this is the only log line (one newline at the end)
 	lines := strings.Split(strings.TrimSpace(logOutput), "\n")
 	assert.Equal(t, 1, len(lines))
+}
+
+func TestExtensionEndInvokeLambdaRequestId(t *testing.T) {
+	headers := http.Header{}
+	capturingClient := capturingClient{hdr: headers}
+
+	em := &ExtensionManager{
+		startInvocationUrl: startInvocationUrl,
+		httpClient:         capturingClient,
+	}
+
+	lc := &lambdacontext.LambdaContext{
+		AwsRequestID: "test-request-id-12345",
+	}
+
+	ctx := lambdacontext.NewContext(context.TODO(), lc)
+	span := tracer.StartSpan("aws.lambda")
+	span.Finish()
+	cfg := ddtrace.FinishConfig{}
+	em.SendEndInvocationRequest(ctx, span, cfg)
+	err := em.Flush()
+	assert.Nil(t, err)
+	assert.Equal(t, "test-request-id-12345", headers.Get("lambda-runtime-aws-request-id"))
 }
 
 func TestExtensionEndInvocationError(t *testing.T) {
