@@ -184,7 +184,7 @@ func TestExtensionStartInvokeLambdaRequestIdError(t *testing.T) {
 	logOutput := captureLog(func() { em.SendStartInvocationRequest(context.TODO(), []byte{}) })
 	err := em.Flush()
 	assert.Nil(t, err)
-	assert.Contains(t, logOutput, "missing lambda Context. Unable to set lambda-runtime-aws-request-id header")
+	assert.Contains(t, logOutput, "missing AWS Lambda context. Unable to set lambda-runtime-aws-request-id header")
 	lines := strings.Split(strings.TrimSpace(logOutput), "\n")
 	assert.Equal(t, 1, len(lines))
 }
@@ -291,7 +291,7 @@ func TestExtensionEndInvokeLambdaRequestIdError(t *testing.T) {
 
 	err := em.Flush()
 	assert.Nil(t, err)
-	assert.Contains(t, logOutput, "missing lambda Context. Unable to set lambda-runtime-aws-request-id header")
+	assert.Contains(t, logOutput, "missing AWS Lambda context. Unable to set lambda-runtime-aws-request-id header")
 	lines := strings.Split(strings.TrimSpace(logOutput), "\n")
 	assert.Equal(t, 1, len(lines))
 }
