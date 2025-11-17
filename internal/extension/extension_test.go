@@ -175,6 +175,23 @@ func TestExtensionStartInvokeLambdaRequestId(t *testing.T) {
 	assert.Equal(t, "test-request-id-12345", headers.Get("lambda-runtime-aws-request-id"))
 }
 
+func TestExtensionStartInvokeLambdaRequestIdError(t *testing.T) {
+	headers := http.Header{}
+	capturingClient := capturingClient{hdr: headers}
+
+	em := &ExtensionManager{
+		startInvocationUrl: startInvocationUrl,
+		httpClient:         capturingClient,
+	}
+
+	logOutput := captureLog(func() { em.SendStartInvocationRequest(context.TODO(), []byte{}) })
+	err := em.Flush()
+	assert.Nil(t, err)
+	assert.Contains(t, logOutput, "missing lambda Context. Unable to set lambda-runtime-aws-request-id header")
+	lines := strings.Split(strings.TrimSpace(logOutput), "\n")
+	assert.Equal(t, 1, len(lines))
+}
+
 func TestExtensionStartInvokeWithTraceContext(t *testing.T) {
 	headers := http.Header{}
 	headers.Set(string(DdTraceId), mockTraceId)
@@ -227,8 +244,9 @@ func TestExtensionEndInvocation(t *testing.T) {
 		endInvocationUrl: endInvocationUrl,
 		httpClient:       &ClientSuccessEndInvoke{},
 	}
+	ctx := lambdacontext.NewContext(context.TODO(), &lambdacontext.LambdaContext{})
 	span := tracer.StartSpan("aws.lambda")
-	logOutput := captureLog(func() { em.SendEndInvocationRequest(context.TODO(), span, ddtrace.FinishConfig{}) })
+	logOutput := captureLog(func() { em.SendEndInvocationRequest(ctx, span, ddtrace.FinishConfig{}) })
 	span.Finish()
 	// Expected because the noopSpanContext doesn't have the SamplingPriority() and we cannot use the mock for the agent
 	assert.Contains(t, logOutput, "could not get sampling priority from getSamplingPriority()")
@@ -258,6 +276,27 @@ func TestExtensionEndInvokeLambdaRequestId(t *testing.T) {
 	err := em.Flush()
 	assert.Nil(t, err)
 	assert.Equal(t, "test-request-id-12345", headers.Get("lambda-runtime-aws-request-id"))
+}
+
+func TestExtensionEndInvokeLambdaRequestIdError(t *testing.T) {
+	headers := http.Header{}
+	capturingClient := capturingClient{hdr: headers}
+	ctx := context.WithValue(context.TODO(), DdSamplingPriority, mockSamplingPriority)
+	ctx = context.WithValue(ctx, DdTraceId, mockTraceId)
+	em := &ExtensionManager{
+		startInvocationUrl: startInvocationUrl,
+		httpClient:         capturingClient,
+	}
+	
+	span := tracer.StartSpan("aws.lambda")
+	logOutput := captureLog(func() { em.SendEndInvocationRequest(ctx, span, ddtrace.FinishConfig{}) })
+	span.Finish()
+
+	err := em.Flush()
+	assert.Nil(t, err)
+	assert.Contains(t, logOutput, "missing lambda Context. Unable to set lambda-runtime-aws-request-id header")
+	lines := strings.Split(strings.TrimSpace(logOutput), "\n")
+	assert.Equal(t, 1, len(lines))
 }
 
 func TestExtensionEndInvocationError(t *testing.T) {

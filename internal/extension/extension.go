@@ -122,8 +122,13 @@ func (em *ExtensionManager) checkAgentRunning() {
 func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, eventPayload json.RawMessage) context.Context {
 	body := bytes.NewBuffer(eventPayload)
 	req, _ := http.NewRequest(http.MethodPost, em.startInvocationUrl, body)
-	lc, _ := lambdacontext.FromContext(ctx)
-	req.Header.Set(lambdaRuntimeAwsRequestIdHeader, lc.AwsRequestID)
+
+	if lc, ok := lambdacontext.FromContext(ctx); ok {
+		req.Header.Set(lambdaRuntimeAwsRequestIdHeader, lc.AwsRequestID)
+	} else {
+		logger.Error(fmt.Errorf("missing lambda Context. Unable to set lambda-runtime-aws-request-id header"))
+	}
+	
 	response, err := em.httpClient.Do(req)
 	if response != nil && response.Body != nil {
 		defer func() {
@@ -162,8 +167,11 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	}
 	body := bytes.NewBuffer(content)
 	req, _ := http.NewRequest(http.MethodPost, em.endInvocationUrl, body)
-	lc, _ := lambdacontext.FromContext(ctx)
-	req.Header.Set(lambdaRuntimeAwsRequestIdHeader, lc.AwsRequestID)
+	if lc, ok := lambdacontext.FromContext(ctx); ok {
+		req.Header.Set(lambdaRuntimeAwsRequestIdHeader, lc.AwsRequestID)
+	} else {
+		logger.Error(fmt.Errorf("missing lambda Context. Unable to set lambda-runtime-aws-request-id header"))
+	}
 
 	// Mark the invocation as an error if any
 	if cfg.Error != nil {
