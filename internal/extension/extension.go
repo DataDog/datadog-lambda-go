@@ -126,7 +126,7 @@ func (em *ExtensionManager) SendStartInvocationRequest(ctx context.Context, even
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		req.Header.Set(lambdaRuntimeAwsRequestIdHeader, lc.AwsRequestID)
 	} else {
-		logger.Error(fmt.Errorf("missing lambda Context. Unable to set lambda-runtime-aws-request-id header"))
+		logger.Error(fmt.Errorf("missing AWS Lambda context. Unable to set lambda-runtime-aws-request-id header"))
 	}
 	
 	response, err := em.httpClient.Do(req)
@@ -170,7 +170,7 @@ func (em *ExtensionManager) SendEndInvocationRequest(ctx context.Context, functi
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		req.Header.Set(lambdaRuntimeAwsRequestIdHeader, lc.AwsRequestID)
 	} else {
-		logger.Error(fmt.Errorf("missing lambda Context. Unable to set lambda-runtime-aws-request-id header"))
+		logger.Error(fmt.Errorf("missing AWS Lambda context. Unable to set lambda-runtime-aws-request-id header"))
 	}
 
 	// Mark the invocation as an error if any
