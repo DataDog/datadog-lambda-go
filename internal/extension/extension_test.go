@@ -176,12 +176,9 @@ func TestExtensionStartInvokeLambdaRequestId(t *testing.T) {
 }
 
 func TestExtensionStartInvokeLambdaRequestIdError(t *testing.T) {
-	headers := http.Header{}
-	capturingClient := capturingClient{hdr: headers}
-
 	em := &ExtensionManager{
 		startInvocationUrl: startInvocationUrl,
-		httpClient:         capturingClient,
+		httpClient:         &ClientSuccessStartInvoke{},
 	}
 
 	logOutput := captureLog(func() { em.SendStartInvocationRequest(context.TODO(), []byte{}) })
@@ -260,8 +257,8 @@ func TestExtensionEndInvokeLambdaRequestId(t *testing.T) {
 	capturingClient := capturingClient{hdr: headers}
 
 	em := &ExtensionManager{
-		startInvocationUrl: startInvocationUrl,
-		httpClient:         capturingClient,
+		endInvocationUrl: endInvocationUrl,
+		httpClient:       capturingClient,
 	}
 
 	lc := &lambdacontext.LambdaContext{
@@ -284,10 +281,10 @@ func TestExtensionEndInvokeLambdaRequestIdError(t *testing.T) {
 	ctx := context.WithValue(context.TODO(), DdSamplingPriority, mockSamplingPriority)
 	ctx = context.WithValue(ctx, DdTraceId, mockTraceId)
 	em := &ExtensionManager{
-		startInvocationUrl: startInvocationUrl,
-		httpClient:         capturingClient,
+		endInvocationUrl: endInvocationUrl,
+		httpClient:       capturingClient,
 	}
-	
+
 	span := tracer.StartSpan("aws.lambda")
 	logOutput := captureLog(func() { em.SendEndInvocationRequest(ctx, span, ddtrace.FinishConfig{}) })
 	span.Finish()
