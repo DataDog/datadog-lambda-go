@@ -171,6 +171,9 @@ func getTraceContext(ctx context.Context, headers map[string]string) (TraceConte
 	tc[samplingPriorityHeader] = samplingPriority
 	tc[traceIDHeader] = traceID
 	tc[parentIDHeader] = parentID
+	if origin, ok := headers[originHeader]; ok {
+		tc[originHeader] = origin
+	}
 
 	return tc, true
 }
