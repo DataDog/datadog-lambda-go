@@ -195,6 +195,11 @@ func getHeadersFromEventHeaders(ctx context.Context, ev json.RawMessage) map[str
 	for k, v := range eh.Headers {
 		lowercaseHeaders[strings.ToLower(k)] = v
 	}
+	for k, v := range eh.MultiValueHeaders {
+		if len(v) > 0 {
+			lowercaseHeaders[strings.ToLower(k)] = v[0]
+		}
+	}
 
 	// now extract from multivalue headers
 	for k, v := range eh.MultiValueHeaders {
