@@ -65,7 +65,6 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 		tracerOptions:            config.TracerOptions,
 	}
 
-	// Initialize tracer during Lambda init phase (only if tracing enabled)
 	if l.ddTraceEnabled && !tracerInitialized {
 		l.initTracer()
 	}
@@ -73,7 +72,6 @@ func MakeListener(config Config, extensionManager *extension.ExtensionManager) L
 	return l
 }
 
-// initTracer starts the Datadog tracer or OpenTelemetry provider
 func (l *Listener) initTracer() {
 	serviceName := os.Getenv("DD_SERVICE")
 	if serviceName == "" {
@@ -99,7 +97,7 @@ func (l *Listener) initTracer() {
 	tracerInitialized = true
 }
 
-// HandlerStarted sets up tracing and starts the function execution span if Datadog tracing is enabled
+// HandlerStarted starts the function execution span if Datadog tracing is enabled
 func (l *Listener) HandlerStarted(ctx context.Context, msg json.RawMessage) context.Context {
 	if !l.ddTraceEnabled {
 		return ctx
