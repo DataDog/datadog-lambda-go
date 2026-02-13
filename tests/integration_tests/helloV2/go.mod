@@ -3,10 +3,10 @@ module github.com/DataDog/datadog-lambda-go/tests/integration_tests/bin/hello
 go 1.25.7
 
 require (
-	github.com/DataDog/datadog-lambda-go v1.14.0
+	github.com/DataDog/datadog-lambda-go v1.30.0
 	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.2.3
 	github.com/DataDog/dd-trace-go/v2 v2.2.3
-	github.com/aws/aws-lambda-go v1.46.0
+	github.com/aws/aws-lambda-go v1.52.0
 )
 
 require (
