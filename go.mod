@@ -2,6 +2,8 @@ module github.com/DataDog/datadog-lambda-go
 
 go 1.24.0
 
+toolchain go1.26.1
+
 require (
 	github.com/DataDog/datadog-go/v5 v5.6.0
 	github.com/aws/aws-lambda-go v1.46.0
