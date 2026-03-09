@@ -16,7 +16,7 @@ import (
 
 	"github.com/DataDog/datadog-lambda-go/internal/logger"
 	"github.com/cenkalti/backoff/v4"
-	"github.com/sony/gobreaker"
+	"github.com/sony/gobreaker/v2"
 )
 
 type (
