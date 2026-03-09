@@ -6,7 +6,7 @@ require (
 	github.com/DataDog/datadog-lambda-go v1.30.0
 	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.2.3
 	github.com/DataDog/dd-trace-go/v2 v2.2.3
-	github.com/aws/aws-lambda-go v1.52.0
+	github.com/aws/aws-lambda-go v1.53.0
 )
 
 require (
