@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/kms v1.27.9
 	github.com/aws/aws-xray-sdk-go/v2 v2.0.1
 	github.com/cenkalti/backoff/v4 v4.2.1
-	github.com/sony/gobreaker v0.5.0
+	github.com/sony/gobreaker/v2 v2.4.0
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/otel v1.39.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.74.6
