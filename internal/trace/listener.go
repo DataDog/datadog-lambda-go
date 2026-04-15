@@ -81,6 +81,7 @@ func (l *Listener) initTracer() {
 	opts := append([]tracer.StartOption{
 		tracer.WithService(serviceName),
 		tracer.WithLambdaMode(extensionNotRunning),
+		tracer.WithStatsComputation(false), // Disabled: stats computation adds an HTTP round-trip to the extension on every flush, causing per-invocation latency overhead in Lambda
 		tracer.WithGlobalTag("_dd.origin", "lambda"),
 		tracer.WithSendRetries(2),
 	}, l.tracerOptions...)
