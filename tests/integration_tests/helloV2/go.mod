@@ -2,6 +2,8 @@ module github.com/DataDog/datadog-lambda-go/tests/integration_tests/bin/hello
 
 go 1.25.7
 
+toolchain go1.26.2
+
 require (
 	github.com/DataDog/datadog-lambda-go v1.31.0
 	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.7.1
