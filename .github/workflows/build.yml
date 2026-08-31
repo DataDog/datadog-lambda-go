@@ -38,6 +38,9 @@ jobs:
 
   integration-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout
@@ -68,10 +71,16 @@ jobs:
         working-directory: tests/integration_tests/
         run: yarn install
 
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@2e8187910199bd93129520183c093e19aa585c75 # v1.0.0
+        with:
+          policy: datadog-lambda-go
+
       - name: Run tests
         env:
           BUILD_LAYERS: true
-          DD_API_KEY: ${{ secrets.DD_API_KEY }}
+          DD_API_KEY: ${{ steps.dd-sts.outputs.api_key }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         working-directory: tests/integration_tests/
