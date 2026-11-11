@@ -4,8 +4,8 @@ go 1.26.0
 
 require (
 	github.com/DataDog/datadog-lambda-go v1.31.0
-	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.11.2
-	github.com/DataDog/dd-trace-go/v2 v2.11.2
+	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.12.0
+	github.com/DataDog/dd-trace-go/v2 v2.12.0
 	github.com/aws/aws-lambda-go v1.54.0
 )
 
